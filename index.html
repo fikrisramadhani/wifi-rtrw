@@ -3339,15 +3339,21 @@ function generatePrintBilling() {
     const bal = calculateBalance(c.id, period);
     const me = bal.months.find(m => m.period === period);
     const billed = me ? me.billed : 0;
-    // Tunggakan = unpaid before this period
-    const tunggakanSebelumnya = bal.months
-      .filter(m => m.period < period && m.status !== 'lunas')
-      .reduce((s,m) => s + (m.billed - m.paid), 0);
-    const total = billed + tunggakanSebelumnya;
-    totalTagihan += billed;
+    // Tunggakan = TOTAL tunggakan dikurangi tagihan periode ini (kalau ada).
+    // Ini sudah termasuk saldo awal, bulan belum bayar, bulan sebagian.
+    const totalArrears = bal.balance;
+    const tunggakanSebelumnya = me
+      ? Math.max(0, totalArrears - (me.billed - me.paid))
+      : totalArrears;
+    const sisaPeriodIni = me ? (me.billed - me.paid) : 0;
+    const total = sisaPeriodIni + tunggakanSebelumnya;
+    totalTagihan += sisaPeriodIni;
     totalTunggakan += tunggakanSebelumnya;
 
     const isolatedNote = c.status === 'diisolir' ? ' <span style="color:#d97706;font-size:10px;">[DIISOLIR]</span>' : '';
+    const billedDisplay = me && me.paid > 0 && me.paid < me.billed
+      ? `${fmtRp(sisaPeriodIni)} <small style="color:#999;">(dari ${fmtRp(me.billed)})</small>`
+      : fmtRp(sisaPeriodIni);
 
     rows += `<tr>
       <td>${i+1}</td>
@@ -3355,7 +3361,7 @@ function generatePrintBilling() {
       <td>${escapeHtml(c.address || '-')}</td>
       <td>${escapeHtml(c.phone || '-')}</td>
       <td>${escapeHtml(getPackageName(c.packageId))}</td>
-      <td style="text-align:right;">${fmtRp(billed)}</td>
+      <td style="text-align:right;">${billedDisplay}</td>
       <td style="text-align:right;">${tunggakanSebelumnya > 0 ? `<strong style="color:#dc2626;">${fmtRp(tunggakanSebelumnya)}</strong>` : '-'}</td>
       <td style="text-align:right;"><strong>${fmtRp(total)}</strong></td>
       <td style="border:1px solid #999;width:60px;height:30px;"></td>
