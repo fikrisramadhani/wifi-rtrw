@@ -1159,12 +1159,17 @@ async function onGDriveLoggedIn(silent) {
         const driveModifiedFmt = driveModified ? new Date(driveModified).toLocaleString('id-ID') : '-';
 
         // Always use Drive as source of truth
+        const oldStateStr = JSON.stringify(state);
         state = migrate(remoteData);
+        const newStateStr = JSON.stringify(state);
         saveStateLocal();
         gdriveLastSync = new Date().toISOString();
         setSyncStatus('✓ Synced', '#16a34a');
 
+        const dataChanged = oldStateStr !== newStateStr;
+
         if (!silent) {
+          // Manual connect — show alert and reload to refresh UI
           alert(
             `✅ Data berhasil ditarik dari Google Drive!\n\n` +
             `📊 ${remoteCount} pelanggan, ${remotePayments} pembayaran\n` +
@@ -1173,8 +1178,19 @@ async function onGDriveLoggedIn(silent) {
               ? `\n⚠️ Data lokal sebelumnya (${localCount} pelanggan) telah diganti dengan data dari Drive.`
               : '')
           );
+          location.reload();
+          return;
+        } else {
+          // Auto-login on page load — just refresh UI without reload (avoid loop)
+          if (dataChanged) {
+            // Refresh whichever tab is active
+            const activeTab = document.querySelector('.tab.active');
+            if (activeTab) {
+              const tabName = activeTab.getAttribute('onclick').match(/'([^']+)'/)[1];
+              showTab(tabName, activeTab);
+            }
+          }
         }
-        location.reload();
         return;
       } else {
         throw new Error('Gagal baca isi file Drive');
