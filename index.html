@@ -262,14 +262,20 @@ tbody tr:last-child td { border-bottom: none; }
   /* PRINT-AREA (billing list, multi-page) — DO NOT use position:absolute */
   body.printing .print-area,
   body.printing .print-area * { visibility: visible; }
-  body.printing .modal-bg {
+
+  /* HIDE all modals that are NOT the active print modal */
+  body.printing .modal-bg:not(.show) { display: none !important; }
+
+  /* The active print modal becomes the page itself */
+  body.printing .modal-bg.show {
     position: static !important;
     background: transparent !important;
     padding: 0 !important;
     display: block !important;
     overflow: visible !important;
+    inset: auto !important;
   }
-  body.printing .modal {
+  body.printing .modal-bg.show .modal {
     box-shadow: none !important;
     border: none !important;
     padding: 0 !important;
@@ -286,7 +292,7 @@ tbody tr:last-child td { border-bottom: none; }
     width: 100%;
   }
   body.printing .print-area thead {
-    display: table-header-group; /* Repeat header on each page */
+    display: table-header-group;
   }
   body.printing .print-area tfoot {
     display: table-footer-group;
@@ -295,6 +301,11 @@ tbody tr:last-child td { border-bottom: none; }
     page-break-inside: avoid;
     page-break-after: auto;
   }
+
+  /* Hide everything outside the active modal */
+  body.printing > *:not(.modal-bg) { display: none !important; }
+  body.printing header,
+  body.printing .container { display: none !important; }
 
   @page {
     size: A4;
