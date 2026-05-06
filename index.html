@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tagihan WiFi RT/RW</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://apis.google.com/js/api.js" async defer></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
@@ -305,7 +307,9 @@ tbody tr:last-child td { border-bottom: none; }
       <h1>📡 Tagihan WiFi RT/RW</h1>
       <p id="header-info">Sistem manajemen tagihan internet warga</p>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <div id="sync-status" style="font-size:12px;padding:5px 10px;border-radius:6px;background:rgba(255,255,255,0.15);color:white;display:none;"></div>
+      <button id="btn-gdrive" class="btn btn-sm" onclick="handleGDriveClick()" style="background:rgba(255,255,255,0.15);color:white;border-color:rgba(255,255,255,0.3);">☁️ Connect Drive</button>
       <button class="btn btn-sm" onclick="exportData()" style="background:rgba(255,255,255,0.15);color:white;border-color:rgba(255,255,255,0.3);">⬇ Backup</button>
       <button class="btn btn-sm" onclick="document.getElementById('import-file').click()" style="background:rgba(255,255,255,0.15);color:white;border-color:rgba(255,255,255,0.3);">⬆ Restore</button>
       <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
@@ -814,6 +818,17 @@ tbody tr:last-child td { border-bottom: none; }
   </div>
 </div>
 
+<!-- Modal Google Drive -->
+<div class="modal-bg" id="modal-gdrive">
+  <div class="modal">
+    <h3>☁️ Google Drive Sync</h3>
+    <div id="gdrive-modal-content"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-gdrive')">Tutup</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal Bulk Opening Balance -->
 <div class="modal-bg" id="modal-bulk-opening">
   <div class="modal large">
@@ -1018,6 +1033,280 @@ tbody tr:last-child td { border-bottom: none; }
 </div>
 
 <script>
+// ===================== GOOGLE DRIVE SYNC =====================
+const GDRIVE_CLIENT_ID = '889684485290-lib3q13j1bug77jacugl3d30jtv2vqsa.apps.googleusercontent.com';
+const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+const GDRIVE_FILENAME = 'wifi-rtrw-backup.json';
+
+let gdriveAccessToken = null;
+let gdriveTokenClient = null;
+let gdriveFileId = null;
+let gdriveSyncing = false;
+let gdriveSyncTimer = null;
+let gdriveLastSync = null;
+let gdriveUserEmail = null;
+
+function setSyncStatus(text, color) {
+  const el = document.getElementById('sync-status');
+  if (!el) return;
+  if (!text) { el.style.display = 'none'; return; }
+  el.style.display = 'inline-block';
+  el.textContent = text;
+  el.style.background = color || 'rgba(255,255,255,0.15)';
+}
+
+function initGoogleDriveSync() {
+  if (typeof google === 'undefined' || !google.accounts) {
+    setTimeout(initGoogleDriveSync, 500);
+    return;
+  }
+  try {
+    gdriveTokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GDRIVE_CLIENT_ID,
+      scope: GDRIVE_SCOPE,
+      callback: (response) => {
+        if (response.error) {
+          console.error('Token error:', response);
+          setSyncStatus('⚠️ Gagal login', '#dc2626');
+          return;
+        }
+        gdriveAccessToken = response.access_token;
+        localStorage.setItem('gdrive_token', JSON.stringify({
+          token: gdriveAccessToken,
+          expiresAt: Date.now() + (response.expires_in * 1000) - 60000
+        }));
+        onGDriveLoggedIn();
+      },
+    });
+
+    // Auto-restore previous token if not expired
+    const savedToken = localStorage.getItem('gdrive_token');
+    if (savedToken) {
+      try {
+        const t = JSON.parse(savedToken);
+        if (t.expiresAt > Date.now()) {
+          gdriveAccessToken = t.token;
+          onGDriveLoggedIn(true);
+        }
+      } catch (e) {}
+    }
+  } catch (e) {
+    console.error('GIS init error:', e);
+  }
+}
+
+function handleGDriveClick() {
+  if (!gdriveTokenClient) {
+    alert('Google Drive belum siap, coba refresh halaman.');
+    return;
+  }
+  if (gdriveAccessToken) {
+    // Already logged in — show options
+    const html = `
+      <p>Akun: <strong>${escapeHtml(gdriveUserEmail || '(unknown)')}</strong></p>
+      <p>Status: <strong>${gdriveLastSync ? 'Tersinkron ' + formatDate(gdriveLastSync.slice(0,10)) + ' ' + gdriveLastSync.slice(11,16) : 'Belum sync'}</strong></p>
+      <p>File backup: <code>${GDRIVE_FILENAME}</code> di Google Drive Anda</p>
+      <hr style="margin:10px 0;border:none;border-top:1px solid #e7e5e4;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-success" onclick="syncToGDrive(); closeModal('modal-gdrive');">🔄 Sync Sekarang</button>
+        <button class="btn btn-warning" onclick="restoreFromGDrive()">⬇ Pull dari Drive (replace lokal)</button>
+        <button class="btn btn-danger" onclick="logoutGDrive()">🚪 Disconnect</button>
+      </div>
+    `;
+    document.getElementById('gdrive-modal-content').innerHTML = html;
+    document.getElementById('modal-gdrive').classList.add('show');
+  } else {
+    // Request token
+    gdriveTokenClient.requestAccessToken({ prompt: 'consent' });
+  }
+}
+
+async function onGDriveLoggedIn(silent) {
+  setSyncStatus('⏳ Connecting...', '#d97706');
+  document.getElementById('btn-gdrive').textContent = '☁️ Connected';
+
+  // Get user info
+  try {
+    const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: 'Bearer ' + gdriveAccessToken }
+    });
+    if (r.ok) {
+      const info = await r.json();
+      gdriveUserEmail = info.email;
+    }
+  } catch (e) { console.error(e); }
+
+  // Find existing backup file in Drive
+  try {
+    const r = await fetch(
+      `https://www.googleapis.com/drive/v3/files?q=name='${GDRIVE_FILENAME}'+and+trashed=false&spaces=drive&fields=files(id,name,modifiedTime)`,
+      { headers: { Authorization: 'Bearer ' + gdriveAccessToken } }
+    );
+    if (!r.ok) throw new Error('Drive search failed');
+    const data = await r.json();
+    if (data.files && data.files.length > 0) {
+      gdriveFileId = data.files[0].id;
+      const driveModified = data.files[0].modifiedTime;
+
+      // Check if Drive has data and ask to merge or use one
+      const localCount = state.customers.length;
+      const remoteData = await fetchGDriveContent();
+
+      if (remoteData && !silent) {
+        const remoteCount = (remoteData.customers || []).length;
+        if (localCount === 0 && remoteCount > 0) {
+          // No local data, just use remote
+          state = migrate(remoteData);
+          saveStateLocal();
+          setSyncStatus('✓ Synced', '#16a34a');
+          gdriveLastSync = new Date().toISOString();
+          alert(`✅ Data berhasil di-restore dari Google Drive!\n\n${remoteCount} pelanggan, ${(remoteData.payments||[]).length} pembayaran.`);
+          location.reload();
+          return;
+        } else if (localCount > 0 && remoteCount > 0) {
+          // Both have data — ask user
+          const choice = confirm(
+            `Ada data di Google Drive (${remoteCount} pelanggan) dan di browser ini (${localCount} pelanggan).\n\n` +
+            `OK = Pakai data Google Drive (data lokal akan diganti)\n` +
+            `Cancel = Pakai data lokal (data Drive akan ditimpa saat sync berikutnya)`
+          );
+          if (choice) {
+            state = migrate(remoteData);
+            saveStateLocal();
+            setSyncStatus('✓ Synced', '#16a34a');
+            gdriveLastSync = new Date().toISOString();
+            location.reload();
+            return;
+          }
+        }
+      }
+    }
+    // Initial sync up
+    setSyncStatus('⏳ Syncing...', '#d97706');
+    await syncToGDrive();
+  } catch (e) {
+    console.error('GDrive setup error:', e);
+    setSyncStatus('⚠️ Sync error', '#dc2626');
+  }
+}
+
+async function fetchGDriveContent() {
+  if (!gdriveFileId || !gdriveAccessToken) return null;
+  try {
+    const r = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${gdriveFileId}?alt=media`,
+      { headers: { Authorization: 'Bearer ' + gdriveAccessToken } }
+    );
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (e) {
+    console.error('Fetch GDrive content error:', e);
+    return null;
+  }
+}
+
+async function syncToGDrive() {
+  if (!gdriveAccessToken) return;
+  if (gdriveSyncing) return;
+  gdriveSyncing = true;
+  setSyncStatus('⏳ Syncing...', '#d97706');
+
+  try {
+    const content = JSON.stringify(state, null, 2);
+    const blob = new Blob([content], { type: 'application/json' });
+
+    if (gdriveFileId) {
+      // Update existing file
+      const r = await fetch(
+        `https://www.googleapis.com/upload/drive/v3/files/${gdriveFileId}?uploadType=media`,
+        {
+          method: 'PATCH',
+          headers: {
+            Authorization: 'Bearer ' + gdriveAccessToken,
+            'Content-Type': 'application/json'
+          },
+          body: blob
+        }
+      );
+      if (!r.ok) throw new Error('Update failed: ' + r.status);
+    } else {
+      // Create new file
+      const metadata = { name: GDRIVE_FILENAME, mimeType: 'application/json' };
+      const form = new FormData();
+      form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+      form.append('file', blob);
+
+      const r = await fetch(
+        'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
+        {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + gdriveAccessToken },
+          body: form
+        }
+      );
+      if (!r.ok) throw new Error('Create failed: ' + r.status);
+      const data = await r.json();
+      gdriveFileId = data.id;
+    }
+    gdriveLastSync = new Date().toISOString();
+    setSyncStatus('✓ Synced', '#16a34a');
+  } catch (e) {
+    console.error('Sync error:', e);
+    setSyncStatus('⚠️ Sync error', '#dc2626');
+    // Token might be expired
+    if (e.message && e.message.includes('401')) {
+      gdriveAccessToken = null;
+      localStorage.removeItem('gdrive_token');
+      document.getElementById('btn-gdrive').textContent = '☁️ Connect Drive';
+      setSyncStatus('⚠️ Login expired', '#dc2626');
+    }
+  } finally {
+    gdriveSyncing = false;
+  }
+}
+
+async function restoreFromGDrive() {
+  if (!confirm('Tarik data dari Google Drive akan MENGGANTI semua data lokal. Lanjutkan?')) return;
+  closeModal('modal-gdrive');
+  setSyncStatus('⏳ Pulling...', '#d97706');
+  const remote = await fetchGDriveContent();
+  if (!remote) {
+    alert('Gagal ambil data dari Drive');
+    setSyncStatus('⚠️ Error', '#dc2626');
+    return;
+  }
+  state = migrate(remote);
+  saveStateLocal();
+  setSyncStatus('✓ Synced', '#16a34a');
+  gdriveLastSync = new Date().toISOString();
+  alert('✅ Data berhasil di-pull dari Google Drive!');
+  location.reload();
+}
+
+function logoutGDrive() {
+  if (!confirm('Disconnect dari Google Drive? Data lokal tetap aman.')) return;
+  if (gdriveAccessToken) {
+    google.accounts.oauth2.revoke(gdriveAccessToken, () => {});
+  }
+  gdriveAccessToken = null;
+  gdriveFileId = null;
+  gdriveUserEmail = null;
+  gdriveLastSync = null;
+  localStorage.removeItem('gdrive_token');
+  document.getElementById('btn-gdrive').textContent = '☁️ Connect Drive';
+  setSyncStatus('', '');
+  closeModal('modal-gdrive');
+}
+
+function scheduleSyncToGDrive() {
+  if (!gdriveAccessToken) return;
+  if (gdriveSyncTimer) clearTimeout(gdriveSyncTimer);
+  setSyncStatus('⏳ Pending sync...', '#d97706');
+  gdriveSyncTimer = setTimeout(() => {
+    syncToGDrive();
+  }, 3000); // debounce: sync 3 seconds after last change
+}
+
 // ===================== STATE =====================
 const STORE_KEY = 'wifi_rtrw_data_v2';
 let state = loadState();
@@ -1069,7 +1358,11 @@ function migrate(s) {
   });
   return s;
 }
-function saveState() { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+function saveStateLocal() { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+function saveState() {
+  saveStateLocal();
+  scheduleSyncToGDrive();
+}
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 function fmtRp(n) { return 'Rp ' + (n||0).toLocaleString('id-ID'); }
 function monthLabel(ym) {
@@ -3099,6 +3392,9 @@ function formatDate(d) {
 // init
 document.getElementById('header-info').textContent = state.settings.name || 'Sistem manajemen tagihan internet warga';
 renderDashboard();
+
+// Initialize Google Drive sync after a short delay (for libraries to load)
+setTimeout(initGoogleDriveSync, 1000);
 </script>
 </body>
 </html>
