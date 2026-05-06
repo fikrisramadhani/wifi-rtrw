@@ -134,6 +134,7 @@ input:focus, select:focus, textarea:focus {
   transition: all 0.15s;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
 }
 .btn:hover { background: #f5f5f4; }
@@ -2949,7 +2950,7 @@ function renderFastInput() {
   }
 
   let html = `<div class="alert alert-info" style="font-size:12px;padding:8px 12px;margin-bottom:8px;">
-    💡 Cara pakai: Klik <strong>Lunas</strong> untuk bayar penuh. Atau ketik nominal manual lalu klik <strong>Bayar</strong> / tekan Enter / klik di luar field.
+    💡 Cara pakai: Klik <strong>Lunas</strong> untuk bayar penuh sesuai tagihan + tunggakan. Atau ketik nominal manual lalu klik <strong>Bayar</strong> / tekan Enter.
   </div>`;
   html += `<div style="border:1px solid #e7e5e4;border-radius:10px;overflow:hidden;">
     <div style="background:#fafaf9;padding:8px 10px;font-size:12px;font-weight:600;color:#44403c;display:grid;grid-template-columns:30px 1fr 100px 130px 140px;gap:8px;">
@@ -2975,11 +2976,21 @@ function renderFastInput() {
     if (me.status === 'lunas') {
       inputCell = `<div style="color:#16a34a;font-weight:600;">✓ Lunas (${fmtRp(me.paid)})</div>`;
       actionCell = `<div style="color:#16a34a;font-size:11px;">Sudah dibayar</div>`;
+    } else if (me.status === 'sebagian') {
+      // Show how much already paid + input for additional payment
+      inputCell = `<div>
+        <div style="color:#16a34a;font-size:11px;font-weight:600;margin-bottom:3px;">Sudah bayar ${fmtRp(me.paid)}</div>
+        <input type="number" class="fast-input-amount" id="fi-amt-${c.id}" placeholder="${sisa}" data-customer="${c.id}" data-period="${period}" data-billed="${me.billed}" data-paid="${me.paid}">
+      </div>`;
+      actionCell = `<div style="display:flex;gap:4px;width:100%;">
+        <button class="btn btn-sm btn-primary" onclick="fastInputManualPay('${c.id}','${period}')" style="flex:1;justify-content:center;padding:5px 4px;">Bayar</button>
+        <button class="btn btn-sm btn-success" onclick="fastInputPay('${c.id}','${period}',${sisa})" style="flex:1;justify-content:center;padding:5px 4px;">Lunas</button>
+      </div>`;
     } else {
       inputCell = `<input type="number" class="fast-input-amount" id="fi-amt-${c.id}" placeholder="${sisa}" data-customer="${c.id}" data-period="${period}" data-billed="${me.billed}" data-paid="${me.paid}">`;
-      actionCell = `<div style="display:flex;gap:4px;">
-        <button class="btn btn-sm btn-primary" onclick="fastInputManualPay('${c.id}','${period}')" style="flex:1;">Bayar</button>
-        <button class="btn btn-sm btn-success" onclick="fastInputPay('${c.id}','${period}',${sisa})" style="flex:1;">Lunas</button>
+      actionCell = `<div style="display:flex;gap:4px;width:100%;">
+        <button class="btn btn-sm btn-primary" onclick="fastInputManualPay('${c.id}','${period}')" style="flex:1;justify-content:center;padding:5px 4px;">Bayar</button>
+        <button class="btn btn-sm btn-success" onclick="fastInputPay('${c.id}','${period}',${sisa})" style="flex:1;justify-content:center;padding:5px 4px;">Lunas</button>
       </div>`;
     }
 
@@ -2995,20 +3006,13 @@ function renderFastInput() {
   html += `</div>`;
   container.innerHTML = html;
 
-  // Add Enter key & blur handlers for amount inputs
+  // Add Enter key handlers for amount inputs (no auto-save on blur — explicit click only)
   customers.forEach(c => {
     const inp = document.getElementById('fi-amt-' + c.id);
     if (inp) {
       inp.addEventListener('keydown', e => {
         if (e.key === 'Enter') {
           e.preventDefault();
-          fastInputManualPay(c.id, e.target.dataset.period);
-        }
-      });
-      inp.addEventListener('blur', e => {
-        // Auto-save on blur if value entered
-        const amt = parseInt(e.target.value);
-        if (amt > 0) {
           fastInputManualPay(c.id, e.target.dataset.period);
         }
       });
@@ -3077,13 +3081,15 @@ function refreshFastInputRow(customerId, period) {
   if (me.status === 'lunas') {
     cells[3].innerHTML = `<div style="color:#16a34a;font-weight:600;">✓ Lunas (${fmtRp(me.paid)})</div>`;
     cells[4].innerHTML = `<div style="color:#16a34a;font-size:11px;">Sudah dibayar</div>`;
-  } else {
-    cells[3].innerHTML = `<input type="number" class="fast-input-amount" id="fi-amt-${c.id}" placeholder="${sisa}" data-customer="${c.id}" data-period="${period}" data-billed="${me.billed}" data-paid="${me.paid}">`;
-    cells[4].innerHTML = `<div style="display:flex;gap:4px;">
-      <button class="btn btn-sm btn-primary" onclick="fastInputManualPay('${c.id}','${period}')" style="flex:1;">Bayar</button>
-      <button class="btn btn-sm btn-success" onclick="fastInputPay('${c.id}','${period}',${sisa})" style="flex:1;">Lunas</button>
+  } else if (me.status === 'sebagian') {
+    cells[3].innerHTML = `<div>
+      <div style="color:#16a34a;font-size:11px;font-weight:600;margin-bottom:3px;">Sudah bayar ${fmtRp(me.paid)}</div>
+      <input type="number" class="fast-input-amount" id="fi-amt-${c.id}" placeholder="${sisa}" data-customer="${c.id}" data-period="${period}" data-billed="${me.billed}" data-paid="${me.paid}">
     </div>`;
-    // Re-attach Enter & blur handlers
+    cells[4].innerHTML = `<div style="display:flex;gap:4px;width:100%;">
+      <button class="btn btn-sm btn-primary" onclick="fastInputManualPay('${c.id}','${period}')" style="flex:1;justify-content:center;padding:5px 4px;">Bayar</button>
+      <button class="btn btn-sm btn-success" onclick="fastInputPay('${c.id}','${period}',${sisa})" style="flex:1;justify-content:center;padding:5px 4px;">Lunas</button>
+    </div>`;
     const inp = document.getElementById('fi-amt-' + c.id);
     if (inp) {
       inp.addEventListener('keydown', e => {
@@ -3092,9 +3098,20 @@ function refreshFastInputRow(customerId, period) {
           fastInputManualPay(c.id, e.target.dataset.period);
         }
       });
-      inp.addEventListener('blur', e => {
-        const amt = parseInt(e.target.value);
-        if (amt > 0) fastInputManualPay(c.id, e.target.dataset.period);
+    }
+  } else {
+    cells[3].innerHTML = `<input type="number" class="fast-input-amount" id="fi-amt-${c.id}" placeholder="${sisa}" data-customer="${c.id}" data-period="${period}" data-billed="${me.billed}" data-paid="${me.paid}">`;
+    cells[4].innerHTML = `<div style="display:flex;gap:4px;width:100%;">
+      <button class="btn btn-sm btn-primary" onclick="fastInputManualPay('${c.id}','${period}')" style="flex:1;justify-content:center;padding:5px 4px;">Bayar</button>
+      <button class="btn btn-sm btn-success" onclick="fastInputPay('${c.id}','${period}',${sisa})" style="flex:1;justify-content:center;padding:5px 4px;">Lunas</button>
+    </div>`;
+    const inp = document.getElementById('fi-amt-' + c.id);
+    if (inp) {
+      inp.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          fastInputManualPay(c.id, e.target.dataset.period);
+        }
       });
     }
   }
