@@ -510,8 +510,19 @@ tbody tr:last-child td { border-bottom: none; }
       <div class="alert alert-info">
         💡 Cetak daftar pelanggan + tagihan + tunggakan, untuk dibawa tukang saat menagih bulan depan.
       </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label>Cetak Berdasarkan</label>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:4px;">
+          <label style="cursor:pointer;"><input type="radio" name="print-mode" value="collector" checked onchange="onPrintModeChange()"> Per Tukang (gabungan semua daerahnya)</label>
+          <label style="cursor:pointer;"><input type="radio" name="print-mode" value="location" onchange="onPrintModeChange()"> Per Daerah</label>
+        </div>
+      </div>
       <div class="form-grid">
-        <div class="form-group">
+        <div class="form-group" id="print-collector-wrap">
+          <label>Pilih Tukang</label>
+          <select id="print-collector"></select>
+        </div>
+        <div class="form-group" id="print-location-wrap" style="display:none;">
           <label>Pilih Daerah</label>
           <select id="print-location"></select>
         </div>
@@ -1059,14 +1070,14 @@ tbody tr:last-child td { border-bottom: none; }
       <input type="text" id="collector-phone">
     </div>
     <div class="form-group" style="margin-bottom:10px;">
-      <label>Daerah yang Ditangani</label>
-      <select id="collector-location"></select>
-      <small style="color:#78716c;">Setiap daerah punya 1 tukang</small>
+      <label>Daerah yang Ditangani (boleh lebih dari 1)</label>
+      <div id="collector-locations-checkboxes" style="border:1px solid #d6d3d1;border-radius:8px;padding:10px;background:white;"></div>
+      <small style="color:#78716c;">Centang semua daerah yang ditangani tukang ini</small>
     </div>
     <div class="form-group" style="margin-bottom:10px;">
       <label>Persen Komisi (%)</label>
       <input type="number" id="collector-commission" placeholder="5" min="0" max="100" step="0.5">
-      <small style="color:#78716c;">Misal 5 berarti tukang dapat 5% dari total pembayaran</small>
+      <small style="color:#78716c;">Komisi tukang dari total pembayaran (berlaku untuk semua daerah dia)</small>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('modal-collector')">Batal</button>
@@ -1698,10 +1709,10 @@ function loadState() {
       { id: 'p20', name: 'Paket 20 Mbps', speed: '20 Mbps', price: 200000, mikrotikProfile: '20M' }
     ],
     locations: [
-      { code: 'l', name: 'Leprak', collectorId: '', commissionPercent: 5 },
-      { code: 'p', name: 'Pandak', collectorId: '', commissionPercent: 5 },
-      { code: 'ps', name: 'Parse', collectorId: '', commissionPercent: 5 },
-      { code: 't', name: 'Bersoka Talpek', collectorId: '', commissionPercent: 5 }
+      { code: 'l', name: 'Leprak' },
+      { code: 'p', name: 'Pandak' },
+      { code: 'ps', name: 'Parse' },
+      { code: 't', name: 'Bersoka Talpek' }
     ],
     collectors: [],
     deposits: [],
@@ -1720,11 +1731,26 @@ function migrate(s) {
   if (!s.settings) s.settings = { name: '', address: '', admin: '', phone: '' };
   if (s.settings.startDate === undefined) s.settings.startDate = '';
   if (s.lastModified === undefined) s.lastModified = 0;
-  // Add commission fields to legacy locations
-  s.locations.forEach(l => {
-    if (l.commissionPercent === undefined) l.commissionPercent = 5;
-    if (l.collectorId === undefined) l.collectorId = '';
+
+  // Migrate collectors: move commission from location to collector, support multiple locations
+  s.collectors.forEach(t => {
+    if (!t.locationCodes) t.locationCodes = [];
+    if (t.commissionPercent === undefined) t.commissionPercent = 5;
   });
+  // Migrate locations: move collectorId/commission to collector struct
+  s.locations.forEach(l => {
+    if (l.collectorId) {
+      const t = s.collectors.find(c => c.id === l.collectorId);
+      if (t) {
+        if (!t.locationCodes.includes(l.code)) t.locationCodes.push(l.code);
+        if (l.commissionPercent !== undefined && t.commissionPercent === 5) {
+          t.commissionPercent = l.commissionPercent;
+        }
+      }
+      // Don't delete l.collectorId yet to avoid breaking other code; it's harmless
+    }
+  });
+
   // Add openingBalance to legacy customers
   s.customers.forEach(c => {
     if (c.openingBalance === undefined) c.openingBalance = 0;
@@ -2096,12 +2122,20 @@ function previewMikrotikImport() {
   const parsed = [];
   const errors = [];
 
+  // Helper to clean MikroTik values: strip surrounding quotes (both single and double)
+  function cleanValue(v) {
+    if (!v) return '';
+    return v.replace(/^["']+|["']+$/g, '').trim();
+  }
+
   lines.forEach((line, idx) => {
-    const nameMatch = line.match(/name=([^\s]+)/i);
-    const profileMatch = line.match(/profile=([^\s]+)/i);
+    // Match name= and profile= — accept both quoted and unquoted values
+    // e.g. name=p.budi profile=10M  OR  name="p.budi" profile="EXPIRED"
+    const nameMatch = line.match(/name=("[^"]*"|'[^']*'|\S+)/i);
+    const profileMatch = line.match(/profile=("[^"]*"|'[^']*'|\S+)/i);
     if (!nameMatch) { errors.push(`Baris ${idx+1}: tidak ada name=`); return; }
-    const username = nameMatch[1];
-    const profile = profileMatch ? profileMatch[1] : '';
+    const username = cleanValue(nameMatch[1]);
+    const profile = cleanValue(profileMatch ? profileMatch[1] : '');
 
     // Parse location code from username prefix
     const dotIdx = username.indexOf('.');
@@ -2936,17 +2970,44 @@ function renderCollectors() {
     return;
   }
   tbody.innerHTML = state.collectors.map(t => {
-    const loc = state.locations.find(l => l.collectorId === t.id);
+    const locs = (t.locationCodes || []).map(code => {
+      const l = state.locations.find(x => x.code === code);
+      return l ? l.name : code;
+    });
     return `<tr>
       <td><strong>${escapeHtml(t.name)}</strong></td>
       <td>${escapeHtml(t.phone || '-')}</td>
-      <td>${loc ? '<span class="badge badge-info">' + escapeHtml(loc.name) + '</span>' : '<span class="badge badge-gray">Belum diatur</span>'}</td>
-      <td>${loc ? loc.commissionPercent + '%' : '-'}</td>
+      <td>${locs.length ? locs.map(n => `<span class="badge badge-info" style="margin-right:4px;">${escapeHtml(n)}</span>`).join('') : '<span class="badge badge-gray">Belum diatur</span>'}</td>
+      <td>${(t.commissionPercent || 0)}%</td>
       <td style="white-space:nowrap;">
         <button class="btn btn-sm" onclick="editCollector('${t.id}')">✏</button>
         <button class="btn btn-sm btn-danger" onclick="deleteCollector('${t.id}')">🗑</button>
       </td>
     </tr>`;
+  }).join('');
+}
+
+function renderCollectorLocationsCheckboxes(selectedCodes) {
+  const container = document.getElementById('collector-locations-checkboxes');
+  if (!container) return;
+  const selected = new Set(selectedCodes || []);
+  if (!state.locations.length) {
+    container.innerHTML = '<p style="color:#78716c;font-size:12px;">Belum ada daerah. Tambah daerah dulu di Pengaturan.</p>';
+    return;
+  }
+  container.innerHTML = state.locations.map(l => {
+    // Check if this location is already assigned to another collector
+    const otherCollector = state.collectors.find(c =>
+      c.id !== document.getElementById('collector-id').value &&
+      (c.locationCodes || []).includes(l.code)
+    );
+    const checked = selected.has(l.code) ? 'checked' : '';
+    const disabled = otherCollector ? 'disabled' : '';
+    const note = otherCollector ? ` <small style="color:#dc2626;">(sudah ditangani ${escapeHtml(otherCollector.name)})</small>` : '';
+    return `<label style="display:block;padding:6px 4px;cursor:${disabled?'not-allowed':'pointer'};opacity:${disabled?'0.5':'1'};">
+      <input type="checkbox" value="${l.code}" ${checked} ${disabled} class="collector-loc-cb">
+      <strong>${escapeHtml(l.name)}</strong>${note}
+    </label>`;
   }).join('');
 }
 
@@ -2956,20 +3017,19 @@ function openCollectorModal() {
   document.getElementById('collector-name').value = '';
   document.getElementById('collector-phone').value = '';
   document.getElementById('collector-commission').value = '5';
-  refreshLocationDropdown('collector-location', '', true);
+  renderCollectorLocationsCheckboxes([]);
   document.getElementById('modal-collector').classList.add('show');
 }
 
 function editCollector(id) {
   const t = state.collectors.find(x => x.id === id);
   if (!t) return;
-  const loc = state.locations.find(l => l.collectorId === t.id);
   document.getElementById('modal-collector-title').textContent = 'Edit Tukang';
   document.getElementById('collector-id').value = t.id;
   document.getElementById('collector-name').value = t.name;
   document.getElementById('collector-phone').value = t.phone || '';
-  document.getElementById('collector-commission').value = loc ? loc.commissionPercent : 5;
-  refreshLocationDropdown('collector-location', loc ? loc.code : '', true);
+  document.getElementById('collector-commission').value = t.commissionPercent || 5;
+  renderCollectorLocationsCheckboxes(t.locationCodes || []);
   document.getElementById('modal-collector').classList.add('show');
 }
 
@@ -2977,23 +3037,28 @@ function saveCollector() {
   const id = document.getElementById('collector-id').value;
   const name = document.getElementById('collector-name').value.trim();
   const phone = document.getElementById('collector-phone').value.trim();
-  const locCode = document.getElementById('collector-location').value;
   const commission = parseFloat(document.getElementById('collector-commission').value) || 0;
+  // Get selected location codes from checkboxes
+  const locationCodes = Array.from(document.querySelectorAll('.collector-loc-cb:checked'))
+    .map(cb => cb.value);
   if (!name) { alert('Nama tukang wajib diisi'); return; }
   const collectorId = id || uid();
+  const data = {
+    id: collectorId,
+    name,
+    phone,
+    locationCodes,
+    commissionPercent: commission
+  };
   if (id) {
     const idx = state.collectors.findIndex(t => t.id === id);
-    state.collectors[idx] = { id, name, phone };
+    state.collectors[idx] = data;
   } else {
-    state.collectors.push({ id: collectorId, name, phone });
+    state.collectors.push(data);
   }
-  // Update location assignment
+  // Clear legacy collectorId references in locations
   state.locations.forEach(l => {
     if (l.collectorId === collectorId) l.collectorId = '';
-    if (l.code === locCode) {
-      l.collectorId = collectorId;
-      l.commissionPercent = commission;
-    }
   });
   saveState();
   closeModal('modal-collector');
@@ -3008,6 +3073,11 @@ function deleteCollector(id) {
   state.locations.forEach(l => { if (l.collectorId === id) l.collectorId = ''; });
   saveState();
   renderCollectors();
+}
+
+// Helper: get collector for a location
+function getCollectorForLocation(locCode) {
+  return state.collectors.find(c => (c.locationCodes || []).includes(locCode));
 }
 
 // ===================== INPUT CEPAT (FAST INPUT) =====================
@@ -3505,14 +3575,37 @@ function deleteDeposit(id) {
 
 // ===================== PRINT BILLING FOR COLLECTORS =====================
 function initPrintBilling() {
-  const sel = document.getElementById('print-location');
-  sel.innerHTML = state.locations.map(l => `<option value="${l.code}">${escapeHtml(l.name)}</option>`).join('');
+  // Populate location dropdown
+  const locSel = document.getElementById('print-location');
+  locSel.innerHTML = state.locations.map(l => `<option value="${l.code}">${escapeHtml(l.name)}</option>`).join('');
+  // Populate collector dropdown
+  const colSel = document.getElementById('print-collector');
+  if (colSel) {
+    if (state.collectors.length === 0) {
+      colSel.innerHTML = '<option value="">— Belum ada tukang —</option>';
+    } else {
+      colSel.innerHTML = state.collectors.map(t => {
+        const locs = (t.locationCodes || []).map(code => {
+          const l = state.locations.find(x => x.code === code);
+          return l ? l.name : code;
+        });
+        const locsLabel = locs.length ? ' — ' + locs.join(', ') : ' (tidak ada daerah)';
+        return `<option value="${t.id}">${escapeHtml(t.name)}${escapeHtml(locsLabel)}</option>`;
+      }).join('');
+    }
+  }
   if (!document.getElementById('print-period').value) {
     // Default to next month
     const d = new Date();
     d.setMonth(d.getMonth() + 1);
     document.getElementById('print-period').value = d.toISOString().slice(0,7);
   }
+}
+
+function onPrintModeChange() {
+  const mode = document.querySelector('input[name="print-mode"]:checked').value;
+  document.getElementById('print-collector-wrap').style.display = mode === 'collector' ? 'block' : 'none';
+  document.getElementById('print-location-wrap').style.display = mode === 'location' ? 'block' : 'none';
 }
 
 function printBillingList() {
@@ -3530,31 +3623,72 @@ function printBillingList() {
 }
 
 function generatePrintBilling() {
-  const locCode = document.getElementById('print-location').value;
   const period = document.getElementById('print-period').value;
-  if (!locCode || !period) { alert('Pilih daerah dan periode'); return; }
+  if (!period) { alert('Pilih periode'); return; }
+  const modeEl = document.querySelector('input[name="print-mode"]:checked');
+  const mode = modeEl ? modeEl.value : 'location';
 
-  const loc = state.locations.find(l => l.code === locCode);
-  const collector = loc && loc.collectorId ? state.collectors.find(c => c.id === loc.collectorId) : null;
+  let locationCodes = [];
+  let title = '';
+  let collector = null;
+
+  if (mode === 'collector') {
+    const collectorId = document.getElementById('print-collector').value;
+    if (!collectorId) { alert('Pilih tukang'); return; }
+    collector = state.collectors.find(t => t.id === collectorId);
+    if (!collector) { alert('Tukang tidak ditemukan'); return; }
+    locationCodes = collector.locationCodes || [];
+    if (!locationCodes.length) { alert(`Tukang ${collector.name} belum ditugaskan ke daerah manapun`); return; }
+    const locNames = locationCodes.map(code => {
+      const l = state.locations.find(x => x.code === code);
+      return l ? l.name : code;
+    });
+    title = `DAFTAR TAGIHAN ${monthLabel(period).toUpperCase()} — ${locNames.join(', ').toUpperCase()}`;
+  } else {
+    const locCode = document.getElementById('print-location').value;
+    if (!locCode) { alert('Pilih daerah'); return; }
+    locationCodes = [locCode];
+    const loc = state.locations.find(l => l.code === locCode);
+    collector = getCollectorForLocation(locCode);
+    title = `DAFTAR TAGIHAN ${monthLabel(period).toUpperCase()} — ${(loc ? loc.name : '-').toUpperCase()}`;
+  }
+
+  // Get customers from selected location(s), sort by location then name
   const customers = state.customers.filter(c =>
-    !c.isFree && c.locationCode === locCode && c.status !== 'nonaktif'
-  ).sort((a,b) => a.name.localeCompare(b.name));
+    !c.isFree &&
+    locationCodes.includes(c.locationCode) &&
+    c.status !== 'nonaktif'
+  ).sort((a,b) => {
+    if (a.locationCode !== b.locationCode) {
+      return (a.locationCode || '').localeCompare(b.locationCode || '');
+    }
+    return a.name.localeCompare(b.name);
+  });
 
   if (!customers.length) {
-    alert('Tidak ada pelanggan di daerah ini');
+    alert('Tidak ada pelanggan di daerah yang dipilih');
     return;
   }
 
   let totalTagihan = 0;
   let totalTunggakan = 0;
   let rows = '';
+  let lastLocationCode = null;
+  let runningNumber = 0;
 
-  customers.forEach((c, i) => {
+  customers.forEach((c) => {
+    // Add location separator row when switching locations (only in collector mode with multiple locations)
+    if (mode === 'collector' && locationCodes.length > 1 && c.locationCode !== lastLocationCode) {
+      const loc = state.locations.find(x => x.code === c.locationCode);
+      rows += `<tr style="background:#e0e7ff;">
+        <td colspan="9" style="border:1px solid #999;padding:6px;font-weight:bold;color:#1e40af;">📍 ${escapeHtml(loc ? loc.name : '-')}</td>
+      </tr>`;
+      lastLocationCode = c.locationCode;
+    }
+    runningNumber++;
+
     const bal = calculateBalance(c.id, period);
     const me = bal.months.find(m => m.period === period);
-    const billed = me ? me.billed : 0;
-    // Tunggakan = TOTAL tunggakan dikurangi tagihan periode ini (kalau ada).
-    // Ini sudah termasuk saldo awal, bulan belum bayar, bulan sebagian.
     const totalArrears = bal.balance;
     const tunggakanSebelumnya = me
       ? Math.max(0, totalArrears - (me.billed - me.paid))
@@ -3570,15 +3704,15 @@ function generatePrintBilling() {
       : fmtRp(sisaPeriodIni);
 
     rows += `<tr>
-      <td>${i+1}</td>
-      <td>${escapeHtml(c.name)}${isolatedNote}<br><small style="color:#666;">${escapeHtml(c.username || '')}</small></td>
-      <td>${escapeHtml(c.address || '-')}</td>
-      <td>${escapeHtml(c.phone || '-')}</td>
-      <td>${escapeHtml(getPackageName(c.packageId))}</td>
-      <td style="text-align:right;">${billedDisplay}</td>
-      <td style="text-align:right;">${tunggakanSebelumnya > 0 ? `<strong style="color:#dc2626;">${fmtRp(tunggakanSebelumnya)}</strong>` : '-'}</td>
-      <td style="text-align:right;"><strong>${fmtRp(total)}</strong></td>
-      <td style="border:1px solid #999;width:60px;height:30px;"></td>
+      <td style="border:1px solid #999;padding:4px;text-align:center;">${runningNumber}</td>
+      <td style="border:1px solid #999;padding:4px;">${escapeHtml(c.name)}${isolatedNote}<br><small style="color:#666;">${escapeHtml(c.username || '')}</small></td>
+      <td style="border:1px solid #999;padding:4px;">${escapeHtml(c.address || '-')}</td>
+      <td style="border:1px solid #999;padding:4px;">${escapeHtml(c.phone || '-')}</td>
+      <td style="border:1px solid #999;padding:4px;">${escapeHtml(getPackageName(c.packageId))}</td>
+      <td style="border:1px solid #999;padding:4px;text-align:right;">${billedDisplay}</td>
+      <td style="border:1px solid #999;padding:4px;text-align:right;">${tunggakanSebelumnya > 0 ? `<strong style="color:#dc2626;">${fmtRp(tunggakanSebelumnya)}</strong>` : '-'}</td>
+      <td style="border:1px solid #999;padding:4px;text-align:right;"><strong>${fmtRp(total)}</strong></td>
+      <td style="border:1px solid #999;padding:4px;width:60px;height:30px;"></td>
     </tr>`;
   });
 
@@ -3588,10 +3722,11 @@ function generatePrintBilling() {
         <h2 style="margin:0;font-size:18px;">${escapeHtml(state.settings.name || 'WiFi RT/RW')}</h2>
         ${state.settings.address ? `<div style="font-size:12px;">${escapeHtml(state.settings.address)}</div>` : ''}
       </div>
-      <h3 style="margin:0 0 4px;font-size:15px;">DAFTAR TAGIHAN ${monthLabel(period).toUpperCase()}</h3>
+      <h3 style="margin:0 0 4px;font-size:15px;">${escapeHtml(title)}</h3>
       <div style="font-size:13px;margin-bottom:10px;">
-        <strong>Daerah:</strong> ${escapeHtml(loc ? loc.name : '-')} ·
         <strong>Tukang:</strong> ${escapeHtml(collector ? collector.name : '(belum diatur)')}
+        ${collector && collector.phone ? ' · ' + escapeHtml(collector.phone) : ''}
+        ${collector ? ' · Komisi ' + (collector.commissionPercent || 0) + '%' : ''}
       </div>
       <table style="width:100%;border-collapse:collapse;font-size:11px;">
         <thead>
@@ -3607,9 +3742,7 @@ function generatePrintBilling() {
             <th style="border:1px solid #999;padding:4px;">Bayar</th>
           </tr>
         </thead>
-        <tbody>
-          ${rows.replace(/<td>/g, '<td style="border:1px solid #999;padding:4px;">').replace(/<td style="text-align:right;">/g, '<td style="border:1px solid #999;padding:4px;text-align:right;">')}
-        </tbody>
+        <tbody>${rows}</tbody>
         <tfoot>
           <tr style="background:#f0f0f0;font-weight:bold;">
             <td colspan="5" style="border:1px solid #999;padding:6px;text-align:right;">TOTAL POTENSI:</td>
