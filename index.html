@@ -1144,49 +1144,53 @@ async function onGDriveLoggedIn(silent) {
     );
     if (!r.ok) throw new Error('Drive search failed');
     const data = await r.json();
-    if (data.files && data.files.length > 0) {
-      gdriveFileId = data.files[0].id;
-      const driveModified = data.files[0].modifiedTime;
 
-      // Check if Drive has data and ask to merge or use one
-      const localCount = state.customers.length;
+    if (data.files && data.files.length > 0) {
+      // FILE EXISTS IN DRIVE — Drive always wins
+      gdriveFileId = data.files[0].id;
+      setSyncStatus('⏳ Pulling from Drive...', '#d97706');
       const remoteData = await fetchGDriveContent();
 
-      if (remoteData && !silent) {
+      if (remoteData) {
         const remoteCount = (remoteData.customers || []).length;
-        if (localCount === 0 && remoteCount > 0) {
-          // No local data, just use remote
-          state = migrate(remoteData);
-          saveStateLocal();
-          setSyncStatus('✓ Synced', '#16a34a');
-          gdriveLastSync = new Date().toISOString();
-          alert(`✅ Data berhasil di-restore dari Google Drive!\n\n${remoteCount} pelanggan, ${(remoteData.payments||[]).length} pembayaran.`);
-          location.reload();
-          return;
-        } else if (localCount > 0 && remoteCount > 0) {
-          // Both have data — ask user
-          const choice = confirm(
-            `Ada data di Google Drive (${remoteCount} pelanggan) dan di browser ini (${localCount} pelanggan).\n\n` +
-            `OK = Pakai data Google Drive (data lokal akan diganti)\n` +
-            `Cancel = Pakai data lokal (data Drive akan ditimpa saat sync berikutnya)`
+        const remotePayments = (remoteData.payments || []).length;
+        const localCount = state.customers.length;
+        const driveModified = data.files[0].modifiedTime;
+        const driveModifiedFmt = driveModified ? new Date(driveModified).toLocaleString('id-ID') : '-';
+
+        // Always use Drive as source of truth
+        state = migrate(remoteData);
+        saveStateLocal();
+        gdriveLastSync = new Date().toISOString();
+        setSyncStatus('✓ Synced', '#16a34a');
+
+        if (!silent) {
+          alert(
+            `✅ Data berhasil ditarik dari Google Drive!\n\n` +
+            `📊 ${remoteCount} pelanggan, ${remotePayments} pembayaran\n` +
+            `🕐 Terakhir update di Drive: ${driveModifiedFmt}\n` +
+            (localCount !== remoteCount && localCount > 0
+              ? `\n⚠️ Data lokal sebelumnya (${localCount} pelanggan) telah diganti dengan data dari Drive.`
+              : '')
           );
-          if (choice) {
-            state = migrate(remoteData);
-            saveStateLocal();
-            setSyncStatus('✓ Synced', '#16a34a');
-            gdriveLastSync = new Date().toISOString();
-            location.reload();
-            return;
-          }
         }
+        location.reload();
+        return;
+      } else {
+        throw new Error('Gagal baca isi file Drive');
+      }
+    } else {
+      // FILE NOT EXISTS — push local data to Drive (initial setup)
+      setSyncStatus('⏳ Creating backup...', '#d97706');
+      await syncToGDrive();
+      if (!silent && state.customers.length > 0) {
+        alert(`✅ Backup pertama dibuat di Google Drive!\n\nFile: ${GDRIVE_FILENAME}\n${state.customers.length} pelanggan ter-backup.`);
       }
     }
-    // Initial sync up
-    setSyncStatus('⏳ Syncing...', '#d97706');
-    await syncToGDrive();
   } catch (e) {
     console.error('GDrive setup error:', e);
     setSyncStatus('⚠️ Sync error', '#dc2626');
+    if (!silent) alert('⚠️ Gagal sync: ' + e.message);
   }
 }
 
@@ -1284,18 +1288,26 @@ async function restoreFromGDrive() {
 }
 
 function logoutGDrive() {
-  if (!confirm('Disconnect dari Google Drive? Data lokal tetap aman.')) return;
+  if (!confirm(
+    '⚠️ DISCONNECT dari Google Drive?\n\n' +
+    'Data LOKAL di browser ini akan DIHAPUS. Data di Google Drive Anda tetap aman.\n\n' +
+    'Saat connect lagi nanti, data dari Drive akan ditarik kembali.\n\n' +
+    'Lanjutkan?'
+  )) return;
+
   if (gdriveAccessToken) {
-    google.accounts.oauth2.revoke(gdriveAccessToken, () => {});
+    try { google.accounts.oauth2.revoke(gdriveAccessToken, () => {}); } catch (e) {}
   }
   gdriveAccessToken = null;
   gdriveFileId = null;
   gdriveUserEmail = null;
   gdriveLastSync = null;
   localStorage.removeItem('gdrive_token');
-  document.getElementById('btn-gdrive').textContent = '☁️ Connect Drive';
-  setSyncStatus('', '');
+  // Clear local data
+  localStorage.removeItem(STORE_KEY);
   closeModal('modal-gdrive');
+  alert('✅ Disconnected. Data lokal sudah dibersihkan. Refresh halaman...');
+  location.reload();
 }
 
 function scheduleSyncToGDrive() {
