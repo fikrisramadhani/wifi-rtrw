@@ -252,12 +252,54 @@ tbody tr:last-child td { border-bottom: none; }
 .preview-summary strong { color: #1e40af; }
 
 @media print {
+  /* Hide everything */
   body * { visibility: hidden; }
-  .receipt, .receipt *, .print-area, .print-area * { visibility: visible; }
+
+  /* RECEIPT (small, single page) */
+  .receipt, .receipt * { visibility: visible; }
   .receipt { position: absolute; left: 0; top: 0; border: none; }
-  .print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; }
-  .print-area .no-print { display: none !important; }
-  .print-area table { font-size: 11px; }
+
+  /* PRINT-AREA (billing list, multi-page) — DO NOT use position:absolute */
+  body.printing .print-area,
+  body.printing .print-area * { visibility: visible; }
+  body.printing .modal-bg {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    display: block !important;
+    overflow: visible !important;
+  }
+  body.printing .modal {
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
+    width: 100% !important;
+    margin: 0 !important;
+  }
+  body.printing .print-area .no-print { display: none !important; }
+  body.printing .print-area table {
+    font-size: 10px;
+    page-break-inside: auto;
+    width: 100%;
+  }
+  body.printing .print-area thead {
+    display: table-header-group; /* Repeat header on each page */
+  }
+  body.printing .print-area tfoot {
+    display: table-footer-group;
+  }
+  body.printing .print-area tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  @page {
+    size: A4;
+    margin: 1cm;
+  }
 }
 
 /* Fast input UI */
@@ -1045,7 +1087,7 @@ tbody tr:last-child td { border-bottom: none; }
     <div id="print-billing-content" class="print-area"></div>
     <div class="modal-actions no-print">
       <button class="btn" onclick="closeModal('modal-print-billing')">Tutup</button>
-      <button class="btn btn-primary" onclick="window.print()">🖨 Cetak / Save PDF</button>
+      <button class="btn btn-primary" onclick="printBillingList()">🖨 Cetak / Save PDF</button>
     </div>
   </div>
 </div>
@@ -3432,6 +3474,20 @@ function initPrintBilling() {
     d.setMonth(d.getMonth() + 1);
     document.getElementById('print-period').value = d.toISOString().slice(0,7);
   }
+}
+
+function printBillingList() {
+  // Add 'printing' class to body so CSS can target multi-page print
+  document.body.classList.add('printing');
+  // Print, then remove class after dialog closes
+  window.print();
+  // Remove class after a short delay (some browsers fire afterprint event reliably, some don't)
+  const cleanup = () => document.body.classList.remove('printing');
+  if ('onafterprint' in window) {
+    window.addEventListener('afterprint', cleanup, { once: true });
+  }
+  // Fallback timer in case afterprint doesn't fire
+  setTimeout(cleanup, 1000);
 }
 
 function generatePrintBilling() {
