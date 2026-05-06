@@ -679,6 +679,41 @@ tbody tr:last-child td { border-bottom: none; }
     </div>
 
     <div class="panel">
+      <div class="panel-header">
+        <h2>📅 Bulk Update Tanggal Pasang</h2>
+      </div>
+      <p style="color:#78716c;margin-bottom:12px;">Update tanggal pasang banyak pelanggan sekaligus. Berguna untuk perbaikan setelah import dari MikroTik.</p>
+
+      <div style="border:1px solid #e7e5e4;border-radius:8px;padding:12px;margin-bottom:10px;">
+        <h4 style="margin-bottom:8px;font-size:14px;">Opsi 1: Update SEMUA pelanggan</h4>
+        <p style="color:#78716c;font-size:12px;margin-bottom:8px;">Mengganti tanggal pasang untuk seluruh pelanggan (kecuali pelanggan gratis). Cocok untuk setup awal massal.</p>
+        <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;">
+          <div class="form-group" style="margin:0;flex:1;min-width:160px;">
+            <label>Tanggal Pasang Baru</label>
+            <input type="date" id="bulk-installdate-all">
+          </div>
+          <button class="btn btn-warning" onclick="bulkUpdateInstallDate('all')">Update Semua</button>
+        </div>
+      </div>
+
+      <div style="border:1px solid #e7e5e4;border-radius:8px;padding:12px;">
+        <h4 style="margin-bottom:8px;font-size:14px;">Opsi 2: Update HANYA pelanggan dengan tgl pasang tertentu</h4>
+        <p style="color:#78716c;font-size:12px;margin-bottom:8px;">Hanya update pelanggan yang tgl pasangnya cocok dengan filter di bawah. Berguna untuk koreksi pelanggan dari batch import tertentu.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;">
+          <div class="form-group" style="margin:0;">
+            <label>Hanya yang tgl pasang =</label>
+            <input type="date" id="bulk-installdate-from">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>Diubah jadi</label>
+            <input type="date" id="bulk-installdate-to">
+          </div>
+          <button class="btn btn-warning" onclick="bulkUpdateInstallDate('filtered')">Update Cocok</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
       <div class="panel-header"><h2>Lokasi</h2></div>
       <p style="color:#78716c;margin-bottom:12px;">Kode awalan username MikroTik akan dipetakan ke lokasi ini saat import.</p>
       <div id="locations-list"></div>
@@ -2448,6 +2483,44 @@ function monthsBetween(startYM, endYM) {
 // Returns { months: [{period, billed, paid, status, payments}], totalBilled, totalPaid, balance, credit }
 // balance: positive = customer owes (tunggakan), negative = customer has credit
 // Uses FIFO: oldest months get filled first when payments come in
+// ===================== BULK UPDATE INSTALL DATE =====================
+function bulkUpdateInstallDate(mode) {
+  let newDate, fromDate;
+
+  if (mode === 'all') {
+    newDate = document.getElementById('bulk-installdate-all').value;
+    if (!newDate) { alert('Pilih tanggal pasang baru'); return; }
+    const targets = state.customers.filter(c => !c.isFree);
+    if (!targets.length) { alert('Tidak ada pelanggan untuk diupdate'); return; }
+    if (!confirm(
+      `Akan mengganti tanggal pasang untuk ${targets.length} pelanggan menjadi ${formatDate(newDate)}?\n\n` +
+      `Ini akan mempengaruhi perhitungan tagihan & tunggakan semua pelanggan tersebut.`
+    )) return;
+    targets.forEach(c => { c.installedAt = newDate; });
+    saveState();
+    alert(`✅ Berhasil update ${targets.length} pelanggan ke tanggal ${formatDate(newDate)}`);
+  } else if (mode === 'filtered') {
+    fromDate = document.getElementById('bulk-installdate-from').value;
+    newDate = document.getElementById('bulk-installdate-to').value;
+    if (!fromDate || !newDate) { alert('Isi kedua tanggal'); return; }
+    const targets = state.customers.filter(c => !c.isFree && c.installedAt === fromDate);
+    if (!targets.length) {
+      alert(`Tidak ada pelanggan dengan tanggal pasang ${formatDate(fromDate)}`);
+      return;
+    }
+    if (!confirm(
+      `Ditemukan ${targets.length} pelanggan dengan tgl pasang ${formatDate(fromDate)}.\n\n` +
+      `Ubah jadi ${formatDate(newDate)}?`
+    )) return;
+    targets.forEach(c => { c.installedAt = newDate; });
+    saveState();
+    alert(`✅ Berhasil update ${targets.length} pelanggan ke tanggal ${formatDate(newDate)}`);
+  }
+
+  // Refresh views
+  if (document.getElementById('tab-pelanggan').style.display !== 'none') renderCustomers();
+}
+
 // ===================== BULK OPENING BALANCE =====================
 let bulkOpeningBuffer = null;
 
