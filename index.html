@@ -1,0 +1,3104 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tagihan WiFi RT/RW</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #f5f5f4;
+  color: #1c1917;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.container { max-width: 1280px; margin: 0 auto; padding: 16px; }
+header {
+  background: #1e40af;
+  color: white;
+  padding: 16px 20px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+header h1 { font-size: 20px; font-weight: 600; }
+header p { font-size: 13px; opacity: 0.9; margin-top: 2px; }
+.tabs {
+  display: flex;
+  gap: 4px;
+  background: white;
+  padding: 6px;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  overflow-x: auto;
+  border: 1px solid #e7e5e4;
+}
+.tab {
+  padding: 10px 14px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #57534e;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.tab:hover { background: #f5f5f4; }
+.tab.active { background: #1e40af; color: white; }
+
+.panel {
+  background: white;
+  border: 1px solid #e7e5e4;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.panel-header h2 { font-size: 17px; font-weight: 600; }
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.stat-card {
+  background: white;
+  border: 1px solid #e7e5e4;
+  border-radius: 12px;
+  padding: 14px;
+}
+.stat-label { font-size: 11px; color: #78716c; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+.stat-value { font-size: 22px; font-weight: 600; }
+.stat-card.blue { border-left: 4px solid #1e40af; }
+.stat-card.green { border-left: 4px solid #16a34a; }
+.stat-card.amber { border-left: 4px solid #d97706; }
+.stat-card.red { border-left: 4px solid #dc2626; }
+.stat-card.gray { border-left: 4px solid #78716c; }
+.stat-card.purple { border-left: 4px solid #7c3aed; }
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  color: #44403c;
+}
+input, select, textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d6d3d1;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  background: white;
+}
+textarea { resize: vertical; min-height: 120px; font-family: 'Courier New', monospace; font-size: 12px; }
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: #1e40af;
+  box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.1);
+}
+
+.btn {
+  padding: 8px 14px;
+  border: 1px solid #d6d3d1;
+  background: white;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn:hover { background: #f5f5f4; }
+.btn-primary { background: #1e40af; color: white; border-color: #1e40af; }
+.btn-primary:hover { background: #1e3a8a; }
+.btn-success { background: #16a34a; color: white; border-color: #16a34a; }
+.btn-success:hover { background: #15803d; }
+.btn-warning { background: #d97706; color: white; border-color: #d97706; }
+.btn-warning:hover { background: #b45309; }
+.btn-danger { background: #dc2626; color: white; border-color: #dc2626; }
+.btn-danger:hover { background: #b91c1c; }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+
+.table-wrap { overflow-x: auto; border: 1px solid #e7e5e4; border-radius: 10px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead { background: #fafaf9; position: sticky; top: 0; z-index: 1; }
+th { text-align: left; padding: 10px 12px; font-weight: 600; color: #44403c; border-bottom: 1px solid #e7e5e4; white-space: nowrap; }
+td { padding: 10px 12px; border-bottom: 1px solid #f5f5f4; }
+tbody tr:hover { background: #fafaf9; }
+tbody tr:last-child td { border-bottom: none; }
+
+.badge { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+.badge-success { background: #dcfce7; color: #166534; }
+.badge-danger { background: #fee2e2; color: #991b1b; }
+.badge-warning { background: #fef3c7; color: #92400e; }
+.badge-info { background: #dbeafe; color: #1e40af; }
+.badge-gray { background: #f5f5f4; color: #57534e; }
+.badge-purple { background: #ede9fe; color: #6b21a8; }
+.badge-orange { background: #fed7aa; color: #9a3412; }
+
+.month-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+.month-cell {
+  padding: 10px;
+  border: 1px solid #e7e5e4;
+  border-radius: 8px;
+  font-size: 12px;
+}
+.month-cell.lunas { background: #f0fdf4; border-color: #bbf7d0; }
+.month-cell.sebagian { background: #fff7ed; border-color: #fed7aa; }
+.month-cell.belum { background: #fef2f2; border-color: #fecaca; }
+.month-cell .month-name { font-weight: 600; margin-bottom: 4px; }
+.month-cell .month-detail { color: #57534e; }
+
+.search-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.search-bar input, .search-bar select { flex: 1; min-width: 140px; }
+
+.modal-bg {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 16px;
+}
+.modal-bg.show { display: flex; }
+.modal {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.modal.large { max-width: 800px; }
+.modal h3 { font-size: 17px; margin-bottom: 14px; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; flex-wrap: wrap; }
+
+.receipt {
+  background: white;
+  padding: 24px;
+  max-width: 380px;
+  margin: 0 auto;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  border: 1px dashed #999;
+}
+.receipt-header { text-align: center; border-bottom: 1px dashed #999; padding-bottom: 10px; margin-bottom: 10px; }
+.receipt-header h3 { font-size: 16px; margin-bottom: 4px; }
+.receipt-row { display: flex; justify-content: space-between; margin: 4px 0; }
+.receipt-total { border-top: 1px dashed #999; padding-top: 8px; margin-top: 8px; font-weight: bold; }
+
+.empty-state { text-align: center; padding: 40px 20px; color: #78716c; }
+.empty-state h3 { font-size: 16px; margin-bottom: 6px; color: #44403c; }
+
+.alert {
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+.alert-info { background: #dbeafe; color: #1e40af; border-left: 3px solid #1e40af; }
+.alert-warning { background: #fef3c7; color: #92400e; border-left: 3px solid #d97706; }
+.alert-success { background: #dcfce7; color: #166534; border-left: 3px solid #16a34a; }
+
+.preview-summary {
+  background: #f5f5f4;
+  padding: 12px;
+  border-radius: 8px;
+  margin-top: 10px;
+  font-size: 13px;
+}
+.preview-summary strong { color: #1e40af; }
+
+@media print {
+  body * { visibility: hidden; }
+  .receipt, .receipt *, .print-area, .print-area * { visibility: visible; }
+  .receipt { position: absolute; left: 0; top: 0; border: none; }
+  .print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; }
+  .print-area .no-print { display: none !important; }
+  .print-area table { font-size: 11px; }
+}
+
+/* Fast input UI */
+.fast-input-row {
+  display: grid;
+  grid-template-columns: 30px 1fr 100px 130px 90px;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  border-bottom: 1px solid #f5f5f4;
+  font-size: 13px;
+}
+.fast-input-row.paid { background: #f0fdf4; }
+.fast-input-row.partial { background: #fff7ed; }
+.fast-input-row:hover { background: #fafaf9; }
+.fast-input-row.paid:hover { background: #dcfce7; }
+.fast-input-row.partial:hover { background: #ffedd5; }
+.fast-input-amount { padding: 5px 8px; font-size: 13px; }
+.fast-input-row .name strong { font-size: 13px; }
+.fast-input-row .name small { color: #78716c; font-size: 11px; display: block; }
+.deposit-summary {
+  position: sticky;
+  top: 0;
+  background: white;
+  z-index: 5;
+  padding: 12px;
+  border: 2px solid #1e40af;
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 600px) {
+  .fast-input-row { grid-template-columns: 1fr; gap: 4px; padding: 10px; }
+  .fast-input-row > * { width: 100%; }
+}
+
+@media (max-width: 600px) {
+  header h1 { font-size: 17px; }
+  .stat-value { font-size: 20px; }
+  .panel { padding: 14px; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div>
+      <h1>📡 Tagihan WiFi RT/RW</h1>
+      <p id="header-info">Sistem manajemen tagihan internet warga</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-sm" onclick="exportData()" style="background:rgba(255,255,255,0.15);color:white;border-color:rgba(255,255,255,0.3);">⬇ Backup</button>
+      <button class="btn btn-sm" onclick="document.getElementById('import-file').click()" style="background:rgba(255,255,255,0.15);color:white;border-color:rgba(255,255,255,0.3);">⬆ Restore</button>
+      <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
+    </div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('dashboard', this)">📊 Dashboard</button>
+    <button class="tab" onclick="showTab('input-cepat', this)">⚡ Input Cepat</button>
+    <button class="tab" onclick="showTab('setoran', this)">💼 Setoran</button>
+    <button class="tab" onclick="showTab('tukang', this)">👷 Tukang</button>
+    <button class="tab" onclick="showTab('pelanggan', this)">👥 Pelanggan</button>
+    <button class="tab" onclick="showTab('gratis', this)">🎁 Gratis</button>
+    <button class="tab" onclick="showTab('lokasi', this)">📍 Lokasi</button>
+    <button class="tab" onclick="showTab('paket', this)">📦 Paket</button>
+    <button class="tab" onclick="showTab('pembayaran', this)">💰 Pembayaran</button>
+    <button class="tab" onclick="showTab('tunggakan', this)">⚠️ Tunggakan</button>
+    <button class="tab" onclick="showTab('pengaturan', this)">⚙️ Pengaturan</button>
+  </div>
+
+  <!-- INPUT CEPAT -->
+  <div id="tab-input-cepat" class="tab-content" style="display:none;">
+    <div class="panel">
+      <div class="panel-header">
+        <h2>⚡ Input Pembayaran Cepat</h2>
+      </div>
+      <div class="alert alert-info">
+        💡 Mode ini untuk input banyak pembayaran sekaligus. Pilih daerah & bulan, lalu klik "Lunas" untuk bayar penuh, atau ketik jumlah lain untuk bayar sebagian. Total terhitung otomatis.
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Pilih Daerah</label>
+          <select id="fi-location" onchange="renderFastInput()"></select>
+        </div>
+        <div class="form-group">
+          <label>Periode Bulan</label>
+          <input type="month" id="fi-period" onchange="renderFastInput()">
+        </div>
+        <div class="form-group">
+          <label>Tanggal Bayar</label>
+          <input type="date" id="fi-date">
+        </div>
+        <div class="form-group">
+          <label>Metode Default</label>
+          <select id="fi-method">
+            <option value="Tunai">Tunai</option>
+            <option value="Transfer">Transfer</option>
+            <option value="QRIS">QRIS</option>
+            <option value="E-wallet">E-wallet</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="fi-deposit-info" class="deposit-summary" style="display:none;">
+        <div style="display:flex;gap:16px;flex-wrap:wrap;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-size:12px;color:#78716c;">Total terinput</div>
+            <div id="fi-total" style="font-size:22px;font-weight:600;color:#16a34a;">Rp 0</div>
+          </div>
+          <div>
+            <div style="font-size:12px;color:#78716c;">Pelanggan dibayar</div>
+            <div id="fi-count" style="font-size:22px;font-weight:600;">0 / 0</div>
+          </div>
+          <div>
+            <div style="font-size:12px;color:#78716c;">Sisa belum input</div>
+            <div id="fi-remaining" style="font-size:18px;font-weight:600;color:#dc2626;">Rp 0</div>
+          </div>
+          <div>
+            <button class="btn btn-success" onclick="finalizeFastInput()">✓ Selesai & Buat Sesi Setoran</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="fi-list"></div>
+    </div>
+  </div>
+
+  <!-- SETORAN -->
+  <div id="tab-setoran" class="tab-content" style="display:none;">
+    <div class="panel">
+      <div class="panel-header">
+        <h2>💼 Sesi Setoran Tukang</h2>
+        <button class="btn btn-primary" onclick="openDepositModal()">+ Sesi Setoran Manual</button>
+      </div>
+      <div class="alert alert-info">
+        ℹ️ Sesi setoran dibuat otomatis dari Input Cepat, atau bisa dibuat manual. Sesi membantu cocokkan total pembayaran dengan uang yang disetor tukang.
+      </div>
+      <div class="table-wrap">
+        <table id="deposits-table">
+          <thead><tr><th>Tanggal</th><th>Tukang</th><th>Daerah</th><th>Periode</th><th>Total Bayar</th><th>Setoran</th><th>Selisih</th><th>Komisi</th><th>Aksi</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TUKANG -->
+  <div id="tab-tukang" class="tab-content" style="display:none;">
+    <div class="panel">
+      <div class="panel-header">
+        <h2>👷 Daftar Tukang</h2>
+        <button class="btn btn-primary" onclick="openCollectorModal()">+ Tambah Tukang</button>
+      </div>
+      <div class="table-wrap">
+        <table id="collectors-table">
+          <thead><tr><th>Nama Tukang</th><th>HP</th><th>Daerah</th><th>Komisi</th><th>Aksi</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <h2>📋 Cetak Daftar Tagihan untuk Tukang</h2>
+      </div>
+      <div class="alert alert-info">
+        💡 Cetak daftar pelanggan + tagihan + tunggakan, untuk dibawa tukang saat menagih bulan depan.
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Pilih Daerah</label>
+          <select id="print-location"></select>
+        </div>
+        <div class="form-group">
+          <label>Periode Tagihan</label>
+          <input type="month" id="print-period">
+        </div>
+      </div>
+      <button class="btn btn-success" onclick="generatePrintBilling()">📄 Buat & Cetak Daftar</button>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="tab-dashboard" class="tab-content">
+    <div class="stats-grid" id="stats"></div>
+    <div class="panel">
+      <div class="panel-header"><h2>Status Pembayaran Bulan Ini</h2>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <select id="dashboard-location" onchange="renderDashboard()" style="max-width:160px;">
+            <option value="">Semua Lokasi</option>
+          </select>
+          <select id="dashboard-month" onchange="renderDashboard()" style="max-width:160px;"></select>
+        </div>
+      </div>
+      <div class="search-bar">
+        <input type="text" id="dashboard-search" placeholder="🔍 Cari pelanggan..." oninput="renderDashboard()">
+      </div>
+      <div class="table-wrap">
+        <table id="dashboard-table">
+          <thead><tr><th>Pelanggan</th><th>Lokasi</th><th>Paket</th><th>Tagihan</th><th>Status</th><th>Aksi</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- PELANGGAN -->
+  <div id="tab-pelanggan" class="tab-content" style="display:none;">
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Daftar Pelanggan Berbayar</h2>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="btn btn-warning" onclick="openMikrotikImportModal()">📥 Import dari MikroTik</button>
+          <button class="btn btn-success" onclick="openBulkImportModal()">📋 Import Excel</button>
+          <button class="btn btn-primary" onclick="openCustomerModal()">+ Tambah</button>
+        </div>
+      </div>
+      <div class="search-bar">
+        <input type="text" id="search-customer" placeholder="🔍 Cari nama / username / alamat / HP..." oninput="renderCustomers()">
+        <select id="filter-location" onchange="renderCustomers()">
+          <option value="">Semua Lokasi</option>
+        </select>
+        <select id="filter-paket" onchange="renderCustomers()">
+          <option value="">Semua Paket</option>
+        </select>
+        <select id="filter-status" onchange="renderCustomers()">
+          <option value="">Semua Status</option>
+          <option value="aktif">Aktif</option>
+          <option value="diisolir">Diisolir</option>
+          <option value="nonaktif">Nonaktif</option>
+        </select>
+      </div>
+      <div id="customers-info" style="font-size:13px;color:#78716c;margin-bottom:8px;"></div>
+      <div class="table-wrap" style="max-height:600px;overflow-y:auto;">
+        <table id="customers-table">
+          <thead><tr><th>No</th><th>Username</th><th>Nama</th><th>Lokasi</th><th>HP</th><th>Paket</th><th>Status</th><th>Aksi</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- PELANGGAN GRATIS -->
+  <div id="tab-gratis" class="tab-content" style="display:none;">
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Pelanggan Gratis (Orang Dalam)</h2>
+        <button class="btn btn-primary" onclick="openCustomerModal(true)">+ Tambah Pelanggan Gratis</button>
+      </div>
+      <div class="alert alert-info">
+        ℹ️ Pelanggan gratis tidak masuk dalam tagihan, tunggakan, atau laporan pendapatan. Untuk menandai pelanggan sebagai gratis, edit pelanggan dan centang "Gratis (orang dalam)".
+      </div>
+      <div class="table-wrap">
+        <table id="free-customers-table">
+          <thead><tr><th>No</th><th>Username</th><th>Nama</th><th>Lokasi</th><th>Paket</th><th>HP</th><th>Aksi</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOKASI -->
+  <div id="tab-lokasi" class="tab-content" style="display:none;">
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Laporan per Lokasi</h2>
+        <select id="lokasi-month" onchange="renderLocations()" style="max-width:180px;"></select>
+      </div>
+      <div id="lokasi-content"></div>
+    </div>
+  </div>
+
+  <!-- PAKET -->
+  <div id="tab-paket" class="tab-content" style="display:none;">
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Paket Internet</h2>
+        <button class="btn btn-primary" onclick="openPackageModal()">+ Tambah Paket</button>
+      </div>
+      <div class="table-wrap">
+        <table id="packages-table">
+          <thead><tr><th>Nama Paket</th><th>Kecepatan</th><th>Harga/bulan</th><th>Profile MikroTik</th><th>Pelanggan</th><th>Aksi</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- PEMBAYARAN -->
+  <div id="tab-pembayaran" class="tab-content" style="display:none;">
+    <div class="panel">
+      <div class="panel-header"><h2>Catat Pembayaran</h2></div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Pelanggan</label>
+          <select id="pay-customer"><option value="">— Pilih —</option></select>
+        </div>
+        <div class="form-group">
+          <label>Periode (Bulan)</label>
+          <input type="month" id="pay-period" onchange="updatePayInfo()">
+        </div>
+      </div>
+      <div id="pay-info" style="display:none;" class="alert alert-info">
+        <div id="pay-info-content"></div>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Jumlah Bayar (Rp)</label>
+          <input type="number" id="pay-amount" placeholder="0" oninput="updatePayPreview()">
+        </div>
+        <div class="form-group">
+          <label>Tanggal Bayar</label>
+          <input type="date" id="pay-date">
+        </div>
+        <div class="form-group">
+          <label>Metode</label>
+          <select id="pay-method">
+            <option value="Tunai">Tunai</option>
+            <option value="Transfer">Transfer</option>
+            <option value="QRIS">QRIS</option>
+            <option value="E-wallet">E-wallet</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Catatan (opsional)</label>
+          <input type="text" id="pay-note" placeholder="...">
+        </div>
+      </div>
+      <div id="pay-preview" style="display:none;margin-bottom:10px;"></div>
+      <button class="btn btn-success" onclick="savePayment()">💾 Simpan Pembayaran</button>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Riwayat Pembayaran</h2>
+        <button class="btn btn-sm" onclick="exportPaymentsCSV()">⬇ Export CSV</button>
+      </div>
+      <div class="search-bar">
+        <input type="text" id="search-payment" placeholder="🔍 Cari pelanggan..." oninput="renderPayments()">
+        <input type="month" id="filter-payment-period" onchange="renderPayments()">
+      </div>
+      <div class="table-wrap">
+        <table id="payments-table">
+          <thead><tr><th>Tgl Bayar</th><th>Pelanggan</th><th>Periode</th><th>Jumlah</th><th>Metode</th><th>Aksi</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TUNGGAKAN -->
+  <div id="tab-tunggakan" class="tab-content" style="display:none;">
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Laporan Tunggakan</h2>
+        <button class="btn btn-sm" onclick="exportArrearsCSV()">⬇ Export CSV</button>
+      </div>
+      <div class="alert alert-info">
+        ℹ️ Tunggakan dihitung sejak tanggal pasang sampai bulan ini. Pelanggan diisolir dan gratis tidak menambah tunggakan selama masa isolir / status gratis.
+      </div>
+      <div class="search-bar">
+        <select id="filter-arrears-location" onchange="renderArrears()">
+          <option value="">Semua Lokasi</option>
+        </select>
+        <select id="filter-arrears-status" onchange="renderArrears()">
+          <option value="">Semua Status</option>
+          <option value="aktif">Hanya Aktif</option>
+          <option value="diisolir">Hanya Diisolir</option>
+        </select>
+      </div>
+      <div class="stats-grid" id="arrears-stats"></div>
+      <div class="table-wrap" style="max-height:600px;overflow-y:auto;">
+        <table id="arrears-table">
+          <thead><tr><th>Pelanggan</th><th>Status</th><th>Lokasi</th><th>HP</th><th>Bulan Tertunggak</th><th>Total</th><th>Aksi</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- PENGATURAN -->
+  <div id="tab-pengaturan" class="tab-content" style="display:none;">
+    <div class="panel">
+      <div class="panel-header"><h2>Profil RT/RW</h2></div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Nama RT/RW</label>
+          <input type="text" id="setting-name" placeholder="contoh: Samurai.NET">
+        </div>
+        <div class="form-group">
+          <label>Alamat</label>
+          <input type="text" id="setting-address" placeholder="Jl. ...">
+        </div>
+        <div class="form-group">
+          <label>Nama Pengelola</label>
+          <input type="text" id="setting-admin">
+        </div>
+        <div class="form-group">
+          <label>HP / WA Pengelola</label>
+          <input type="text" id="setting-phone">
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:10px;">
+        <label>📅 Tanggal Mulai Pencatatan</label>
+        <input type="date" id="setting-start-date">
+        <small style="color:#78716c;">Tagihan akan dihitung mulai dari bulan ini. Untuk pelanggan yang sudah ada sebelum tanggal ini, gunakan field "Saldo Awal" di edit pelanggan untuk catat tunggakan/kredit awal mereka. <strong>Kosongkan kalau ingin hitung dari tanggal pasang masing-masing pelanggan.</strong></small>
+      </div>
+      <button class="btn btn-primary" onclick="saveSettings()">💾 Simpan Pengaturan</button>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <h2>💰 Bulk Update Saldo Awal</h2>
+        <button class="btn btn-warning" onclick="openBulkOpeningModal()">📋 Input Massal</button>
+      </div>
+      <p style="color:#78716c;">Input saldo awal banyak pelanggan sekaligus dari Excel/paste. Berguna saat migrasi dari sistem lama.</p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><h2>Lokasi</h2></div>
+      <p style="color:#78716c;margin-bottom:12px;">Kode awalan username MikroTik akan dipetakan ke lokasi ini saat import.</p>
+      <div id="locations-list"></div>
+      <div style="display:flex;gap:6px;align-items:end;flex-wrap:wrap;margin-top:10px;">
+        <div class="form-group" style="flex:1;min-width:120px;margin:0;">
+          <label>Kode</label>
+          <input type="text" id="new-loc-code" placeholder="contoh: l" maxlength="5">
+        </div>
+        <div class="form-group" style="flex:2;min-width:150px;margin:0;">
+          <label>Nama Lokasi</label>
+          <input type="text" id="new-loc-name" placeholder="contoh: Leprak">
+        </div>
+        <button class="btn btn-primary" onclick="addLocation()">+ Tambah Lokasi</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><h2>Data</h2></div>
+      <p style="color:#78716c;margin-bottom:12px;">Backup data Anda secara berkala. Data tersimpan di browser ini saja.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-success" onclick="exportData()">⬇ Backup ke File JSON</button>
+        <button class="btn" onclick="document.getElementById('import-file2').click()">⬆ Restore dari File</button>
+        <input type="file" id="import-file2" accept=".json" style="display:none" onchange="importData(event)">
+        <button class="btn btn-danger" onclick="resetData()">🗑 Reset Semua Data</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Pelanggan -->
+<div class="modal-bg" id="modal-customer">
+  <div class="modal">
+    <h3 id="modal-customer-title">Tambah Pelanggan</h3>
+    <input type="hidden" id="customer-id">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Username MikroTik</label>
+        <input type="text" id="customer-username" placeholder="contoh: p.budi">
+      </div>
+      <div class="form-group">
+        <label>Nama Lengkap *</label>
+        <input type="text" id="customer-name" required>
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:10px;">
+      <label>Alamat</label>
+      <input type="text" id="customer-address">
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>No. HP / WA</label>
+        <input type="text" id="customer-phone">
+      </div>
+      <div class="form-group">
+        <label>Lokasi</label>
+        <select id="customer-location"></select>
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Paket *</label>
+        <select id="customer-package" required></select>
+      </div>
+      <div class="form-group">
+        <label>Tanggal Pasang</label>
+        <input type="date" id="customer-installed">
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:10px;">
+      <label>Saldo Awal (Rp)</label>
+      <input type="number" id="customer-opening-balance" placeholder="0">
+      <small style="color:#78716c;">Posisi tunggakan/kredit saat aplikasi mulai dipakai. <strong>Positif</strong> = tunggakan, <strong>negatif</strong> = kredit, <strong>0</strong> = lunas. Contoh: 200000 = nunggak 200rb, -50000 = punya kredit 50rb.</small>
+    </div>
+    <div class="form-group" style="margin-bottom:10px;">
+      <label><input type="checkbox" id="customer-is-free"> 🎁 Gratis (orang dalam) — tidak ditagih</label>
+    </div>
+    <div class="form-group" style="margin-bottom:10px;">
+      <label>Status</label>
+      <select id="customer-status" onchange="onStatusChange()">
+        <option value="aktif">Aktif</option>
+        <option value="diisolir">Diisolir (layanan dimatikan, tagihan stop)</option>
+        <option value="nonaktif">Nonaktif (berhenti permanen)</option>
+      </select>
+    </div>
+    <div id="isolation-fields" style="display:none;">
+      <div class="alert alert-warning">⚠️ Saat diisolir, tagihan TIDAK bertambah. Saat status diubah ke Aktif lagi, tagihan akan dihitung dari tanggal aktif kembali.</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Tgl Mulai Isolir</label>
+          <input type="date" id="customer-isolated-from">
+        </div>
+        <div class="form-group">
+          <label>Tgl Aktif Kembali (kosongkan jika masih diisolir)</label>
+          <input type="date" id="customer-isolated-until">
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-customer')">Batal</button>
+      <button class="btn btn-primary" onclick="saveCustomer()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal MikroTik Import -->
+<div class="modal-bg" id="modal-mikrotik-import">
+  <div class="modal large">
+    <h3>📥 Import dari MikroTik PPP Secret</h3>
+    <div class="alert alert-info">
+      <strong>Cara pakai:</strong><br>
+      1. Buka winbox/SSH ke MikroTik Anda<br>
+      2. Jalankan: <code>/ppp secret export</code> atau buka tab PPP → Secrets<br>
+      3. Copy semua baris yang dimulai dengan <code>add name=...</code><br>
+      4. Paste di kotak bawah<br><br>
+      <strong>Pemetaan otomatis:</strong> Awalan username akan dipetakan ke lokasi sesuai pengaturan, profile akan dipetakan ke paket.
+    </div>
+    <div class="form-group" style="margin-bottom:10px;">
+      <label>Paste konfigurasi /ppp secret di sini:</label>
+      <textarea id="mikrotik-data" rows="10" placeholder="add name=p.budi profile=10M service=pppoe&#10;add name=l.halima profile=10M service=pppoe&#10;add name=ps.ayu profile=10M service=pppoe&#10;..."></textarea>
+    </div>
+    <div class="form-group" style="margin-bottom:10px;">
+      <label>Tanggal Pasang (untuk semua pelanggan dalam batch ini)</label>
+      <input type="date" id="mikrotik-installed">
+    </div>
+    <button class="btn btn-primary" onclick="previewMikrotikImport()">🔍 Preview Data</button>
+
+    <div id="mikrotik-preview" style="display:none;margin-top:14px;">
+      <div id="mikrotik-summary" class="preview-summary"></div>
+      <h4 style="margin:12px 0 8px;">Preview Pelanggan:</h4>
+      <div id="mikrotik-preview-content" style="max-height:300px;overflow-y:auto;border:1px solid #e7e5e4;border-radius:8px;"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-mikrotik-import')">Batal</button>
+      <button class="btn btn-success" id="mikrotik-confirm-btn" style="display:none;" onclick="confirmMikrotikImport()">✓ Import Semua</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Bulk Opening Balance -->
+<div class="modal-bg" id="modal-bulk-opening">
+  <div class="modal large">
+    <h3>💰 Bulk Update Saldo Awal</h3>
+    <div class="alert alert-info">
+      <strong>Cara pakai:</strong><br>
+      1. Siapkan data di Excel dengan 2 kolom: <strong>Username</strong> | <strong>Saldo Awal</strong><br>
+      2. Saldo Awal: <strong>positif</strong> = tunggakan, <strong>negatif</strong> = kredit, <strong>0</strong> = lunas<br>
+      3. Copy data (tanpa baris judul) → paste di kotak bawah<br><br>
+      Contoh:<br>
+      <code>p.budi&#9;200000</code> → Pak Budi nunggak Rp 200.000<br>
+      <code>p.siti&#9;0</code> → Bu Siti lunas<br>
+      <code>p.ahmad&#9;-50000</code> → Pak Ahmad punya kredit Rp 50.000
+    </div>
+    <div class="form-group" style="margin-bottom:10px;">
+      <label>Paste data (TAB-separated):</label>
+      <textarea id="bulk-opening-data" rows="10" placeholder="p.budi&#9;200000&#10;p.siti&#9;0&#10;p.ahmad&#9;-50000"></textarea>
+    </div>
+    <button class="btn btn-primary" onclick="previewBulkOpening()">🔍 Preview</button>
+
+    <div id="bulk-opening-preview" style="display:none;margin-top:14px;">
+      <div id="bulk-opening-summary" class="preview-summary"></div>
+      <h4 style="margin:12px 0 8px;">Preview:</h4>
+      <div id="bulk-opening-content" style="max-height:300px;overflow-y:auto;border:1px solid #e7e5e4;border-radius:8px;"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-bulk-opening')">Batal</button>
+      <button class="btn btn-success" id="bulk-opening-confirm" style="display:none;" onclick="confirmBulkOpening()">✓ Update Semua</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Bulk Import -->
+<div class="modal-bg" id="modal-bulk-import">
+  <div class="modal large">
+    <h3>📋 Import dari Excel</h3>
+    <div class="alert alert-info">
+      <strong>Format paste (TAB-separated dari Excel):</strong><br>
+      <code>Username | Nama | Alamat | HP | Paket | Lokasi (opsional)</code><br><br>
+      Untuk paket, tulis kecepatannya saja: <code>10 Mbps</code>, <code>20Mbps</code>, dll.<br>
+      Username adalah identifier unik (contoh: p.budi). Kalau kosong akan dibuat otomatis dari nama.
+    </div>
+    <div class="form-group" style="margin-bottom:10px;">
+      <label>Paste data di sini:</label>
+      <textarea id="bulk-data" rows="8" placeholder="p.budi&#9;Budi Santoso&#9;Jl. Mawar 12&#9;081234567890&#9;10 Mbps&#9;Pandak"></textarea>
+    </div>
+    <div class="form-group" style="margin-bottom:10px;">
+      <label>Tanggal Pasang (untuk semua pelanggan)</label>
+      <input type="date" id="bulk-installed">
+    </div>
+    <button class="btn btn-primary" onclick="previewBulkImport()">🔍 Preview Data</button>
+
+    <div id="bulk-preview" style="display:none;margin-top:14px;">
+      <div id="bulk-summary" class="preview-summary"></div>
+      <h4 style="margin:12px 0 8px;">Preview:</h4>
+      <div id="bulk-preview-content" style="max-height:280px;overflow-y:auto;border:1px solid #e7e5e4;border-radius:8px;"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-bulk-import')">Batal</button>
+      <button class="btn btn-success" id="bulk-confirm-btn" style="display:none;" onclick="confirmBulkImport()">✓ Import Semua</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Paket -->
+<div class="modal-bg" id="modal-package">
+  <div class="modal">
+    <h3 id="modal-package-title">Tambah Paket</h3>
+    <input type="hidden" id="package-id">
+    <div class="form-group" style="margin-bottom:10px;">
+      <label>Nama Paket *</label>
+      <input type="text" id="package-name" placeholder="contoh: Paket 10 Mbps">
+    </div>
+    <div class="form-group" style="margin-bottom:10px;">
+      <label>Kecepatan</label>
+      <input type="text" id="package-speed" placeholder="contoh: 10 Mbps">
+    </div>
+    <div class="form-group" style="margin-bottom:10px;">
+      <label>Harga per Bulan (Rp) *</label>
+      <input type="number" id="package-price" placeholder="100000">
+    </div>
+    <div class="form-group" style="margin-bottom:10px;">
+      <label>Profile MikroTik</label>
+      <input type="text" id="package-mikrotik-profile" placeholder="contoh: 10M">
+      <small style="color:#78716c;">Untuk pemetaan otomatis saat import dari MikroTik</small>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-package')">Batal</button>
+      <button class="btn btn-primary" onclick="savePackage()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Tukang -->
+<div class="modal-bg" id="modal-collector">
+  <div class="modal">
+    <h3 id="modal-collector-title">Tambah Tukang</h3>
+    <input type="hidden" id="collector-id">
+    <div class="form-group" style="margin-bottom:10px;">
+      <label>Nama Tukang *</label>
+      <input type="text" id="collector-name" required>
+    </div>
+    <div class="form-group" style="margin-bottom:10px;">
+      <label>No. HP / WA</label>
+      <input type="text" id="collector-phone">
+    </div>
+    <div class="form-group" style="margin-bottom:10px;">
+      <label>Daerah yang Ditangani</label>
+      <select id="collector-location"></select>
+      <small style="color:#78716c;">Setiap daerah punya 1 tukang</small>
+    </div>
+    <div class="form-group" style="margin-bottom:10px;">
+      <label>Persen Komisi (%)</label>
+      <input type="number" id="collector-commission" placeholder="5" min="0" max="100" step="0.5">
+      <small style="color:#78716c;">Misal 5 berarti tukang dapat 5% dari total pembayaran</small>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-collector')">Batal</button>
+      <button class="btn btn-primary" onclick="saveCollector()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Deposit -->
+<div class="modal-bg" id="modal-deposit">
+  <div class="modal large">
+    <h3 id="modal-deposit-title">Sesi Setoran Tukang</h3>
+    <input type="hidden" id="deposit-id">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Tukang</label>
+        <select id="deposit-collector"></select>
+      </div>
+      <div class="form-group">
+        <label>Daerah</label>
+        <select id="deposit-location"></select>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Periode Tagihan</label>
+          <input type="month" id="deposit-period">
+        </div>
+        <div class="form-group">
+          <label>Tanggal Setor</label>
+          <input type="date" id="deposit-date">
+        </div>
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Uang yang Disetor Tukang (Rp) *</label>
+        <input type="number" id="deposit-amount" placeholder="0" oninput="updateDepositCalc()">
+      </div>
+      <div class="form-group">
+        <label>Catatan</label>
+        <input type="text" id="deposit-note">
+      </div>
+    </div>
+
+    <div id="deposit-summary" class="alert alert-info" style="margin-top:10px;display:none;"></div>
+
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-deposit')">Batal</button>
+      <button class="btn btn-primary" onclick="saveDeposit()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Print Billing -->
+<div class="modal-bg" id="modal-print-billing">
+  <div class="modal" style="max-width:900px;">
+    <div id="print-billing-content" class="print-area"></div>
+    <div class="modal-actions no-print">
+      <button class="btn" onclick="closeModal('modal-print-billing')">Tutup</button>
+      <button class="btn btn-primary" onclick="window.print()">🖨 Cetak / Save PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Detail Pelanggan -->
+<div class="modal-bg" id="modal-detail">
+  <div class="modal large">
+    <h3 id="modal-detail-title">Detail Pelanggan</h3>
+    <div id="modal-detail-content"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-detail')">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Receipt -->
+<div class="modal-bg" id="modal-receipt">
+  <div class="modal" style="max-width:430px;">
+    <div id="receipt-content"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-receipt')">Tutup</button>
+      <button class="btn btn-primary" onclick="window.print()">🖨 Cetak</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===================== STATE =====================
+const STORE_KEY = 'wifi_rtrw_data_v2';
+let state = loadState();
+let mikrotikImportBuffer = null;
+let bulkImportBuffer = null;
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw) return migrate(JSON.parse(raw));
+  } catch (e) {}
+  return {
+    customers: [],
+    packages: [
+      { id: 'p5', name: 'Paket 5 Mbps', speed: '5 Mbps', price: 0, mikrotikProfile: '5M' },
+      { id: 'p10', name: 'Paket 10 Mbps', speed: '10 Mbps', price: 100000, mikrotikProfile: '10M' },
+      { id: 'p15', name: 'Paket 15 Mbps', speed: '15 Mbps', price: 0, mikrotikProfile: '15M' },
+      { id: 'p20', name: 'Paket 20 Mbps', speed: '20 Mbps', price: 200000, mikrotikProfile: '20M' }
+    ],
+    locations: [
+      { code: 'l', name: 'Leprak', collectorId: '', commissionPercent: 5 },
+      { code: 'p', name: 'Pandak', collectorId: '', commissionPercent: 5 },
+      { code: 'ps', name: 'Parse', collectorId: '', commissionPercent: 5 },
+      { code: 't', name: 'Bersoka Talpek', collectorId: '', commissionPercent: 5 }
+    ],
+    collectors: [],
+    deposits: [],
+    payments: [],
+    settings: { name: 'Samurai.NET', address: '', admin: '', phone: '', startDate: '' }
+  };
+}
+function migrate(s) {
+  if (!s.locations) s.locations = [];
+  if (!s.packages) s.packages = [];
+  if (!s.customers) s.customers = [];
+  if (!s.payments) s.payments = [];
+  if (!s.collectors) s.collectors = [];
+  if (!s.deposits) s.deposits = [];
+  if (!s.settings) s.settings = { name: '', address: '', admin: '', phone: '' };
+  if (s.settings.startDate === undefined) s.settings.startDate = '';
+  // Add commission fields to legacy locations
+  s.locations.forEach(l => {
+    if (l.commissionPercent === undefined) l.commissionPercent = 5;
+    if (l.collectorId === undefined) l.collectorId = '';
+  });
+  // Add openingBalance to legacy customers
+  s.customers.forEach(c => {
+    if (c.openingBalance === undefined) c.openingBalance = 0;
+  });
+  return s;
+}
+function saveState() { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function fmtRp(n) { return 'Rp ' + (n||0).toLocaleString('id-ID'); }
+function monthLabel(ym) {
+  if (!ym) return '-';
+  const [y,m] = ym.split('-');
+  const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+  return months[parseInt(m)-1] + ' ' + y;
+}
+function todayStr() { return new Date().toISOString().slice(0,10); }
+function curMonth() { return new Date().toISOString().slice(0,7); }
+
+// ===================== TABS =====================
+function showTab(name, btn) {
+  document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+  document.getElementById('tab-' + name).style.display = 'block';
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  if (name === 'dashboard') renderDashboard();
+  if (name === 'input-cepat') initFastInput();
+  if (name === 'setoran') renderDeposits();
+  if (name === 'tukang') { renderCollectors(); initPrintBilling(); }
+  if (name === 'pelanggan') renderCustomers();
+  if (name === 'gratis') renderFreeCustomers();
+  if (name === 'lokasi') renderLocations();
+  if (name === 'paket') renderPackages();
+  if (name === 'pembayaran') renderPayments();
+  if (name === 'tunggakan') renderArrears();
+  if (name === 'pengaturan') { loadSettings(); renderLocationsList(); }
+}
+
+// ===================== DASHBOARD =====================
+function renderDashboard() {
+  const sel = document.getElementById('dashboard-month');
+  if (!sel.options.length) {
+    const now = new Date();
+    let opts = '';
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const ym = d.toISOString().slice(0,7);
+      opts += `<option value="${ym}">${monthLabel(ym)}</option>`;
+    }
+    sel.innerHTML = opts;
+  }
+  refreshLocationDropdown('dashboard-location');
+  const month = sel.value || curMonth();
+  const filterLoc = document.getElementById('dashboard-location').value;
+  const search = (document.getElementById('dashboard-search').value || '').toLowerCase();
+
+  // Stats: paid customers (not free)
+  const paidActive = state.customers.filter(c => !c.isFree && c.status === 'aktif');
+  const paidIsolated = state.customers.filter(c => !c.isFree && c.status === 'diisolir');
+  const free = state.customers.filter(c => c.isFree);
+  const expectedRevenue = paidActive.reduce((s,c) => s + getPackagePrice(c.packageId), 0);
+  const paidThisMonth = state.payments.filter(p => p.period === month).reduce((s,p) => s + p.amount, 0);
+
+  // Status counts based on balance per month
+  let lunasCount = 0, sebagianCount = 0, belumCount = 0;
+  paidActive.forEach(c => {
+    const bal = calculateBalance(c.id, month);
+    const me = bal.months.find(m => m.period === month);
+    if (!me) return; // not billable
+    if (me.status === 'lunas') lunasCount++;
+    else if (me.status === 'sebagian') sebagianCount++;
+    else belumCount++;
+  });
+
+  document.getElementById('stats').innerHTML = `
+    <div class="stat-card blue"><div class="stat-label">Pelanggan Aktif</div><div class="stat-value">${paidActive.length}</div></div>
+    <div class="stat-card amber"><div class="stat-label">Diisolir</div><div class="stat-value">${paidIsolated.length}</div></div>
+    <div class="stat-card purple"><div class="stat-label">Pelanggan Gratis</div><div class="stat-value">${free.length}</div></div>
+    <div class="stat-card green"><div class="stat-label">Lunas (${monthLabel(month)})</div><div class="stat-value">${lunasCount}</div></div>
+    <div class="stat-card amber"><div class="stat-label">Bayar Sebagian</div><div class="stat-value">${sebagianCount}</div></div>
+    <div class="stat-card red"><div class="stat-label">Belum Bayar</div><div class="stat-value">${belumCount}</div></div>
+    <div class="stat-card green"><div class="stat-label">Pendapatan ${monthLabel(month)}</div><div class="stat-value" style="font-size:16px;">${fmtRp(paidThisMonth)}</div></div>
+    <div class="stat-card blue"><div class="stat-label">Potensi Pendapatan</div><div class="stat-value" style="font-size:16px;">${fmtRp(expectedRevenue)}</div></div>
+  `;
+
+  // List active customers
+  let list = paidActive;
+  if (filterLoc) list = list.filter(c => c.locationCode === filterLoc);
+  if (search) list = list.filter(c =>
+    (c.name||'').toLowerCase().includes(search) ||
+    (c.username||'').toLowerCase().includes(search));
+
+  const tbody = document.querySelector('#dashboard-table tbody');
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><h3>Belum ada pelanggan</h3><p>Tambahkan pelanggan dari menu Pelanggan</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(c => {
+    const bal = calculateBalance(c.id, month);
+    const monthEntry = bal.months.find(m => m.period === month);
+    const price = getPackagePrice(c.packageId);
+    let statusBadgeHtml, actionBtn;
+    if (!monthEntry) {
+      // Month not billable (e.g., before install date or during isolation)
+      statusBadgeHtml = '<span class="badge badge-gray">Tidak ditagih</span>';
+      actionBtn = '-';
+    } else if (monthEntry.status === 'lunas') {
+      statusBadgeHtml = '<span class="badge badge-success">✓ Lunas</span>';
+      const lastPayment = monthEntry.payments[monthEntry.payments.length - 1];
+      actionBtn = lastPayment
+        ? `<button class="btn btn-sm" onclick="showReceipt('${lastPayment.id}')">🧾 Struk</button>`
+        : '<span style="color:#78716c;font-size:12px;">Tertutup oleh kredit</span>';
+    } else if (monthEntry.status === 'sebagian') {
+      const sisa = monthEntry.billed - monthEntry.paid;
+      statusBadgeHtml = `<span class="badge badge-warning">Sebagian</span><br><small style="color:#9a3412;">Kurang ${fmtRp(sisa)}</small>`;
+      actionBtn = `<button class="btn btn-sm btn-warning" onclick="quickPay('${c.id}','${month}')">💰 Lanjut Bayar</button>`;
+    } else {
+      statusBadgeHtml = '<span class="badge badge-danger">Belum Bayar</span>';
+      actionBtn = `<button class="btn btn-sm btn-success" onclick="quickPay('${c.id}','${month}')">💰 Bayar</button>`;
+    }
+    return `<tr>
+      <td><strong>${escapeHtml(c.name)}</strong>${c.username ? `<br><small style="color:#78716c;">${escapeHtml(c.username)}</small>` : ''}</td>
+      <td>${escapeHtml(getLocationName(c.locationCode))}</td>
+      <td>${escapeHtml(getPackageName(c.packageId))}</td>
+      <td>${fmtRp(price)}</td>
+      <td>${statusBadgeHtml}</td>
+      <td>${actionBtn}</td>
+    </tr>`;
+  }).join('');
+}
+
+function quickPay(customerId, period) {
+  const tabBtn = document.querySelectorAll('.tab')[5]; // Pembayaran tab
+  showTab('pembayaran', tabBtn);
+  setTimeout(() => {
+    document.getElementById('pay-customer').value = customerId;
+    document.getElementById('pay-period').value = period;
+    const c = state.customers.find(x => x.id === customerId);
+    if (c) {
+      // Auto-fill with remaining unpaid amount for that month
+      const bal = calculateBalance(c.id, period);
+      const me = bal.months.find(m => m.period === period);
+      const sisa = me ? (me.billed - me.paid) : getPackagePrice(c.packageId);
+      document.getElementById('pay-amount').value = sisa;
+    }
+    document.getElementById('pay-date').value = todayStr();
+    updatePayInfo();
+    updatePayPreview();
+  }, 50);
+}
+
+// ===================== PELANGGAN =====================
+function renderCustomers() {
+  refreshLocationDropdown('filter-location');
+  const fp = document.getElementById('filter-paket');
+  const cur = fp.value;
+  fp.innerHTML = '<option value="">Semua Paket</option>' +
+    state.packages.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+  fp.value = cur;
+
+  const search = document.getElementById('search-customer').value.toLowerCase();
+  const filterLoc = document.getElementById('filter-location').value;
+  const filterPaket = document.getElementById('filter-paket').value;
+  const filterStatus = document.getElementById('filter-status').value;
+
+  let list = state.customers.filter(c => !c.isFree);
+  if (search) list = list.filter(c =>
+    (c.name||'').toLowerCase().includes(search) ||
+    (c.username||'').toLowerCase().includes(search) ||
+    (c.address||'').toLowerCase().includes(search) ||
+    (c.phone||'').toLowerCase().includes(search));
+  if (filterLoc) list = list.filter(c => c.locationCode === filterLoc);
+  if (filterPaket) list = list.filter(c => c.packageId === filterPaket);
+  if (filterStatus) list = list.filter(c => c.status === filterStatus);
+
+  document.getElementById('customers-info').innerHTML =
+    `Menampilkan <strong>${list.length}</strong> dari <strong>${state.customers.filter(c => !c.isFree).length}</strong> pelanggan berbayar`;
+
+  const tbody = document.querySelector('#customers-table tbody');
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><h3>Tidak ada data</h3><p>Klik "Import dari MikroTik" untuk import banyak sekaligus</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map((c, i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td><code style="font-size:12px;">${escapeHtml(c.username || '-')}</code></td>
+      <td><strong>${escapeHtml(c.name)}</strong>${c.address ? `<br><small style="color:#78716c;">${escapeHtml(c.address)}</small>` : ''}</td>
+      <td>${escapeHtml(getLocationName(c.locationCode))}</td>
+      <td>${escapeHtml(c.phone || '-')}</td>
+      <td>${escapeHtml(getPackageName(c.packageId))}<br><small style="color:#78716c;">${fmtRp(getPackagePrice(c.packageId))}</small></td>
+      <td>${statusBadge(c.status)}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-sm" onclick="showCustomerDetail('${c.id}')">📋</button>
+        <button class="btn btn-sm" onclick="editCustomer('${c.id}')">✏</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteCustomer('${c.id}')">🗑</button>
+      </td>
+    </tr>`).join('');
+}
+
+function statusBadge(status) {
+  if (status === 'aktif') return '<span class="badge badge-success">Aktif</span>';
+  if (status === 'diisolir') return '<span class="badge badge-warning">Diisolir</span>';
+  if (status === 'nonaktif') return '<span class="badge badge-gray">Nonaktif</span>';
+  return '-';
+}
+
+function renderFreeCustomers() {
+  const list = state.customers.filter(c => c.isFree);
+  const tbody = document.querySelector('#free-customers-table tbody');
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><h3>Belum ada pelanggan gratis</h3><p>Edit pelanggan dan centang "Gratis (orang dalam)" untuk pindah ke sini</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map((c, i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td><code style="font-size:12px;">${escapeHtml(c.username || '-')}</code></td>
+      <td><strong>${escapeHtml(c.name)}</strong></td>
+      <td>${escapeHtml(getLocationName(c.locationCode))}</td>
+      <td>${escapeHtml(getPackageName(c.packageId))}</td>
+      <td>${escapeHtml(c.phone || '-')}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-sm" onclick="editCustomer('${c.id}')">✏</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteCustomer('${c.id}')">🗑</button>
+      </td>
+    </tr>`).join('');
+}
+
+function openCustomerModal(isFree) {
+  document.getElementById('modal-customer-title').textContent = isFree ? 'Tambah Pelanggan Gratis' : 'Tambah Pelanggan';
+  document.getElementById('customer-id').value = '';
+  document.getElementById('customer-username').value = '';
+  document.getElementById('customer-name').value = '';
+  document.getElementById('customer-address').value = '';
+  document.getElementById('customer-phone').value = '';
+  document.getElementById('customer-installed').value = todayStr();
+  document.getElementById('customer-opening-balance').value = '0';
+  document.getElementById('customer-status').value = 'aktif';
+  document.getElementById('customer-is-free').checked = !!isFree;
+  document.getElementById('isolation-fields').style.display = 'none';
+  refreshPackageSelect('customer-package');
+  refreshLocationDropdown('customer-location', '', true);
+  document.getElementById('modal-customer').classList.add('show');
+}
+
+function editCustomer(id) {
+  const c = state.customers.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('modal-customer-title').textContent = 'Edit Pelanggan';
+  document.getElementById('customer-id').value = c.id;
+  document.getElementById('customer-username').value = c.username || '';
+  document.getElementById('customer-name').value = c.name;
+  document.getElementById('customer-address').value = c.address || '';
+  document.getElementById('customer-phone').value = c.phone || '';
+  document.getElementById('customer-installed').value = c.installedAt || todayStr();
+  document.getElementById('customer-opening-balance').value = c.openingBalance || 0;
+  document.getElementById('customer-status').value = c.status;
+  document.getElementById('customer-is-free').checked = !!c.isFree;
+  document.getElementById('customer-isolated-from').value = c.isolatedFrom || '';
+  document.getElementById('customer-isolated-until').value = c.isolatedUntil || '';
+  refreshPackageSelect('customer-package', c.packageId);
+  refreshLocationDropdown('customer-location', c.locationCode, true);
+  onStatusChange();
+  document.getElementById('modal-customer').classList.add('show');
+}
+
+function onStatusChange() {
+  const s = document.getElementById('customer-status').value;
+  document.getElementById('isolation-fields').style.display = (s === 'diisolir') ? 'block' : 'none';
+  if (s === 'diisolir' && !document.getElementById('customer-isolated-from').value) {
+    document.getElementById('customer-isolated-from').value = todayStr();
+  }
+}
+
+function saveCustomer() {
+  const id = document.getElementById('customer-id').value;
+  const name = document.getElementById('customer-name').value.trim();
+  const packageId = document.getElementById('customer-package').value;
+  if (!name) { alert('Nama wajib diisi'); return; }
+  if (!packageId) { alert('Pilih paket dulu'); return; }
+  const data = {
+    id: id || uid(),
+    username: document.getElementById('customer-username').value.trim(),
+    name,
+    address: document.getElementById('customer-address').value.trim(),
+    phone: document.getElementById('customer-phone').value.trim(),
+    locationCode: document.getElementById('customer-location').value,
+    packageId,
+    installedAt: document.getElementById('customer-installed').value,
+    openingBalance: parseInt(document.getElementById('customer-opening-balance').value) || 0,
+    status: document.getElementById('customer-status').value,
+    isFree: document.getElementById('customer-is-free').checked,
+    isolatedFrom: document.getElementById('customer-isolated-from').value,
+    isolatedUntil: document.getElementById('customer-isolated-until').value
+  };
+  if (id) {
+    const idx = state.customers.findIndex(c => c.id === id);
+    state.customers[idx] = data;
+  } else {
+    state.customers.push(data);
+  }
+  saveState();
+  closeModal('modal-customer');
+  renderCustomers();
+  renderFreeCustomers();
+}
+
+function deleteCustomer(id) {
+  const c = state.customers.find(x => x.id === id);
+  if (!c) return;
+  const hasPayment = state.payments.some(p => p.customerId === id);
+  let msg = `Hapus pelanggan "${c.name}"?`;
+  if (hasPayment) msg += '\n\nPERHATIAN: Riwayat pembayarannya juga akan dihapus.';
+  if (!confirm(msg)) return;
+  state.customers = state.customers.filter(x => x.id !== id);
+  state.payments = state.payments.filter(p => p.customerId !== id);
+  saveState();
+  renderCustomers();
+  renderFreeCustomers();
+}
+
+// ===================== MIKROTIK IMPORT =====================
+function openMikrotikImportModal() {
+  document.getElementById('mikrotik-data').value = '';
+  document.getElementById('mikrotik-installed').value = todayStr();
+  document.getElementById('mikrotik-preview').style.display = 'none';
+  document.getElementById('mikrotik-confirm-btn').style.display = 'none';
+  mikrotikImportBuffer = null;
+  document.getElementById('modal-mikrotik-import').classList.add('show');
+}
+
+function previewMikrotikImport() {
+  const text = document.getElementById('mikrotik-data').value.trim();
+  if (!text) { alert('Paste konfigurasi MikroTik dulu'); return; }
+  const installedAt = document.getElementById('mikrotik-installed').value || todayStr();
+
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l && l.toLowerCase().includes('name='));
+  const parsed = [];
+  const errors = [];
+
+  lines.forEach((line, idx) => {
+    const nameMatch = line.match(/name=([^\s]+)/i);
+    const profileMatch = line.match(/profile=([^\s]+)/i);
+    if (!nameMatch) { errors.push(`Baris ${idx+1}: tidak ada name=`); return; }
+    const username = nameMatch[1];
+    const profile = profileMatch ? profileMatch[1] : '';
+
+    // Parse location code from username prefix
+    const dotIdx = username.indexOf('.');
+    let locCode = '';
+    if (dotIdx > 0) locCode = username.substring(0, dotIdx).toLowerCase();
+
+    // Determine status from profile
+    let status = 'aktif';
+    let pkgId = null;
+    if (profile.toUpperCase() === 'EXPIRED') {
+      status = 'diisolir';
+      // Try to keep last known package — but we don't know it from secret. Default to 10M.
+      const def = state.packages.find(p => p.mikrotikProfile === '10M');
+      pkgId = def ? def.id : (state.packages[0] && state.packages[0].id);
+    } else {
+      const matched = state.packages.find(p => p.mikrotikProfile && p.mikrotikProfile.toLowerCase() === profile.toLowerCase());
+      pkgId = matched ? matched.id : null;
+    }
+
+    // Check if username already exists
+    const existing = state.customers.find(c => c.username && c.username.toLowerCase() === username.toLowerCase());
+
+    parsed.push({
+      username,
+      profile,
+      locCode,
+      locName: getLocationName(locCode),
+      packageId: pkgId,
+      packageName: pkgId ? getPackageName(pkgId) : `❌ Profile "${profile}" tidak dikenal`,
+      status,
+      installedAt,
+      duplicate: !!existing
+    });
+  });
+
+  mikrotikImportBuffer = parsed.filter(p => !p.duplicate && p.packageId);
+  const skipped = parsed.filter(p => p.duplicate).length;
+  const noPackage = parsed.filter(p => !p.packageId).length;
+
+  // Summary by location
+  const byLocation = {};
+  const byPackage = {};
+  const byStatus = { aktif: 0, diisolir: 0 };
+  mikrotikImportBuffer.forEach(p => {
+    const ln = p.locName || '(Tanpa Lokasi)';
+    byLocation[ln] = (byLocation[ln]||0) + 1;
+    byPackage[p.packageName] = (byPackage[p.packageName]||0) + 1;
+    byStatus[p.status]++;
+  });
+
+  let summaryHtml = `<strong>Hasil Parse:</strong><br>
+    Total dari MikroTik: ${parsed.length}<br>
+    ✅ Akan diimport: <strong>${mikrotikImportBuffer.length}</strong><br>
+    ${skipped > 0 ? `⚠️ Sudah ada (skip): ${skipped}<br>` : ''}
+    ${noPackage > 0 ? `❌ Profile tidak dikenal (skip): ${noPackage}<br>` : ''}
+    <br><strong>Per Lokasi:</strong><br>
+    ${Object.entries(byLocation).map(([k,v]) => `&nbsp;&nbsp;${k}: ${v}`).join('<br>')}
+    <br><br><strong>Per Paket:</strong><br>
+    ${Object.entries(byPackage).map(([k,v]) => `&nbsp;&nbsp;${k}: ${v}`).join('<br>')}
+    <br><br><strong>Per Status:</strong><br>
+    &nbsp;&nbsp;Aktif: ${byStatus.aktif}<br>
+    &nbsp;&nbsp;Diisolir (EXPIRED): ${byStatus.diisolir}`;
+
+  document.getElementById('mikrotik-summary').innerHTML = summaryHtml;
+
+  // Preview table (first 50)
+  const previewRows = parsed.slice(0, 50).map(p => `
+    <tr>
+      <td><code>${escapeHtml(p.username)}</code></td>
+      <td>${escapeHtml(p.locName || '-')}</td>
+      <td>${escapeHtml(p.packageName)}</td>
+      <td>${statusBadge(p.status)}</td>
+      <td>${p.duplicate ? '<span class="badge badge-warning">Sudah ada</span>' : !p.packageId ? '<span class="badge badge-danger">No paket</span>' : '<span class="badge badge-success">OK</span>'}</td>
+    </tr>`).join('');
+  document.getElementById('mikrotik-preview-content').innerHTML = `
+    <table style="width:100%;font-size:12px;">
+      <thead><tr><th>Username</th><th>Lokasi</th><th>Paket</th><th>Status</th><th>Hasil</th></tr></thead>
+      <tbody>${previewRows}</tbody>
+    </table>
+    ${parsed.length > 50 ? `<p style="padding:8px;color:#78716c;font-size:12px;">...dan ${parsed.length - 50} baris lainnya</p>` : ''}`;
+  document.getElementById('mikrotik-preview').style.display = 'block';
+  document.getElementById('mikrotik-confirm-btn').style.display = mikrotikImportBuffer.length > 0 ? 'inline-flex' : 'none';
+}
+
+function confirmMikrotikImport() {
+  if (!mikrotikImportBuffer || !mikrotikImportBuffer.length) return;
+  if (!confirm(`Import ${mikrotikImportBuffer.length} pelanggan dari MikroTik?`)) return;
+  mikrotikImportBuffer.forEach(p => {
+    state.customers.push({
+      id: uid(),
+      username: p.username,
+      name: p.username, // default to username; user can edit later to put real name
+      address: '',
+      phone: '',
+      locationCode: p.locCode,
+      packageId: p.packageId,
+      installedAt: p.installedAt,
+      status: p.status,
+      isFree: false,
+      isolatedFrom: p.status === 'diisolir' ? p.installedAt : '',
+      isolatedUntil: ''
+    });
+  });
+  saveState();
+  closeModal('modal-mikrotik-import');
+  alert(`✅ Berhasil import ${mikrotikImportBuffer.length} pelanggan!\n\nNama pelanggan akan diisi sama dengan username. Silakan edit untuk mengisi nama lengkap, alamat, dan HP.`);
+  mikrotikImportBuffer = null;
+  renderCustomers();
+}
+
+// ===================== BULK IMPORT (Excel) =====================
+function openBulkImportModal() {
+  document.getElementById('bulk-data').value = '';
+  document.getElementById('bulk-installed').value = todayStr();
+  document.getElementById('bulk-preview').style.display = 'none';
+  document.getElementById('bulk-confirm-btn').style.display = 'none';
+  bulkImportBuffer = null;
+  document.getElementById('modal-bulk-import').classList.add('show');
+}
+
+function previewBulkImport() {
+  const text = document.getElementById('bulk-data').value.trim();
+  if (!text) { alert('Paste data Excel dulu'); return; }
+  const installedAt = document.getElementById('bulk-installed').value || todayStr();
+
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+  const parsed = [];
+
+  lines.forEach(line => {
+    const cols = line.split('\t').map(c => c.trim());
+    const username = cols[0] || '';
+    const name = cols[1] || username;
+    const address = cols[2] || '';
+    const phone = cols[3] || '';
+    const paketStr = cols[4] || '';
+    const lokasiStr = cols[5] || '';
+
+    // Match package by speed
+    const speedMatch = paketStr.match(/(\d+)\s*(?:mb|mbps|m)/i);
+    let pkgId = null;
+    if (speedMatch) {
+      const speed = speedMatch[1];
+      const matched = state.packages.find(p => {
+        const ps = (p.speed || '').match(/(\d+)/);
+        return ps && ps[1] === speed;
+      });
+      pkgId = matched ? matched.id : null;
+    }
+
+    // Match location by name (case insensitive)
+    let locCode = '';
+    if (lokasiStr) {
+      const loc = state.locations.find(l => l.name.toLowerCase() === lokasiStr.toLowerCase());
+      if (loc) locCode = loc.code;
+    } else if (username.includes('.')) {
+      locCode = username.substring(0, username.indexOf('.')).toLowerCase();
+    }
+
+    const existing = username ? state.customers.find(c => c.username && c.username.toLowerCase() === username.toLowerCase()) : null;
+
+    parsed.push({
+      username, name, address, phone, locCode, packageId: pkgId,
+      packageName: pkgId ? getPackageName(pkgId) : `❌ "${paketStr}"`,
+      locName: getLocationName(locCode),
+      duplicate: !!existing,
+      installedAt
+    });
+  });
+
+  bulkImportBuffer = parsed.filter(p => !p.duplicate && p.packageId);
+
+  let summary = `<strong>Total baris:</strong> ${parsed.length}<br>
+    <strong>Akan diimport:</strong> ${bulkImportBuffer.length}<br>
+    <strong>Skip (duplicate/error):</strong> ${parsed.length - bulkImportBuffer.length}`;
+  document.getElementById('bulk-summary').innerHTML = summary;
+
+  const rows = parsed.slice(0, 50).map(p => `
+    <tr>
+      <td><code>${escapeHtml(p.username)}</code></td>
+      <td>${escapeHtml(p.name)}</td>
+      <td>${escapeHtml(p.locName || '-')}</td>
+      <td>${escapeHtml(p.packageName)}</td>
+      <td>${p.duplicate ? '<span class="badge badge-warning">Sudah ada</span>' : !p.packageId ? '<span class="badge badge-danger">No paket</span>' : '<span class="badge badge-success">OK</span>'}</td>
+    </tr>`).join('');
+  document.getElementById('bulk-preview-content').innerHTML = `
+    <table style="width:100%;font-size:12px;">
+      <thead><tr><th>Username</th><th>Nama</th><th>Lokasi</th><th>Paket</th><th>Hasil</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  document.getElementById('bulk-preview').style.display = 'block';
+  document.getElementById('bulk-confirm-btn').style.display = bulkImportBuffer.length > 0 ? 'inline-flex' : 'none';
+}
+
+function confirmBulkImport() {
+  if (!bulkImportBuffer || !bulkImportBuffer.length) return;
+  if (!confirm(`Import ${bulkImportBuffer.length} pelanggan?`)) return;
+  bulkImportBuffer.forEach(p => {
+    state.customers.push({
+      id: uid(),
+      username: p.username,
+      name: p.name,
+      address: p.address,
+      phone: p.phone,
+      locationCode: p.locCode,
+      packageId: p.packageId,
+      installedAt: p.installedAt,
+      status: 'aktif',
+      isFree: false,
+      isolatedFrom: '',
+      isolatedUntil: ''
+    });
+  });
+  saveState();
+  closeModal('modal-bulk-import');
+  alert(`✅ Berhasil import ${bulkImportBuffer.length} pelanggan!`);
+  bulkImportBuffer = null;
+  renderCustomers();
+}
+
+// ===================== LOKASI =====================
+function renderLocations() {
+  const sel = document.getElementById('lokasi-month');
+  if (!sel.options.length) {
+    const now = new Date();
+    let opts = '';
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const ym = d.toISOString().slice(0,7);
+      opts += `<option value="${ym}">${monthLabel(ym)}</option>`;
+    }
+    sel.innerHTML = opts;
+  }
+  const month = sel.value || curMonth();
+
+  const locations = state.locations.slice();
+  locations.push({ code: '', name: '(Tanpa Lokasi)' });
+
+  let html = '';
+  locations.forEach(loc => {
+    const customers = state.customers.filter(c => !c.isFree && (c.locationCode || '') === loc.code && c.status !== 'nonaktif');
+    if (!customers.length) return;
+    const active = customers.filter(c => c.status === 'aktif');
+    const isolated = customers.filter(c => c.status === 'diisolir');
+    const expected = active.reduce((s,c) => s + getPackagePrice(c.packageId), 0);
+    const paidIds = new Set(state.payments.filter(p => p.period === month).map(p => p.customerId));
+    const paidCustomers = active.filter(c => paidIds.has(c.id));
+    const paidAmount = state.payments.filter(p => p.period === month && customers.some(c => c.id === p.customerId)).reduce((s,p) => s + p.amount, 0);
+    const unpaidCount = active.length - paidCustomers.length;
+
+    html += `<div class="panel" style="margin-bottom:12px;">
+      <h3 style="margin-bottom:10px;">📍 ${escapeHtml(loc.name)} ${loc.code ? `<small style="color:#78716c;font-weight:normal;">(${escapeHtml(loc.code)}.*)</small>` : ''}</h3>
+      <div class="stats-grid">
+        <div class="stat-card blue"><div class="stat-label">Aktif</div><div class="stat-value">${active.length}</div></div>
+        <div class="stat-card amber"><div class="stat-label">Diisolir</div><div class="stat-value">${isolated.length}</div></div>
+        <div class="stat-card green"><div class="stat-label">Sudah Bayar</div><div class="stat-value">${paidCustomers.length}</div></div>
+        <div class="stat-card red"><div class="stat-label">Belum Bayar</div><div class="stat-value">${unpaidCount}</div></div>
+        <div class="stat-card green"><div class="stat-label">Pendapatan</div><div class="stat-value" style="font-size:16px;">${fmtRp(paidAmount)}</div></div>
+        <div class="stat-card blue"><div class="stat-label">Potensi</div><div class="stat-value" style="font-size:16px;">${fmtRp(expected)}</div></div>
+      </div>
+    </div>`;
+  });
+
+  document.getElementById('lokasi-content').innerHTML = html || '<div class="empty-state"><h3>Belum ada data lokasi</h3></div>';
+}
+
+function renderLocationsList() {
+  const html = state.locations.map((loc, i) => `
+    <div style="display:flex;gap:8px;align-items:center;padding:8px;border:1px solid #e7e5e4;border-radius:8px;margin-bottom:6px;">
+      <code style="background:#f5f5f4;padding:3px 8px;border-radius:4px;min-width:50px;text-align:center;">${escapeHtml(loc.code)}.*</code>
+      <span style="flex:1;">${escapeHtml(loc.name)}</span>
+      <span style="color:#78716c;font-size:12px;">${state.customers.filter(c => c.locationCode === loc.code).length} pelanggan</span>
+      <button class="btn btn-sm btn-danger" onclick="deleteLocation(${i})">🗑</button>
+    </div>`).join('');
+  document.getElementById('locations-list').innerHTML = html || '<p style="color:#78716c;">Belum ada lokasi</p>';
+}
+
+function addLocation() {
+  const code = document.getElementById('new-loc-code').value.trim().toLowerCase();
+  const name = document.getElementById('new-loc-name').value.trim();
+  if (!code || !name) { alert('Isi kode dan nama lokasi'); return; }
+  if (state.locations.some(l => l.code === code)) { alert('Kode lokasi sudah ada'); return; }
+  state.locations.push({ code, name });
+  saveState();
+  document.getElementById('new-loc-code').value = '';
+  document.getElementById('new-loc-name').value = '';
+  renderLocationsList();
+}
+
+function deleteLocation(idx) {
+  if (!confirm('Hapus lokasi ini? Pelanggan dengan lokasi ini tidak ikut terhapus, tapi lokasinya jadi kosong.')) return;
+  state.locations.splice(idx, 1);
+  saveState();
+  renderLocationsList();
+}
+
+// ===================== PAKET =====================
+function renderPackages() {
+  const tbody = document.querySelector('#packages-table tbody');
+  if (!state.packages.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><h3>Belum ada paket</h3></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = state.packages.map(p => {
+    const count = state.customers.filter(c => c.packageId === p.id).length;
+    return `<tr>
+      <td><strong>${escapeHtml(p.name)}</strong></td>
+      <td>${escapeHtml(p.speed || '-')}</td>
+      <td>${p.price === 0 ? '<span class="badge badge-purple">Gratis / Belum diset</span>' : fmtRp(p.price)}</td>
+      <td><code>${escapeHtml(p.mikrotikProfile || '-')}</code></td>
+      <td>${count} pelanggan</td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-sm" onclick="editPackage('${p.id}')">✏</button>
+        <button class="btn btn-sm btn-danger" onclick="deletePackage('${p.id}')">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openPackageModal() {
+  document.getElementById('modal-package-title').textContent = 'Tambah Paket';
+  document.getElementById('package-id').value = '';
+  document.getElementById('package-name').value = '';
+  document.getElementById('package-speed').value = '';
+  document.getElementById('package-price').value = '';
+  document.getElementById('package-mikrotik-profile').value = '';
+  document.getElementById('modal-package').classList.add('show');
+}
+
+function editPackage(id) {
+  const p = state.packages.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('modal-package-title').textContent = 'Edit Paket';
+  document.getElementById('package-id').value = p.id;
+  document.getElementById('package-name').value = p.name;
+  document.getElementById('package-speed').value = p.speed || '';
+  document.getElementById('package-price').value = p.price;
+  document.getElementById('package-mikrotik-profile').value = p.mikrotikProfile || '';
+  document.getElementById('modal-package').classList.add('show');
+}
+
+function savePackage() {
+  const id = document.getElementById('package-id').value;
+  const name = document.getElementById('package-name').value.trim();
+  const price = parseInt(document.getElementById('package-price').value) || 0;
+  if (!name) { alert('Nama paket wajib diisi'); return; }
+  const data = {
+    id: id || uid(),
+    name,
+    speed: document.getElementById('package-speed').value.trim(),
+    price,
+    mikrotikProfile: document.getElementById('package-mikrotik-profile').value.trim()
+  };
+  if (id) {
+    const idx = state.packages.findIndex(p => p.id === id);
+    state.packages[idx] = data;
+  } else {
+    state.packages.push(data);
+  }
+  saveState();
+  closeModal('modal-package');
+  renderPackages();
+}
+
+function deletePackage(id) {
+  const used = state.customers.some(c => c.packageId === id);
+  if (used) { alert('Paket ini masih digunakan oleh pelanggan. Pindahkan dulu pelanggannya ke paket lain.'); return; }
+  if (!confirm('Hapus paket ini?')) return;
+  state.packages = state.packages.filter(p => p.id !== id);
+  saveState();
+  renderPackages();
+}
+
+// ===================== PEMBAYARAN =====================
+function renderPayments() {
+  refreshCustomerSelect('pay-customer');
+  if (!document.getElementById('pay-period').value) document.getElementById('pay-period').value = curMonth();
+  if (!document.getElementById('pay-date').value) document.getElementById('pay-date').value = todayStr();
+
+  document.getElementById('pay-customer').onchange = function() {
+    const c = state.customers.find(x => x.id === this.value);
+    if (c) {
+      const period = document.getElementById('pay-period').value || curMonth();
+      const bal = calculateBalance(c.id, period);
+      const me = bal.months.find(m => m.period === period);
+      const sisa = me ? (me.billed - me.paid) : getPackagePrice(c.packageId);
+      document.getElementById('pay-amount').value = sisa > 0 ? sisa : getPackagePrice(c.packageId);
+    }
+    updatePayInfo();
+    updatePayPreview();
+  };
+
+  updatePayInfo();
+
+  const search = document.getElementById('search-payment').value.toLowerCase();
+  const filterPeriod = document.getElementById('filter-payment-period').value;
+
+  let list = [...state.payments].sort((a,b) => b.paidAt.localeCompare(a.paidAt));
+  if (search) list = list.filter(p => {
+    const c = state.customers.find(x => x.id === p.customerId);
+    return c && (c.name.toLowerCase().includes(search) || (c.username||'').toLowerCase().includes(search));
+  });
+  if (filterPeriod) list = list.filter(p => p.period === filterPeriod);
+
+  const tbody = document.querySelector('#payments-table tbody');
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><h3>Belum ada pembayaran</h3></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.slice(0, 200).map(p => {
+    const c = state.customers.find(x => x.id === p.customerId);
+    return `<tr>
+      <td>${formatDate(p.paidAt)}</td>
+      <td>${escapeHtml(c ? c.name : '?')}${c && c.username ? `<br><small style="color:#78716c;">${escapeHtml(c.username)}</small>` : ''}</td>
+      <td>${monthLabel(p.period)}</td>
+      <td><strong>${fmtRp(p.amount)}</strong></td>
+      <td><span class="badge badge-info">${p.method}</span></td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-sm" onclick="showReceipt('${p.id}')">🧾</button>
+        <button class="btn btn-sm btn-danger" onclick="deletePayment('${p.id}')">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function updatePayInfo() {
+  const customerId = document.getElementById('pay-customer').value;
+  const period = document.getElementById('pay-period').value;
+  const infoBox = document.getElementById('pay-info');
+  const infoContent = document.getElementById('pay-info-content');
+  if (!customerId || !period) {
+    infoBox.style.display = 'none';
+    return;
+  }
+  const c = state.customers.find(x => x.id === customerId);
+  if (!c) { infoBox.style.display = 'none'; return; }
+  const bal = calculateBalance(c.id, period);
+  const me = bal.months.find(m => m.period === period);
+
+  if (!me) {
+    infoContent.innerHTML = `⚠️ Bulan ${monthLabel(period)} tidak ditagih untuk pelanggan ini (sebelum tanggal pasang atau saat diisolir).`;
+    infoBox.style.display = 'block';
+    return;
+  }
+
+  let html = `<strong>Tagihan ${monthLabel(period)}:</strong> ${fmtRp(me.billed)}`;
+  if (me.paid > 0) {
+    html += `<br><strong>Sudah dibayar:</strong> ${fmtRp(me.paid)}`;
+    if (me.status === 'lunas') {
+      html += ` <span class="badge badge-success">Lunas</span>`;
+    } else {
+      html += `<br><strong style="color:#9a3412;">Sisa: ${fmtRp(me.billed - me.paid)}</strong>`;
+    }
+  } else {
+    html += ` <span class="badge badge-danger">Belum Bayar</span>`;
+  }
+  if (bal.balance > 0) {
+    html += `<br><br><strong style="color:#dc2626;">Total tunggakan ${escapeHtml(c.name)}: ${fmtRp(bal.balance)}</strong>`;
+  } else if (bal.credit > 0) {
+    html += `<br><br><strong style="color:#16a34a;">Kredit tersisa: ${fmtRp(bal.credit)}</strong>`;
+  }
+  infoContent.innerHTML = html;
+  infoBox.style.display = 'block';
+}
+
+function updatePayPreview() {
+  const customerId = document.getElementById('pay-customer').value;
+  const period = document.getElementById('pay-period').value;
+  const amount = parseInt(document.getElementById('pay-amount').value) || 0;
+  const preview = document.getElementById('pay-preview');
+  if (!customerId || !period || !amount) { preview.style.display = 'none'; return; }
+  const c = state.customers.find(x => x.id === customerId);
+  if (!c) { preview.style.display = 'none'; return; }
+  const bal = calculateBalance(c.id, period);
+  const me = bal.months.find(m => m.period === period);
+  if (!me) { preview.style.display = 'none'; return; }
+
+  const sisaSetelahBayar = (me.billed - me.paid) - amount;
+  let html = '<div class="alert ';
+  if (sisaSetelahBayar === 0) {
+    html += 'alert-success">✅ Setelah bayar: <strong>' + monthLabel(period) + ' LUNAS</strong>';
+  } else if (sisaSetelahBayar > 0) {
+    html += 'alert-warning">⚠️ Setelah bayar: ' + monthLabel(period) + ' masih kurang <strong>' + fmtRp(sisaSetelahBayar) + '</strong>';
+  } else {
+    const lebih = -sisaSetelahBayar;
+    const nextUnpaid = bal.months.filter(m => m.period > period && m.status !== 'lunas');
+    let remainingCredit = lebih;
+    const absorbed = [];
+    for (const nm of nextUnpaid) {
+      if (remainingCredit <= 0) break;
+      const need = nm.billed - nm.paid;
+      const take = Math.min(remainingCredit, need);
+      absorbed.push(`${monthLabel(nm.period)}: ${fmtRp(take)}${take === need ? ' (lunas)' : ''}`);
+      remainingCredit -= take;
+    }
+    html += 'alert-success">✅ ' + monthLabel(period) + ' LUNAS, kelebihan <strong>' + fmtRp(lebih) + '</strong>';
+    if (absorbed.length) {
+      html += '<br>Otomatis menutup: ' + absorbed.join(', ');
+      if (remainingCredit > 0) html += `<br>Sisa kredit: <strong>${fmtRp(remainingCredit)}</strong>`;
+    } else {
+      html += ' jadi kredit untuk bulan depan';
+    }
+  }
+  html += '</div>';
+  preview.innerHTML = html;
+  preview.style.display = 'block';
+}
+
+function savePayment() {
+  const customerId = document.getElementById('pay-customer').value;
+  const period = document.getElementById('pay-period').value;
+  const amount = parseInt(document.getElementById('pay-amount').value);
+  const paidAt = document.getElementById('pay-date').value;
+  const method = document.getElementById('pay-method').value;
+  const note = document.getElementById('pay-note').value.trim();
+  if (!customerId) { alert('Pilih pelanggan'); return; }
+  if (!period) { alert('Pilih periode bulan'); return; }
+  if (!amount || amount <= 0) { alert('Jumlah harus lebih dari 0'); return; }
+  if (!paidAt) { alert('Pilih tanggal bayar'); return; }
+
+  const payment = { id: uid(), customerId, period, amount, paidAt, method, note };
+  state.payments.push(payment);
+  saveState();
+  document.getElementById('pay-amount').value = '';
+  document.getElementById('pay-note').value = '';
+  document.getElementById('pay-preview').style.display = 'none';
+  renderPayments();
+  showReceipt(payment.id);
+}
+
+function deletePayment(id) {
+  if (!confirm('Hapus catatan pembayaran ini?')) return;
+  state.payments = state.payments.filter(p => p.id !== id);
+  saveState();
+  renderPayments();
+}
+
+// ===================== TUNGGAKAN =====================
+function renderArrears() {
+  refreshLocationDropdown('filter-arrears-location');
+  const filterLoc = document.getElementById('filter-arrears-location').value;
+  const filterStatus = document.getElementById('filter-arrears-status').value;
+
+  // Get customers (not free, not nonaktif)
+  let customers = state.customers.filter(c => !c.isFree && c.status !== 'nonaktif');
+  if (filterLoc) customers = customers.filter(c => c.locationCode === filterLoc);
+  if (filterStatus) customers = customers.filter(c => c.status === filterStatus);
+
+  const arrears = customers.map(c => {
+    const bal = calculateBalance(c.id);
+    if (bal.balance <= 0) return null;
+    // Count months that are not lunas
+    const unpaidMonthCount = bal.months.filter(m => m.status !== 'lunas').length;
+    const partialMonths = bal.months.filter(m => m.status === 'sebagian');
+    const fullUnpaid = bal.months.filter(m => m.status === 'belum');
+    return {
+      customer: c,
+      balance: bal.balance,
+      credit: bal.credit,
+      unpaidMonthCount,
+      partialCount: partialMonths.length,
+      fullUnpaidCount: fullUnpaid.length,
+      months: bal.months
+    };
+  }).filter(a => a !== null)
+    .sort((a,b) => b.balance - a.balance);
+
+  const totalArrears = arrears.reduce((s,a) => s + a.balance, 0);
+  const totalCustomers = arrears.length;
+  const totalMonthsArr = arrears.reduce((s,a) => s + a.unpaidMonthCount, 0);
+
+  document.getElementById('arrears-stats').innerHTML = `
+    <div class="stat-card red"><div class="stat-label">Pelanggan Menunggak</div><div class="stat-value">${totalCustomers}</div></div>
+    <div class="stat-card amber"><div class="stat-label">Total Bulan Bermasalah</div><div class="stat-value">${totalMonthsArr}</div></div>
+    <div class="stat-card red"><div class="stat-label">Total Tunggakan</div><div class="stat-value" style="font-size:16px;">${fmtRp(totalArrears)}</div></div>
+  `;
+
+  const tbody = document.querySelector('#arrears-table tbody');
+  if (!arrears.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><h3>🎉 Tidak ada tunggakan</h3></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = arrears.map(a => {
+    const detail = [];
+    if (a.fullUnpaidCount > 0) detail.push(`${a.fullUnpaidCount} bulan belum bayar`);
+    if (a.partialCount > 0) detail.push(`${a.partialCount} bulan sebagian`);
+    return `<tr>
+      <td><strong>${escapeHtml(a.customer.name)}</strong>${a.customer.username ? `<br><small style="color:#78716c;">${escapeHtml(a.customer.username)}</small>` : ''}</td>
+      <td>${statusBadge(a.customer.status)}</td>
+      <td>${escapeHtml(getLocationName(a.customer.locationCode))}</td>
+      <td>${escapeHtml(a.customer.phone || '-')}</td>
+      <td><span class="badge badge-danger">${a.unpaidMonthCount} bulan</span><br>
+        <small style="color:#78716c;">${detail.join(', ')}</small></td>
+      <td><strong style="color:#dc2626;">${fmtRp(a.balance)}</strong></td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-sm" onclick="showCustomerDetail('${a.customer.id}')">📋</button>
+        ${a.customer.phone ? `<button class="btn btn-sm" onclick="sendWA('${a.customer.id}', ${a.balance}, ${a.unpaidMonthCount})">💬</button>` : ''}
+        <button class="btn btn-sm btn-success" onclick="quickPayArrears('${a.customer.id}')">💰</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function sendWA(customerId, total, count) {
+  const c = state.customers.find(x => x.id === customerId);
+  if (!c || !c.phone) return;
+  let phone = c.phone.replace(/\D/g, '');
+  if (phone.startsWith('0')) phone = '62' + phone.slice(1);
+  else if (!phone.startsWith('62')) phone = '62' + phone;
+  const msg = `Halo Bapak/Ibu ${c.name},\n\nMohon maaf mengingatkan, total tunggakan WiFi Anda saat ini: ${fmtRp(total)}\n(${count} bulan bermasalah)\n\nMohon segera dilunasi. Terima kasih.\n\n_${state.settings.name || 'Pengelola WiFi'}_`;
+  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+function quickPayArrears(customerId) {
+  const bal = calculateBalance(customerId);
+  const firstUnpaid = bal.months.find(m => m.status !== 'lunas');
+  if (firstUnpaid) {
+    quickPay(customerId, firstUnpaid.period);
+  } else {
+    alert('Pelanggan ini sudah lunas semua');
+  }
+}
+
+function showCustomerDetail(customerId) {
+  const c = state.customers.find(x => x.id === customerId);
+  if (!c) return;
+  const bal = calculateBalance(customerId);
+  document.getElementById('modal-detail-title').textContent = '📋 ' + c.name;
+
+  let html = `<div class="form-grid" style="margin-bottom:14px;">
+    <div><strong>Username:</strong> <code>${escapeHtml(c.username || '-')}</code></div>
+    <div><strong>Lokasi:</strong> ${escapeHtml(getLocationName(c.locationCode))}</div>
+    <div><strong>Paket:</strong> ${escapeHtml(getPackageName(c.packageId))} (${fmtRp(getPackagePrice(c.packageId))}/bulan)</div>
+    <div><strong>Status:</strong> ${statusBadge(c.status)}</div>
+    <div><strong>HP:</strong> ${escapeHtml(c.phone || '-')}</div>
+    <div><strong>Pasang sejak:</strong> ${formatDate(c.installedAt)}</div>
+    ${(c.openingBalance || 0) !== 0 ? `<div><strong>Saldo Awal:</strong> ${(c.openingBalance > 0 ? '<span style="color:#dc2626;">+' : '<span style="color:#16a34a;">') + fmtRp(Math.abs(c.openingBalance)) + (c.openingBalance > 0 ? ' (tunggakan awal)' : ' (kredit awal)') + '</span>'}</div>` : ''}
+  </div>`;
+
+  html += `<div class="stats-grid">
+    <div class="stat-card blue"><div class="stat-label">Total Tagihan</div><div class="stat-value" style="font-size:16px;">${fmtRp(bal.totalBilled)}</div></div>
+    <div class="stat-card green"><div class="stat-label">Total Dibayar</div><div class="stat-value" style="font-size:16px;">${fmtRp(bal.totalPaid)}</div></div>
+    ${bal.balance > 0
+      ? `<div class="stat-card red"><div class="stat-label">Tunggakan</div><div class="stat-value" style="font-size:16px;">${fmtRp(bal.balance)}</div></div>`
+      : `<div class="stat-card green"><div class="stat-label">Status</div><div class="stat-value" style="font-size:16px;">${bal.credit > 0 ? 'Kredit ' + fmtRp(bal.credit) : 'Lunas ✓'}</div></div>`}
+  </div>`;
+
+  html += `<h4 style="margin:16px 0 8px;">Rincian per Bulan:</h4>`;
+  if (!bal.months.length) {
+    html += `<p style="color:#78716c;">Belum ada tagihan.</p>`;
+  } else {
+    html += `<div class="month-grid">`;
+    bal.months.slice().reverse().forEach(m => {
+      const cls = m.status === 'lunas' ? 'lunas' : m.status === 'sebagian' ? 'sebagian' : 'belum';
+      let detail;
+      if (m.status === 'lunas') detail = `✓ Lunas`;
+      else if (m.status === 'sebagian') detail = `Bayar ${fmtRp(m.paid)} / ${fmtRp(m.billed)}<br><strong style="color:#9a3412;">Kurang ${fmtRp(m.billed - m.paid)}</strong>`;
+      else detail = `Belum bayar<br>${fmtRp(m.billed)}`;
+      html += `<div class="month-cell ${cls}">
+        <div class="month-name">${monthLabel(m.period)}</div>
+        <div class="month-detail">${detail}</div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  // Show payment history
+  const customerPayments = state.payments
+    .filter(p => p.customerId === customerId)
+    .sort((a,b) => (b.paidAt||'').localeCompare(a.paidAt||''));
+  if (customerPayments.length) {
+    html += `<h4 style="margin:16px 0 8px;">Riwayat Pembayaran:</h4>`;
+    html += `<div class="table-wrap"><table style="font-size:12px;">
+      <thead><tr><th>Tgl</th><th>Periode</th><th>Jumlah</th><th>Metode</th><th>Aksi</th></tr></thead>
+      <tbody>`;
+    customerPayments.forEach(p => {
+      html += `<tr>
+        <td>${formatDate(p.paidAt)}</td>
+        <td>${monthLabel(p.period)}</td>
+        <td>${fmtRp(p.amount)}</td>
+        <td>${escapeHtml(p.method)}</td>
+        <td><button class="btn btn-sm" onclick="showReceipt('${p.id}')">🧾</button></td>
+      </tr>`;
+    });
+    html += `</tbody></table></div>`;
+  }
+
+  document.getElementById('modal-detail-content').innerHTML = html;
+  document.getElementById('modal-detail').classList.add('show');
+}
+
+function monthsBetween(startYM, endYM) {
+  const result = [];
+  let [y, m] = startYM.split('-').map(Number);
+  const [ey, em] = endYM.split('-').map(Number);
+  while (y < ey || (y === ey && m <= em)) {
+    result.push(`${y}-${String(m).padStart(2,'0')}`);
+    m++;
+    if (m > 12) { m = 1; y++; }
+    if (result.length > 240) break;
+  }
+  return result;
+}
+
+// ===================== BALANCE CALCULATION (CORE) =====================
+// Returns { months: [{period, billed, paid, status, payments}], totalBilled, totalPaid, balance, credit }
+// balance: positive = customer owes (tunggakan), negative = customer has credit
+// Uses FIFO: oldest months get filled first when payments come in
+// ===================== BULK OPENING BALANCE =====================
+let bulkOpeningBuffer = null;
+
+function openBulkOpeningModal() {
+  document.getElementById('bulk-opening-data').value = '';
+  document.getElementById('bulk-opening-preview').style.display = 'none';
+  document.getElementById('bulk-opening-confirm').style.display = 'none';
+  bulkOpeningBuffer = null;
+  document.getElementById('modal-bulk-opening').classList.add('show');
+}
+
+function previewBulkOpening() {
+  const text = document.getElementById('bulk-opening-data').value.trim();
+  if (!text) { alert('Paste data dulu'); return; }
+
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+  const parsed = [];
+
+  lines.forEach(line => {
+    const cols = line.split('\t').map(c => c.trim());
+    const username = cols[0] || '';
+    const balanceStr = (cols[1] || '0').replace(/[^\-\d]/g, '');
+    const balance = parseInt(balanceStr) || 0;
+    const customer = state.customers.find(c =>
+      c.username && c.username.toLowerCase() === username.toLowerCase()
+    );
+    parsed.push({
+      username,
+      balance,
+      customer,
+      found: !!customer
+    });
+  });
+
+  bulkOpeningBuffer = parsed.filter(p => p.found);
+  const notFound = parsed.filter(p => !p.found).length;
+
+  let summary = `<strong>Total baris:</strong> ${parsed.length}<br>
+    <strong>✅ Akan diupdate:</strong> ${bulkOpeningBuffer.length}<br>
+    ${notFound > 0 ? `<strong>❌ Username tidak ditemukan:</strong> ${notFound}` : ''}`;
+  document.getElementById('bulk-opening-summary').innerHTML = summary;
+
+  const rows = parsed.slice(0, 100).map(p => `
+    <tr>
+      <td><code>${escapeHtml(p.username)}</code></td>
+      <td>${p.found ? escapeHtml(p.customer.name) : '<em>tidak ditemukan</em>'}</td>
+      <td style="text-align:right;">${p.balance > 0
+        ? `<span style="color:#dc2626;">+${fmtRp(p.balance)}</span>`
+        : p.balance < 0
+          ? `<span style="color:#16a34a;">${fmtRp(p.balance)}</span>`
+          : 'Rp 0'}</td>
+      <td>${p.found ? '<span class="badge badge-success">OK</span>' : '<span class="badge badge-danger">Skip</span>'}</td>
+    </tr>`).join('');
+  document.getElementById('bulk-opening-content').innerHTML = `
+    <table style="width:100%;font-size:12px;">
+      <thead><tr><th>Username</th><th>Nama</th><th>Saldo Awal</th><th>Hasil</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  document.getElementById('bulk-opening-preview').style.display = 'block';
+  document.getElementById('bulk-opening-confirm').style.display = bulkOpeningBuffer.length > 0 ? 'inline-flex' : 'none';
+}
+
+function confirmBulkOpening() {
+  if (!bulkOpeningBuffer || !bulkOpeningBuffer.length) return;
+  if (!confirm(`Update saldo awal ${bulkOpeningBuffer.length} pelanggan?`)) return;
+  bulkOpeningBuffer.forEach(p => {
+    const idx = state.customers.findIndex(c => c.id === p.customer.id);
+    if (idx >= 0) state.customers[idx].openingBalance = p.balance;
+  });
+  saveState();
+  closeModal('modal-bulk-opening');
+  alert(`✅ Berhasil update saldo awal ${bulkOpeningBuffer.length} pelanggan!`);
+  bulkOpeningBuffer = null;
+  if (document.getElementById('tab-pelanggan').style.display !== 'none') renderCustomers();
+}
+
+// ===================== TUKANG (COLLECTORS) =====================
+function renderCollectors() {
+  const tbody = document.querySelector('#collectors-table tbody');
+  if (!state.collectors.length) {
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><h3>Belum ada tukang</h3><p>Klik "+ Tambah Tukang" untuk mulai</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = state.collectors.map(t => {
+    const loc = state.locations.find(l => l.collectorId === t.id);
+    return `<tr>
+      <td><strong>${escapeHtml(t.name)}</strong></td>
+      <td>${escapeHtml(t.phone || '-')}</td>
+      <td>${loc ? '<span class="badge badge-info">' + escapeHtml(loc.name) + '</span>' : '<span class="badge badge-gray">Belum diatur</span>'}</td>
+      <td>${loc ? loc.commissionPercent + '%' : '-'}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-sm" onclick="editCollector('${t.id}')">✏</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteCollector('${t.id}')">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openCollectorModal() {
+  document.getElementById('modal-collector-title').textContent = 'Tambah Tukang';
+  document.getElementById('collector-id').value = '';
+  document.getElementById('collector-name').value = '';
+  document.getElementById('collector-phone').value = '';
+  document.getElementById('collector-commission').value = '5';
+  refreshLocationDropdown('collector-location', '', true);
+  document.getElementById('modal-collector').classList.add('show');
+}
+
+function editCollector(id) {
+  const t = state.collectors.find(x => x.id === id);
+  if (!t) return;
+  const loc = state.locations.find(l => l.collectorId === t.id);
+  document.getElementById('modal-collector-title').textContent = 'Edit Tukang';
+  document.getElementById('collector-id').value = t.id;
+  document.getElementById('collector-name').value = t.name;
+  document.getElementById('collector-phone').value = t.phone || '';
+  document.getElementById('collector-commission').value = loc ? loc.commissionPercent : 5;
+  refreshLocationDropdown('collector-location', loc ? loc.code : '', true);
+  document.getElementById('modal-collector').classList.add('show');
+}
+
+function saveCollector() {
+  const id = document.getElementById('collector-id').value;
+  const name = document.getElementById('collector-name').value.trim();
+  const phone = document.getElementById('collector-phone').value.trim();
+  const locCode = document.getElementById('collector-location').value;
+  const commission = parseFloat(document.getElementById('collector-commission').value) || 0;
+  if (!name) { alert('Nama tukang wajib diisi'); return; }
+  const collectorId = id || uid();
+  if (id) {
+    const idx = state.collectors.findIndex(t => t.id === id);
+    state.collectors[idx] = { id, name, phone };
+  } else {
+    state.collectors.push({ id: collectorId, name, phone });
+  }
+  // Update location assignment
+  state.locations.forEach(l => {
+    if (l.collectorId === collectorId) l.collectorId = '';
+    if (l.code === locCode) {
+      l.collectorId = collectorId;
+      l.commissionPercent = commission;
+    }
+  });
+  saveState();
+  closeModal('modal-collector');
+  renderCollectors();
+}
+
+function deleteCollector(id) {
+  const t = state.collectors.find(x => x.id === id);
+  if (!t) return;
+  if (!confirm(`Hapus tukang "${t.name}"?`)) return;
+  state.collectors = state.collectors.filter(x => x.id !== id);
+  state.locations.forEach(l => { if (l.collectorId === id) l.collectorId = ''; });
+  saveState();
+  renderCollectors();
+}
+
+// ===================== INPUT CEPAT (FAST INPUT) =====================
+function initFastInput() {
+  const sel = document.getElementById('fi-location');
+  sel.innerHTML = state.locations.map(l => `<option value="${l.code}">${escapeHtml(l.name)}</option>`).join('');
+  if (!document.getElementById('fi-period').value) document.getElementById('fi-period').value = curMonth();
+  if (!document.getElementById('fi-date').value) document.getElementById('fi-date').value = todayStr();
+  renderFastInput();
+}
+
+function renderFastInput() {
+  const locCode = document.getElementById('fi-location').value;
+  const period = document.getElementById('fi-period').value || curMonth();
+  if (!locCode) return;
+
+  const customers = state.customers.filter(c =>
+    !c.isFree && c.locationCode === locCode && c.status === 'aktif'
+  ).sort((a,b) => a.name.localeCompare(b.name));
+
+  const container = document.getElementById('fi-list');
+  if (!customers.length) {
+    container.innerHTML = `<div class="empty-state"><h3>Tidak ada pelanggan aktif di daerah ini</h3></div>`;
+    document.getElementById('fi-deposit-info').style.display = 'none';
+    return;
+  }
+
+  let html = `<div style="border:1px solid #e7e5e4;border-radius:10px;overflow:hidden;">
+    <div style="background:#fafaf9;padding:8px 10px;font-size:12px;font-weight:600;color:#44403c;display:grid;grid-template-columns:30px 1fr 100px 130px 90px;gap:8px;">
+      <div></div><div>Pelanggan</div><div>Tagihan</div><div>Bayar</div><div>Aksi</div>
+    </div>`;
+
+  customers.forEach((c, i) => {
+    const bal = calculateBalance(c.id, period);
+    const me = bal.months.find(m => m.period === period);
+    if (!me) {
+      html += `<div class="fast-input-row"><div>${i+1}</div>
+        <div class="name"><strong>${escapeHtml(c.name)}</strong><small>${escapeHtml(c.username||'')}</small></div>
+        <div colspan="3" style="grid-column:span 3;color:#78716c;font-style:italic;">Tidak ditagih bulan ini</div></div>`;
+      return;
+    }
+
+    const sisa = me.billed - me.paid;
+    const rowClass = me.status === 'lunas' ? 'paid' : me.status === 'sebagian' ? 'partial' : '';
+    const tunggakan = bal.balance - sisa;
+    let tagihanInfo = `<div><strong>${fmtRp(me.billed)}</strong>${tunggakan > 0 ? `<br><small style="color:#dc2626;">+${fmtRp(tunggakan)} tunggak</small>` : ''}</div>`;
+
+    let inputCell, actionCell;
+    if (me.status === 'lunas') {
+      inputCell = `<div style="color:#16a34a;font-weight:600;">✓ Lunas (${fmtRp(me.paid)})</div>`;
+      actionCell = `<div style="color:#16a34a;font-size:11px;">Sudah dibayar</div>`;
+    } else {
+      inputCell = `<input type="number" class="fast-input-amount" id="fi-amt-${c.id}" placeholder="${sisa}" data-customer="${c.id}" data-period="${period}" data-billed="${me.billed}" data-paid="${me.paid}">`;
+      actionCell = `<button class="btn btn-sm btn-success" onclick="fastInputPay('${c.id}','${period}',${sisa})">Lunas</button>`;
+    }
+
+    html += `<div class="fast-input-row ${rowClass}" id="fi-row-${c.id}">
+      <div>${i+1}</div>
+      <div class="name"><strong>${escapeHtml(c.name)}</strong><small>${escapeHtml(c.username||'')} ${c.phone ? '· ' + escapeHtml(c.phone) : ''}</small></div>
+      ${tagihanInfo}
+      ${inputCell ? `<div>${inputCell}</div>` : `<div></div>`}
+      <div>${actionCell}</div>
+    </div>`;
+  });
+
+  html += `</div>`;
+  container.innerHTML = html;
+
+  // Add Enter key handler for amount inputs
+  customers.forEach(c => {
+    const inp = document.getElementById('fi-amt-' + c.id);
+    if (inp) {
+      inp.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+          const amt = parseInt(e.target.value);
+          if (amt > 0) fastInputPay(c.id, e.target.dataset.period, amt);
+        }
+      });
+    }
+  });
+
+  document.getElementById('fi-deposit-info').style.display = 'block';
+  updateFastInputSummary();
+}
+
+function fastInputPay(customerId, period, amount) {
+  if (!amount || amount <= 0) { alert('Jumlah harus lebih dari 0'); return; }
+  const paidAt = document.getElementById('fi-date').value || todayStr();
+  const method = document.getElementById('fi-method').value || 'Tunai';
+  const payment = {
+    id: uid(),
+    customerId, period, amount, paidAt, method, note: '',
+    fastInput: true,
+    fastInputBatch: window.currentFastInputBatch || (window.currentFastInputBatch = uid())
+  };
+  state.payments.push(payment);
+  saveState();
+  renderFastInput();
+}
+
+function updateFastInputSummary() {
+  const locCode = document.getElementById('fi-location').value;
+  const period = document.getElementById('fi-period').value || curMonth();
+  const customers = state.customers.filter(c =>
+    !c.isFree && c.locationCode === locCode && c.status === 'aktif'
+  );
+
+  // Find payments made in this fast input session (today, this period, this location)
+  const today = todayStr();
+  const todayPayments = state.payments.filter(p => {
+    if (p.period !== period || p.paidAt !== today) return false;
+    const c = customers.find(x => x.id === p.customerId);
+    return !!c;
+  });
+
+  const totalInput = todayPayments.reduce((s,p) => s + p.amount, 0);
+  const paidCustomerIds = new Set(todayPayments.map(p => p.customerId));
+
+  // Calculate total expected from this period's billing for this location
+  let totalExpected = 0;
+  let stillUnpaid = 0;
+  let lunasCount = 0;
+  customers.forEach(c => {
+    const bal = calculateBalance(c.id, period);
+    const me = bal.months.find(m => m.period === period);
+    if (me) {
+      totalExpected += me.billed;
+      if (me.status === 'lunas') lunasCount++;
+      else stillUnpaid += (me.billed - me.paid);
+    }
+  });
+
+  document.getElementById('fi-total').textContent = fmtRp(totalInput);
+  document.getElementById('fi-count').textContent = `${lunasCount} / ${customers.length}`;
+  document.getElementById('fi-remaining').textContent = fmtRp(stillUnpaid);
+}
+
+function finalizeFastInput() {
+  const locCode = document.getElementById('fi-location').value;
+  const period = document.getElementById('fi-period').value || curMonth();
+  const today = todayStr();
+  const loc = state.locations.find(l => l.code === locCode);
+  if (!loc) { alert('Pilih daerah dulu'); return; }
+
+  // Find payments made today for this location & period
+  const customers = state.customers.filter(c => c.locationCode === locCode);
+  const customerIds = new Set(customers.map(c => c.id));
+  const todayPayments = state.payments.filter(p =>
+    p.period === period && p.paidAt === today && customerIds.has(p.customerId)
+  );
+
+  if (!todayPayments.length) {
+    alert('Belum ada pembayaran yang diinput hari ini');
+    return;
+  }
+
+  const totalAmount = todayPayments.reduce((s,p) => s + p.amount, 0);
+
+  // Open deposit modal pre-filled
+  openDepositModal();
+  document.getElementById('deposit-location').value = locCode;
+  document.getElementById('deposit-period').value = period;
+  // Auto-select collector for this location
+  if (loc.collectorId) document.getElementById('deposit-collector').value = loc.collectorId;
+  // Suggest the deposit amount
+  document.getElementById('deposit-amount').value = totalAmount;
+  // Mark these payments to be linked
+  document.getElementById('deposit-id').value = '__from_fastinput__';
+  window.fastInputPaymentIds = todayPayments.map(p => p.id);
+  updateDepositCalc();
+  // Reset fast input batch
+  window.currentFastInputBatch = null;
+}
+
+// ===================== SETORAN (DEPOSITS) =====================
+function renderDeposits() {
+  const tbody = document.querySelector('#deposits-table tbody');
+  if (!state.deposits.length) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><h3>Belum ada sesi setoran</h3></div></td></tr>`;
+    return;
+  }
+  const sorted = [...state.deposits].sort((a,b) => (b.date||'').localeCompare(a.date||''));
+  tbody.innerHTML = sorted.map(d => {
+    const collector = state.collectors.find(c => c.id === d.collectorId);
+    const totalPayments = (d.paymentIds || []).reduce((s,pid) => {
+      const p = state.payments.find(x => x.id === pid);
+      return s + (p ? p.amount : 0);
+    }, 0);
+    const selisih = d.amount - totalPayments;
+    const commission = totalPayments * (d.commissionPercent || 0) / 100;
+    return `<tr>
+      <td>${formatDate(d.date)}</td>
+      <td>${escapeHtml(collector ? collector.name : '-')}</td>
+      <td>${escapeHtml(getLocationName(d.locationCode))}</td>
+      <td>${monthLabel(d.period)}</td>
+      <td>${fmtRp(totalPayments)}</td>
+      <td><strong>${fmtRp(d.amount)}</strong></td>
+      <td>${selisih === 0
+        ? '<span class="badge badge-success">Cocok ✓</span>'
+        : selisih > 0
+          ? `<span class="badge badge-info">+${fmtRp(selisih)}</span>`
+          : `<span class="badge badge-danger">${fmtRp(selisih)}</span>`}</td>
+      <td>${fmtRp(commission)}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-sm" onclick="editDeposit('${d.id}')">✏</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteDeposit('${d.id}')">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openDepositModal() {
+  document.getElementById('modal-deposit-title').textContent = 'Sesi Setoran Tukang';
+  document.getElementById('deposit-id').value = '';
+  document.getElementById('deposit-date').value = todayStr();
+  document.getElementById('deposit-period').value = curMonth();
+  document.getElementById('deposit-amount').value = '';
+  document.getElementById('deposit-note').value = '';
+  document.getElementById('deposit-summary').style.display = 'none';
+  // Refresh collector & location dropdowns
+  const collSel = document.getElementById('deposit-collector');
+  collSel.innerHTML = '<option value="">— Pilih Tukang —</option>' +
+    state.collectors.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+  const locSel = document.getElementById('deposit-location');
+  locSel.innerHTML = '<option value="">— Pilih Daerah —</option>' +
+    state.locations.map(l => `<option value="${l.code}">${escapeHtml(l.name)}</option>`).join('');
+  document.getElementById('deposit-location').onchange = updateDepositCalc;
+  document.getElementById('deposit-period').onchange = updateDepositCalc;
+  window.fastInputPaymentIds = null;
+  document.getElementById('modal-deposit').classList.add('show');
+}
+
+function editDeposit(id) {
+  const d = state.deposits.find(x => x.id === id);
+  if (!d) return;
+  openDepositModal();
+  document.getElementById('deposit-id').value = d.id;
+  document.getElementById('deposit-collector').value = d.collectorId || '';
+  document.getElementById('deposit-location').value = d.locationCode || '';
+  document.getElementById('deposit-period').value = d.period;
+  document.getElementById('deposit-date').value = d.date;
+  document.getElementById('deposit-amount').value = d.amount;
+  document.getElementById('deposit-note').value = d.note || '';
+  window.fastInputPaymentIds = d.paymentIds || null;
+  updateDepositCalc();
+}
+
+function updateDepositCalc() {
+  const locCode = document.getElementById('deposit-location').value;
+  const period = document.getElementById('deposit-period').value;
+  const amount = parseInt(document.getElementById('deposit-amount').value) || 0;
+  const editId = document.getElementById('deposit-id').value;
+  const summary = document.getElementById('deposit-summary');
+  if (!locCode || !period) { summary.style.display = 'none'; return; }
+
+  const loc = state.locations.find(l => l.code === locCode);
+  const commPercent = loc ? (loc.commissionPercent || 0) : 0;
+
+  // Find payments to associate
+  let paymentIds = window.fastInputPaymentIds;
+  if (!paymentIds) {
+    // Default: all payments for this location & period not yet associated to another deposit
+    const customers = state.customers.filter(c => c.locationCode === locCode);
+    const customerIds = new Set(customers.map(c => c.id));
+    const linkedPids = new Set();
+    state.deposits.forEach(d => {
+      if (d.id === editId) return;
+      (d.paymentIds || []).forEach(pid => linkedPids.add(pid));
+    });
+    paymentIds = state.payments
+      .filter(p => p.period === period && customerIds.has(p.customerId) && !linkedPids.has(p.id))
+      .map(p => p.id);
+  }
+
+  const totalPayments = paymentIds.reduce((s,pid) => {
+    const p = state.payments.find(x => x.id === pid);
+    return s + (p ? p.amount : 0);
+  }, 0);
+  const selisih = amount - totalPayments;
+  const commission = totalPayments * commPercent / 100;
+  const netSetor = totalPayments - commission;
+
+  let html = `<strong>Rincian:</strong><br>
+    Total pembayaran tercatat: <strong>${fmtRp(totalPayments)}</strong> (${paymentIds.length} pembayaran)<br>
+    Uang disetor tukang: <strong>${fmtRp(amount)}</strong><br>`;
+  if (selisih === 0 && amount > 0) {
+    html += `<span style="color:#16a34a;font-weight:600;">✓ Cocok!</span><br>`;
+  } else if (selisih > 0) {
+    html += `<span style="color:#1e40af;">Setoran lebih ${fmtRp(selisih)}</span><br>`;
+  } else if (selisih < 0) {
+    html += `<span style="color:#dc2626;font-weight:600;">⚠️ Selisih kurang ${fmtRp(-selisih)}</span><br>`;
+  }
+  html += `<br>Komisi tukang (${commPercent}%): <strong>${fmtRp(commission)}</strong><br>
+    Pendapatan bersih: <strong>${fmtRp(netSetor)}</strong>`;
+  summary.innerHTML = html;
+  summary.style.display = 'block';
+}
+
+function saveDeposit() {
+  const id = document.getElementById('deposit-id').value;
+  const collectorId = document.getElementById('deposit-collector').value;
+  const locCode = document.getElementById('deposit-location').value;
+  const period = document.getElementById('deposit-period').value;
+  const date = document.getElementById('deposit-date').value;
+  const amount = parseInt(document.getElementById('deposit-amount').value);
+  const note = document.getElementById('deposit-note').value.trim();
+  if (!locCode) { alert('Pilih daerah'); return; }
+  if (!period) { alert('Pilih periode'); return; }
+  if (!amount || amount <= 0) { alert('Isi jumlah setoran'); return; }
+  if (!date) { alert('Pilih tanggal setor'); return; }
+
+  const loc = state.locations.find(l => l.code === locCode);
+  const commPercent = loc ? (loc.commissionPercent || 0) : 0;
+
+  // Determine payment IDs
+  let paymentIds = window.fastInputPaymentIds;
+  const editingId = (id && id !== '__from_fastinput__') ? id : null;
+  if (!paymentIds) {
+    const customers = state.customers.filter(c => c.locationCode === locCode);
+    const customerIds = new Set(customers.map(c => c.id));
+    const linkedPids = new Set();
+    state.deposits.forEach(d => {
+      if (d.id === editingId) return;
+      (d.paymentIds || []).forEach(pid => linkedPids.add(pid));
+    });
+    paymentIds = state.payments
+      .filter(p => p.period === period && customerIds.has(p.customerId) && !linkedPids.has(p.id))
+      .map(p => p.id);
+  }
+
+  const data = {
+    id: editingId || uid(),
+    collectorId, locationCode: locCode, period, date, amount, note,
+    paymentIds, commissionPercent: commPercent
+  };
+
+  if (editingId) {
+    const idx = state.deposits.findIndex(d => d.id === editingId);
+    state.deposits[idx] = data;
+  } else {
+    state.deposits.push(data);
+  }
+  saveState();
+  closeModal('modal-deposit');
+  window.fastInputPaymentIds = null;
+  renderDeposits();
+}
+
+function deleteDeposit(id) {
+  if (!confirm('Hapus sesi setoran ini? Data pembayarannya tetap aman, hanya catatan setorannya yang dihapus.')) return;
+  state.deposits = state.deposits.filter(d => d.id !== id);
+  saveState();
+  renderDeposits();
+}
+
+// ===================== PRINT BILLING FOR COLLECTORS =====================
+function initPrintBilling() {
+  const sel = document.getElementById('print-location');
+  sel.innerHTML = state.locations.map(l => `<option value="${l.code}">${escapeHtml(l.name)}</option>`).join('');
+  if (!document.getElementById('print-period').value) {
+    // Default to next month
+    const d = new Date();
+    d.setMonth(d.getMonth() + 1);
+    document.getElementById('print-period').value = d.toISOString().slice(0,7);
+  }
+}
+
+function generatePrintBilling() {
+  const locCode = document.getElementById('print-location').value;
+  const period = document.getElementById('print-period').value;
+  if (!locCode || !period) { alert('Pilih daerah dan periode'); return; }
+
+  const loc = state.locations.find(l => l.code === locCode);
+  const collector = loc && loc.collectorId ? state.collectors.find(c => c.id === loc.collectorId) : null;
+  const customers = state.customers.filter(c =>
+    !c.isFree && c.locationCode === locCode && c.status !== 'nonaktif'
+  ).sort((a,b) => a.name.localeCompare(b.name));
+
+  if (!customers.length) {
+    alert('Tidak ada pelanggan di daerah ini');
+    return;
+  }
+
+  let totalTagihan = 0;
+  let totalTunggakan = 0;
+  let rows = '';
+
+  customers.forEach((c, i) => {
+    const bal = calculateBalance(c.id, period);
+    const me = bal.months.find(m => m.period === period);
+    const billed = me ? me.billed : 0;
+    // Tunggakan = unpaid before this period
+    const tunggakanSebelumnya = bal.months
+      .filter(m => m.period < period && m.status !== 'lunas')
+      .reduce((s,m) => s + (m.billed - m.paid), 0);
+    const total = billed + tunggakanSebelumnya;
+    totalTagihan += billed;
+    totalTunggakan += tunggakanSebelumnya;
+
+    const isolatedNote = c.status === 'diisolir' ? ' <span style="color:#d97706;font-size:10px;">[DIISOLIR]</span>' : '';
+
+    rows += `<tr>
+      <td>${i+1}</td>
+      <td>${escapeHtml(c.name)}${isolatedNote}<br><small style="color:#666;">${escapeHtml(c.username || '')}</small></td>
+      <td>${escapeHtml(c.address || '-')}</td>
+      <td>${escapeHtml(c.phone || '-')}</td>
+      <td>${escapeHtml(getPackageName(c.packageId))}</td>
+      <td style="text-align:right;">${fmtRp(billed)}</td>
+      <td style="text-align:right;">${tunggakanSebelumnya > 0 ? `<strong style="color:#dc2626;">${fmtRp(tunggakanSebelumnya)}</strong>` : '-'}</td>
+      <td style="text-align:right;"><strong>${fmtRp(total)}</strong></td>
+      <td style="border:1px solid #999;width:60px;height:30px;"></td>
+    </tr>`;
+  });
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;">
+      <div style="text-align:center;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:14px;">
+        <h2 style="margin:0;font-size:18px;">${escapeHtml(state.settings.name || 'WiFi RT/RW')}</h2>
+        ${state.settings.address ? `<div style="font-size:12px;">${escapeHtml(state.settings.address)}</div>` : ''}
+      </div>
+      <h3 style="margin:0 0 4px;font-size:15px;">DAFTAR TAGIHAN ${monthLabel(period).toUpperCase()}</h3>
+      <div style="font-size:13px;margin-bottom:10px;">
+        <strong>Daerah:</strong> ${escapeHtml(loc ? loc.name : '-')} ·
+        <strong>Tukang:</strong> ${escapeHtml(collector ? collector.name : '(belum diatur)')}
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:11px;">
+        <thead>
+          <tr style="background:#f0f0f0;">
+            <th style="border:1px solid #999;padding:4px;">No</th>
+            <th style="border:1px solid #999;padding:4px;text-align:left;">Nama</th>
+            <th style="border:1px solid #999;padding:4px;text-align:left;">Alamat</th>
+            <th style="border:1px solid #999;padding:4px;text-align:left;">HP</th>
+            <th style="border:1px solid #999;padding:4px;text-align:left;">Paket</th>
+            <th style="border:1px solid #999;padding:4px;text-align:right;">Tagihan</th>
+            <th style="border:1px solid #999;padding:4px;text-align:right;">Tunggakan</th>
+            <th style="border:1px solid #999;padding:4px;text-align:right;">Total</th>
+            <th style="border:1px solid #999;padding:4px;">Bayar</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.replace(/<td>/g, '<td style="border:1px solid #999;padding:4px;">').replace(/<td style="text-align:right;">/g, '<td style="border:1px solid #999;padding:4px;text-align:right;">')}
+        </tbody>
+        <tfoot>
+          <tr style="background:#f0f0f0;font-weight:bold;">
+            <td colspan="5" style="border:1px solid #999;padding:6px;text-align:right;">TOTAL POTENSI:</td>
+            <td style="border:1px solid #999;padding:6px;text-align:right;">${fmtRp(totalTagihan)}</td>
+            <td style="border:1px solid #999;padding:6px;text-align:right;">${fmtRp(totalTunggakan)}</td>
+            <td style="border:1px solid #999;padding:6px;text-align:right;">${fmtRp(totalTagihan + totalTunggakan)}</td>
+            <td style="border:1px solid #999;padding:6px;"></td>
+          </tr>
+        </tfoot>
+      </table>
+      <div style="margin-top:24px;display:flex;justify-content:space-between;font-size:12px;">
+        <div style="text-align:center;">
+          <div>Tukang Penagih,</div>
+          <div style="height:60px;"></div>
+          <div style="border-top:1px solid #000;padding-top:4px;min-width:150px;">${escapeHtml(collector ? collector.name : '...........................')}</div>
+        </div>
+        <div style="text-align:center;">
+          <div>Pengelola,</div>
+          <div style="height:60px;"></div>
+          <div style="border-top:1px solid #000;padding-top:4px;min-width:150px;">${escapeHtml(state.settings.admin || '...........................')}</div>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('print-billing-content').innerHTML = html;
+  document.getElementById('modal-print-billing').classList.add('show');
+}
+
+function calculateBalance(customerId, asOfMonth) {
+  const c = state.customers.find(x => x.id === customerId);
+  if (!c) return { months: [], totalBilled: 0, totalPaid: 0, balance: 0, credit: 0, openingBalance: 0 };
+  if (c.isFree) return { months: [], totalBilled: 0, totalPaid: 0, balance: 0, credit: 0, openingBalance: 0, isFree: true };
+
+  const endMonth = asOfMonth || curMonth();
+  const installedYM = (c.installedAt || todayStr()).slice(0,7);
+  // Use the later of installedAt or system startDate for billing start
+  const systemStartYM = state.settings.startDate ? state.settings.startDate.slice(0,7) : '';
+  let billingStartYM = installedYM;
+  if (systemStartYM && systemStartYM > installedYM) billingStartYM = systemStartYM;
+
+  const allMonths = monthsBetween(billingStartYM, endMonth);
+
+  // Determine which months are billable (excluding isolation periods)
+  let billableMonths = allMonths;
+  if (c.status === 'diisolir' && c.isolatedFrom) {
+    const isolFromYM = c.isolatedFrom.slice(0,7);
+    const isolUntilYM = c.isolatedUntil ? c.isolatedUntil.slice(0,7) : '9999-12';
+    billableMonths = allMonths.filter(m => m < isolFromYM || m > isolUntilYM);
+  }
+
+  const price = getPackagePrice(c.packageId);
+  const months = billableMonths.map(m => ({
+    period: m,
+    billed: price,
+    paid: 0,
+    status: 'belum',
+    payments: []
+  }));
+
+  // Get all payments for this customer
+  const payments = state.payments
+    .filter(p => p.customerId === customerId)
+    .sort((a,b) => (a.paidAt || '').localeCompare(b.paidAt || ''));
+
+  // First pass: assign payments to their declared period
+  payments.forEach(p => {
+    const monthEntry = months.find(m => m.period === p.period);
+    if (monthEntry) {
+      monthEntry.payments.push(p);
+      monthEntry.paid += p.amount;
+    }
+  });
+
+  // Opening balance: positive = customer owes (becomes initial deficit)
+  //                  negative = customer has credit
+  const openingBalance = c.openingBalance || 0;
+  let creditPool = openingBalance < 0 ? -openingBalance : 0;
+  let preexistingDebt = openingBalance > 0 ? openingBalance : 0;
+
+  // Add payments for non-billable months as credit
+  payments.forEach(p => {
+    if (!months.find(m => m.period === p.period)) {
+      creditPool += p.amount;
+    }
+  });
+
+  // Apply credit pool against pre-existing debt first
+  if (creditPool > 0 && preexistingDebt > 0) {
+    const take = Math.min(creditPool, preexistingDebt);
+    creditPool -= take;
+    preexistingDebt -= take;
+  }
+
+  // FIFO redistribution through monthly billing
+  for (let i = 0; i < months.length; i++) {
+    const mo = months[i];
+    if (creditPool > 0 && mo.paid < mo.billed) {
+      const need = mo.billed - mo.paid;
+      const take = Math.min(creditPool, need);
+      mo.paid += take;
+      creditPool -= take;
+    }
+    if (mo.paid > mo.billed) {
+      const overflow = mo.paid - mo.billed;
+      mo.paid = mo.billed;
+      // First absorb pre-existing debt with overflow
+      if (preexistingDebt > 0) {
+        const take = Math.min(overflow, preexistingDebt);
+        preexistingDebt -= take;
+        creditPool += (overflow - take);
+      } else {
+        creditPool += overflow;
+      }
+    }
+    if (mo.paid === 0) mo.status = 'belum';
+    else if (mo.paid >= mo.billed) mo.status = 'lunas';
+    else mo.status = 'sebagian';
+  }
+
+  // Final pass: if credit pool exists and pre-existing debt still remains, absorb
+  if (creditPool > 0 && preexistingDebt > 0) {
+    const take = Math.min(creditPool, preexistingDebt);
+    creditPool -= take;
+    preexistingDebt -= take;
+  }
+
+  const totalMonthBilled = months.reduce((s,m) => s + m.billed, 0);
+  const totalMonthPaid = months.reduce((s,m) => s + m.paid, 0);
+  const totalUnpaidMonths = months.reduce((s,m) => s + (m.billed - m.paid), 0);
+  // Final balance = remaining pre-existing debt + unpaid months
+  const balance = preexistingDebt + totalUnpaidMonths;
+
+  return {
+    months,
+    totalBilled: totalMonthBilled + Math.max(0, openingBalance),
+    totalPaid: totalMonthPaid + (openingBalance < 0 ? 0 : (openingBalance - preexistingDebt)),
+    balance,
+    credit: creditPool,
+    openingBalance,
+    preexistingDebt
+  };
+}
+
+// ===================== RECEIPT =====================
+function showReceipt(paymentId) {
+  const p = state.payments.find(x => x.id === paymentId);
+  if (!p) return;
+  const c = state.customers.find(x => x.id === p.customerId);
+  const pkg = state.packages.find(x => x.id === (c ? c.packageId : null));
+
+  // Calculate the state of that month at the time of THIS payment
+  // We compute balance using only payments up to and including this one
+  let monthInfo = null;
+  if (c && pkg) {
+    const tagihan = pkg.price;
+    // Sum all payments for that customer & period made on or before this paidAt (and ID-tied break)
+    const sameMonthPays = state.payments.filter(x =>
+      x.customerId === p.customerId && x.period === p.period
+    ).sort((a,b) => (a.paidAt||'').localeCompare(b.paidAt||'') || a.id.localeCompare(b.id));
+    let cumulativeBefore = 0;
+    let foundIdx = -1;
+    sameMonthPays.forEach((sp, i) => {
+      if (sp.id === p.id) foundIdx = i;
+      else if (foundIdx === -1) cumulativeBefore += sp.amount;
+    });
+    const cumulativeAfter = cumulativeBefore + p.amount;
+    monthInfo = {
+      tagihan,
+      sebelumnya: cumulativeBefore,
+      bayarIni: p.amount,
+      total: cumulativeAfter,
+      sisa: Math.max(0, tagihan - cumulativeAfter),
+      lebih: Math.max(0, cumulativeAfter - tagihan)
+    };
+  }
+
+  let billingHtml = '';
+  if (monthInfo) {
+    billingHtml = `
+      <div class="receipt-row"><span>Tagihan</span><span>${fmtRp(monthInfo.tagihan)}</span></div>
+      ${monthInfo.sebelumnya > 0 ? `<div class="receipt-row"><span>Bayar sebelumnya</span><span>${fmtRp(monthInfo.sebelumnya)}</span></div>` : ''}
+      <div class="receipt-row"><span>Bayar saat ini</span><span><strong>${fmtRp(monthInfo.bayarIni)}</strong></span></div>
+      ${monthInfo.sisa > 0
+        ? `<div class="receipt-row" style="color:#9a3412;"><span><strong>SISA KURANG</strong></span><span><strong>${fmtRp(monthInfo.sisa)}</strong></span></div>`
+        : monthInfo.lebih > 0
+          ? `<div class="receipt-row" style="color:#16a34a;"><span><strong>LUNAS</strong></span><span>+${fmtRp(monthInfo.lebih)} kredit</span></div>`
+          : `<div class="receipt-row" style="color:#16a34a;"><span colspan="2"><strong>✓ LUNAS</strong></span><span></span></div>`}
+    `;
+  }
+
+  const html = `
+    <div class="receipt" id="receipt-print">
+      <div class="receipt-header">
+        <h3>${escapeHtml(state.settings.name || 'WiFi RT/RW')}</h3>
+        ${state.settings.address ? `<div style="font-size:11px;">${escapeHtml(state.settings.address)}</div>` : ''}
+        ${state.settings.phone ? `<div style="font-size:11px;">Telp: ${escapeHtml(state.settings.phone)}</div>` : ''}
+        <div style="margin-top:6px;font-weight:bold;">STRUK PEMBAYARAN</div>
+      </div>
+      <div class="receipt-row"><span>No.</span><span>${p.id.slice(-8).toUpperCase()}</span></div>
+      <div class="receipt-row"><span>Tanggal</span><span>${formatDate(p.paidAt)}</span></div>
+      <div class="receipt-row"><span>Metode</span><span>${p.method}</span></div>
+      <div style="border-top:1px dashed #999;margin:8px 0;"></div>
+      <div class="receipt-row"><span>Pelanggan</span><span>${escapeHtml(c ? c.name : '-')}</span></div>
+      ${c && c.address ? `<div class="receipt-row"><span></span><span style="font-size:11px;">${escapeHtml(c.address)}</span></div>` : ''}
+      <div class="receipt-row"><span>Paket</span><span>${escapeHtml(pkg ? pkg.name : '-')}</span></div>
+      <div class="receipt-row"><span>Periode</span><span>${monthLabel(p.period)}</span></div>
+      <div style="border-top:1px dashed #999;margin:8px 0;"></div>
+      ${billingHtml}
+      ${p.note ? `<div style="margin-top:8px;font-size:11px;font-style:italic;">Catatan: ${escapeHtml(p.note)}</div>` : ''}
+      <div style="text-align:center;margin-top:14px;font-size:11px;">
+        Terima kasih atas pembayaran Anda<br>
+        ${state.settings.admin ? '— ' + escapeHtml(state.settings.admin) : ''}
+      </div>
+    </div>
+  `;
+  document.getElementById('receipt-content').innerHTML = html;
+  document.getElementById('modal-receipt').classList.add('show');
+}
+
+// ===================== SETTINGS =====================
+function loadSettings() {
+  document.getElementById('setting-name').value = state.settings.name || '';
+  document.getElementById('setting-address').value = state.settings.address || '';
+  document.getElementById('setting-admin').value = state.settings.admin || '';
+  document.getElementById('setting-phone').value = state.settings.phone || '';
+  document.getElementById('setting-start-date').value = state.settings.startDate || '';
+}
+function saveSettings() {
+  state.settings = {
+    name: document.getElementById('setting-name').value.trim(),
+    address: document.getElementById('setting-address').value.trim(),
+    admin: document.getElementById('setting-admin').value.trim(),
+    phone: document.getElementById('setting-phone').value.trim(),
+    startDate: document.getElementById('setting-start-date').value
+  };
+  saveState();
+  document.getElementById('header-info').textContent = state.settings.name || 'Sistem manajemen tagihan internet warga';
+  alert('Pengaturan disimpan ✓');
+}
+
+// ===================== EXPORT/IMPORT =====================
+function exportData() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `backup-wifi-${todayStr()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.customers || !data.packages) throw new Error('Format file tidak valid');
+      if (!confirm('Mengganti semua data dengan file backup? Data saat ini akan hilang.')) return;
+      state = migrate(data);
+      saveState();
+      location.reload();
+    } catch (err) {
+      alert('Gagal: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+function exportPaymentsCSV() {
+  if (!state.payments.length) { alert('Belum ada pembayaran'); return; }
+  const headers = ['Tgl Bayar','Username','Nama Pelanggan','Lokasi','Periode','Jumlah','Metode','Catatan'];
+  const rows = state.payments.map(p => {
+    const c = state.customers.find(x => x.id === p.customerId);
+    return [
+      p.paidAt,
+      c ? (c.username || '') : '',
+      c ? c.name : '',
+      c ? getLocationName(c.locationCode) : '',
+      monthLabel(p.period),
+      p.amount, p.method, p.note || ''
+    ];
+  });
+  downloadCSV([headers, ...rows], `pembayaran-${todayStr()}.csv`);
+}
+
+function exportArrearsCSV() {
+  const customers = state.customers.filter(c => !c.isFree && c.status !== 'nonaktif');
+  const headers = ['Username','Nama','Status','Lokasi','HP','Bulan Bermasalah','Total Tagihan','Total Dibayar','Tunggakan'];
+  const rows = [];
+  customers.forEach(c => {
+    const bal = calculateBalance(c.id);
+    if (bal.balance <= 0) return;
+    const unpaidCount = bal.months.filter(m => m.status !== 'lunas').length;
+    rows.push([
+      c.username || '',
+      c.name,
+      c.status,
+      getLocationName(c.locationCode),
+      c.phone || '',
+      unpaidCount,
+      bal.totalBilled,
+      bal.totalPaid,
+      bal.balance
+    ]);
+  });
+  if (!rows.length) { alert('Tidak ada tunggakan'); return; }
+  downloadCSV([headers, ...rows], `tunggakan-${todayStr()}.csv`);
+}
+
+function downloadCSV(rows, filename) {
+  const csv = rows.map(r => r.map(cell => {
+    const s = String(cell ?? '');
+    return s.includes(',') || s.includes('"') || s.includes('\n') ? '"' + s.replace(/"/g,'""') + '"' : s;
+  }).join(',')).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function resetData() {
+  if (!confirm('PERINGATAN: Semua data akan dihapus permanen. Lanjutkan?')) return;
+  if (!confirm('Apakah Anda benar-benar yakin?')) return;
+  localStorage.removeItem(STORE_KEY);
+  location.reload();
+}
+
+// ===================== HELPERS =====================
+function getPackageName(id) {
+  const p = state.packages.find(x => x.id === id);
+  return p ? p.name : '-';
+}
+function getPackagePrice(id) {
+  const p = state.packages.find(x => x.id === id);
+  return p ? p.price : 0;
+}
+function getLocationName(code) {
+  if (!code) return '-';
+  const l = state.locations.find(x => x.code === code);
+  return l ? l.name : `(${code})`;
+}
+function refreshPackageSelect(elementId, selectedId) {
+  const el = document.getElementById(elementId);
+  el.innerHTML = state.packages.map(p =>
+    `<option value="${p.id}" ${p.id === selectedId ? 'selected' : ''}>${escapeHtml(p.name)} - ${fmtRp(p.price)}</option>`
+  ).join('');
+}
+function refreshLocationDropdown(elementId, selectedCode, includeEmpty) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  const cur = selectedCode !== undefined ? selectedCode : el.value;
+  let html = '';
+  if (elementId.startsWith('filter') || elementId.startsWith('dashboard')) {
+    html = '<option value="">Semua Lokasi</option>';
+  } else if (includeEmpty) {
+    html = '<option value="">— Pilih Lokasi —</option>';
+  }
+  html += state.locations.map(l => `<option value="${l.code}" ${l.code === cur ? 'selected' : ''}>${escapeHtml(l.name)}</option>`).join('');
+  el.innerHTML = html;
+}
+function refreshCustomerSelect(elementId) {
+  const el = document.getElementById(elementId);
+  const cur = el.value;
+  const customers = state.customers.filter(c => !c.isFree).slice().sort((a,b) => a.name.localeCompare(b.name));
+  el.innerHTML = '<option value="">— Pilih Pelanggan —</option>' +
+    customers.map(c => `<option value="${c.id}">${escapeHtml(c.name)}${c.username ? ' (' + escapeHtml(c.username) + ')' : ''}</option>`).join('');
+  el.value = cur;
+}
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+function escapeHtml(str) {
+  return String(str ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function formatDate(d) {
+  if (!d) return '-';
+  const [y,m,day] = d.split('-');
+  return `${day}/${m}/${y}`;
+}
+
+// init
+document.getElementById('header-info').textContent = state.settings.name || 'Sistem manajemen tagihan internet warga';
+renderDashboard();
+</script>
+</body>
+</html>
