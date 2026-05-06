@@ -665,7 +665,7 @@ tbody tr:last-child td { border-bottom: none; }
       <div class="form-group" style="margin-bottom:10px;">
         <label>📅 Tanggal Mulai Pencatatan</label>
         <input type="date" id="setting-start-date">
-        <small style="color:#78716c;">Tagihan akan dihitung mulai dari bulan ini. Untuk pelanggan yang sudah ada sebelum tanggal ini, gunakan field "Saldo Awal" di edit pelanggan untuk catat tunggakan/kredit awal mereka. <strong>Kosongkan kalau ingin hitung dari tanggal pasang masing-masing pelanggan.</strong></small>
+        <small style="color:#78716c;"><strong>Kalau diisi:</strong> SEMUA pelanggan akan ditagih mulai bulan ini, tanpa peduli tanggal pasang masing-masing. Cocok untuk RT/RW yang sudah lama jalan tapi baru mulai pakai aplikasi. <strong>Kalau dikosongkan:</strong> tagihan dihitung dari tanggal pasang masing-masing pelanggan.</small>
       </div>
       <button class="btn btn-primary" onclick="saveSettings()">💾 Simpan Pengaturan</button>
     </div>
@@ -802,6 +802,7 @@ tbody tr:last-child td { border-bottom: none; }
     <div class="form-group" style="margin-bottom:10px;">
       <label>Tanggal Pasang (untuk semua pelanggan dalam batch ini)</label>
       <input type="date" id="mikrotik-installed">
+      <small style="color:#78716c;">Untuk pelanggan lama, isi tanggal sebelum "Tanggal Mulai Pencatatan" (default sudah otomatis). Sistem akan tagih semua dari tanggal mulai pencatatan.</small>
     </div>
     <button class="btn btn-primary" onclick="previewMikrotikImport()">🔍 Preview Data</button>
 
@@ -1708,7 +1709,16 @@ function deleteCustomer(id) {
 // ===================== MIKROTIK IMPORT =====================
 function openMikrotikImportModal() {
   document.getElementById('mikrotik-data').value = '';
-  document.getElementById('mikrotik-installed').value = todayStr();
+  // Default to a date BEFORE the system startDate (or 1 Jan 2020 if no startDate set).
+  // This ensures imported customers are treated as "lama" (existing) and tagih dari startDate.
+  const defaultDate = state.settings.startDate
+    ? (() => {
+        const d = new Date(state.settings.startDate);
+        d.setMonth(d.getMonth() - 1);
+        return d.toISOString().slice(0, 10);
+      })()
+    : '2020-01-01';
+  document.getElementById('mikrotik-installed').value = defaultDate;
   document.getElementById('mikrotik-preview').style.display = 'none';
   document.getElementById('mikrotik-confirm-btn').style.display = 'none';
   mikrotikImportBuffer = null;
@@ -2383,10 +2393,11 @@ function showCustomerDetail(customerId) {
     html += `<div class="month-grid">`;
     bal.months.slice().reverse().forEach(m => {
       const cls = m.status === 'lunas' ? 'lunas' : m.status === 'sebagian' ? 'sebagian' : 'belum';
+      const proratedNote = m.isProrated ? `<br><small style="color:#7c3aed;font-style:italic;">Proporsional ${m.proratedDays}/30 hari</small>` : '';
       let detail;
-      if (m.status === 'lunas') detail = `✓ Lunas`;
-      else if (m.status === 'sebagian') detail = `Bayar ${fmtRp(m.paid)} / ${fmtRp(m.billed)}<br><strong style="color:#9a3412;">Kurang ${fmtRp(m.billed - m.paid)}</strong>`;
-      else detail = `Belum bayar<br>${fmtRp(m.billed)}`;
+      if (m.status === 'lunas') detail = `✓ Lunas (${fmtRp(m.billed)})${proratedNote}`;
+      else if (m.status === 'sebagian') detail = `Bayar ${fmtRp(m.paid)} / ${fmtRp(m.billed)}<br><strong style="color:#9a3412;">Kurang ${fmtRp(m.billed - m.paid)}</strong>${proratedNote}`;
+      else detail = `Belum bayar<br>${fmtRp(m.billed)}${proratedNote}`;
       html += `<div class="month-cell ${cls}">
         <div class="month-name">${monthLabel(m.period)}</div>
         <div class="month-detail">${detail}</div>
@@ -3069,9 +3080,12 @@ function calculateBalance(customerId, asOfMonth) {
   if (c.isFree) return { months: [], totalBilled: 0, totalPaid: 0, balance: 0, credit: 0, openingBalance: 0, isFree: true };
 
   const endMonth = asOfMonth || curMonth();
-  const installedYM = (c.installedAt || todayStr()).slice(0,7);
-  // Use the later of installedAt or system startDate for billing start
+  const installedDate = c.installedAt || todayStr();
+  const installedYM = installedDate.slice(0,7);
   const systemStartYM = state.settings.startDate ? state.settings.startDate.slice(0,7) : '';
+  // Use the LATER of installedAt or system startDate.
+  // - Pelanggan lama (pasang sebelum startDate) → tagih dari startDate
+  // - Pelanggan baru (pasang setelah startDate) → tagih dari tgl pasang masing-masing
   let billingStartYM = installedYM;
   if (systemStartYM && systemStartYM > installedYM) billingStartYM = systemStartYM;
 
@@ -3086,13 +3100,38 @@ function calculateBalance(customerId, asOfMonth) {
   }
 
   const price = getPackagePrice(c.packageId);
-  const months = billableMonths.map(m => ({
-    period: m,
-    billed: price,
-    paid: 0,
-    status: 'belum',
-    payments: []
-  }));
+
+  // Determine if first billable month should be prorated.
+  // Prorate ONLY when:
+  // - billingStartYM equals installedYM (customer installed in/after the billing start month)
+  // - AND installation day > 1 (didn't start on day 1)
+  // This means: pelanggan baru yang pasang di tengah bulan, kena prorated.
+  // Pelanggan lama (billingStartYM = systemStartYM) yang tgl pasangnya jauh sebelum, tidak prorated.
+  const installedDay = parseInt(installedDate.slice(8,10), 10);
+  const isProratedFirstMonth = (billingStartYM === installedYM) && (installedDay > 1);
+
+  function roundToThousand(n) {
+    return Math.round(n / 1000) * 1000;
+  }
+
+  const months = billableMonths.map((m, idx) => {
+    let billed = price;
+    // Apply prorated only for the very first billable month
+    if (idx === 0 && isProratedFirstMonth) {
+      // Hari yang ditagih: dari tanggal pasang sampai akhir bulan (anggap 30 hari)
+      const daysCharged = Math.max(1, 30 - installedDay + 1);
+      billed = roundToThousand(price * daysCharged / 30);
+    }
+    return {
+      period: m,
+      billed,
+      paid: 0,
+      status: 'belum',
+      payments: [],
+      isProrated: idx === 0 && isProratedFirstMonth,
+      proratedDays: idx === 0 && isProratedFirstMonth ? Math.max(1, 30 - installedDay + 1) : null
+    };
+  });
 
   // Get all payments for this customer
   const payments = state.payments
