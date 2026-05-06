@@ -2999,7 +2999,53 @@ function fastInputPay(customerId, period, amount) {
   };
   state.payments.push(payment);
   saveState();
-  renderFastInput();
+  // Only refresh the affected row, NOT the entire table
+  // This preserves other unsaved inputs the user is typing
+  refreshFastInputRow(customerId, period);
+  updateFastInputSummary();
+}
+
+function refreshFastInputRow(customerId, period) {
+  const row = document.getElementById('fi-row-' + customerId);
+  if (!row) return;
+  const c = state.customers.find(x => x.id === customerId);
+  if (!c) return;
+
+  const bal = calculateBalance(c.id, period);
+  const me = bal.months.find(m => m.period === period);
+  if (!me) return;
+
+  const sisa = me.billed - me.paid;
+  const tunggakan = bal.balance - sisa;
+
+  // Update the row class
+  row.className = 'fast-input-row ' + (me.status === 'lunas' ? 'paid' : me.status === 'sebagian' ? 'partial' : '');
+
+  // Get the cells (the row has 5 children: index, name, tagihan, input, action)
+  const cells = row.children;
+  if (cells.length < 5) return;
+
+  // Update tagihan cell (index 2)
+  cells[2].innerHTML = `<div><strong>${fmtRp(me.billed)}</strong>${tunggakan > 0 ? `<br><small style="color:#dc2626;">+${fmtRp(tunggakan)} tunggak</small>` : ''}</div>`;
+
+  // Update input & action cells (index 3 & 4)
+  if (me.status === 'lunas') {
+    cells[3].innerHTML = `<div style="color:#16a34a;font-weight:600;">✓ Lunas (${fmtRp(me.paid)})</div>`;
+    cells[4].innerHTML = `<div style="color:#16a34a;font-size:11px;">Sudah dibayar</div>`;
+  } else {
+    cells[3].innerHTML = `<input type="number" class="fast-input-amount" id="fi-amt-${c.id}" placeholder="${sisa}" data-customer="${c.id}" data-period="${period}" data-billed="${me.billed}" data-paid="${me.paid}">`;
+    cells[4].innerHTML = `<button class="btn btn-sm btn-success" onclick="fastInputPay('${c.id}','${period}',${sisa})">Lunas</button>`;
+    // Re-attach Enter key handler
+    const inp = document.getElementById('fi-amt-' + c.id);
+    if (inp) {
+      inp.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+          const amt = parseInt(e.target.value);
+          if (amt > 0) fastInputPay(c.id, e.target.dataset.period, amt);
+        }
+      });
+    }
+  }
 }
 
 function updateFastInputSummary() {
