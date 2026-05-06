@@ -1069,18 +1069,23 @@ tbody tr:last-child td { border-bottom: none; }
 </div>
 
 <script>
-// ===================== GOOGLE DRIVE SYNC =====================
+// ===================== GOOGLE DRIVE SYNC (v2 - robust) =====================
 const GDRIVE_CLIENT_ID = '889684485290-lib3q13j1bug77jacugl3d30jtv2vqsa.apps.googleusercontent.com';
 const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const GDRIVE_FILENAME = 'wifi-rtrw-backup.json';
 
 let gdriveAccessToken = null;
+let gdriveTokenExpiresAt = 0;
 let gdriveTokenClient = null;
 let gdriveFileId = null;
 let gdriveSyncing = false;
 let gdriveSyncTimer = null;
 let gdriveLastSync = null;
 let gdriveUserEmail = null;
+let gdriveDriveModifiedTime = null; // last known modified time of Drive file
+let gdriveAutoRefreshTimer = null;
+let gdriveSyncRetryCount = 0;
+let gdrivePendingChanges = false; // true when local has changes not yet synced
 
 function setSyncStatus(text, color) {
   const el = document.getElementById('sync-status');
@@ -1089,6 +1094,36 @@ function setSyncStatus(text, color) {
   el.style.display = 'inline-block';
   el.textContent = text;
   el.style.background = color || 'rgba(255,255,255,0.15)';
+}
+
+function showSyncError(message, allowReconnect) {
+  // Persistent visible error banner
+  let banner = document.getElementById('sync-error-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'sync-error-banner';
+    banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#dc2626;color:white;padding:12px 16px;text-align:center;font-weight:600;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,0.2);';
+    document.body.insertBefore(banner, document.body.firstChild);
+  }
+  banner.innerHTML = `⚠️ ${escapeHtml(message)} ` +
+    (allowReconnect ? `<button onclick="reconnectGDrive()" style="margin-left:10px;padding:4px 12px;background:white;color:#dc2626;border:none;border-radius:4px;font-weight:600;cursor:pointer;">Re-Login</button>` : '') +
+    `<button onclick="document.getElementById('sync-error-banner').remove()" style="margin-left:10px;padding:4px 8px;background:transparent;color:white;border:1px solid white;border-radius:4px;cursor:pointer;">×</button>`;
+}
+
+function clearSyncError() {
+  const banner = document.getElementById('sync-error-banner');
+  if (banner) banner.remove();
+}
+
+function reconnectGDrive() {
+  clearSyncError();
+  if (gdriveTokenClient) {
+    gdriveTokenClient.requestAccessToken({ prompt: '' });
+  }
+}
+
+function isTokenValid() {
+  return gdriveAccessToken && gdriveTokenExpiresAt > Date.now() + 60000; // valid if >1min remaining
 }
 
 function initGoogleDriveSync() {
@@ -1103,16 +1138,24 @@ function initGoogleDriveSync() {
       callback: (response) => {
         if (response.error) {
           console.error('Token error:', response);
-          setSyncStatus('⚠️ Gagal login', '#dc2626');
+          showSyncError('Login Google gagal. Silakan klik Re-Login.', true);
+          setSyncStatus('⚠️ Login gagal', '#dc2626');
           return;
         }
         gdriveAccessToken = response.access_token;
+        gdriveTokenExpiresAt = Date.now() + (response.expires_in * 1000);
         localStorage.setItem('gdrive_token', JSON.stringify({
           token: gdriveAccessToken,
-          expiresAt: Date.now() + (response.expires_in * 1000) - 60000
+          expiresAt: gdriveTokenExpiresAt
         }));
+        clearSyncError();
+        scheduleTokenAutoRefresh();
         onGDriveLoggedIn();
       },
+      error_callback: (error) => {
+        console.error('Token request error:', error);
+        showSyncError('Gagal request token Google. Klik Re-Login untuk mencoba lagi.', true);
+      }
     });
 
     // Auto-restore previous token if not expired
@@ -1120,9 +1163,17 @@ function initGoogleDriveSync() {
     if (savedToken) {
       try {
         const t = JSON.parse(savedToken);
-        if (t.expiresAt > Date.now()) {
+        if (t.expiresAt > Date.now() + 60000) {
           gdriveAccessToken = t.token;
+          gdriveTokenExpiresAt = t.expiresAt;
+          scheduleTokenAutoRefresh();
           onGDriveLoggedIn(true);
+        } else {
+          // Token expired, try silent refresh
+          localStorage.removeItem('gdrive_token');
+          setTimeout(() => {
+            if (gdriveTokenClient) gdriveTokenClient.requestAccessToken({ prompt: '' });
+          }, 500);
         }
       } catch (e) {}
     }
@@ -1131,28 +1182,69 @@ function initGoogleDriveSync() {
   }
 }
 
+function scheduleTokenAutoRefresh() {
+  if (gdriveAutoRefreshTimer) clearTimeout(gdriveAutoRefreshTimer);
+  if (!gdriveTokenExpiresAt) return;
+  // Refresh 5 minutes before expiry
+  const refreshIn = Math.max(0, gdriveTokenExpiresAt - Date.now() - 5 * 60 * 1000);
+  gdriveAutoRefreshTimer = setTimeout(() => {
+    if (gdriveTokenClient && gdriveAccessToken) {
+      // Silent refresh — doesn't show consent screen if user already granted
+      gdriveTokenClient.requestAccessToken({ prompt: '' });
+    }
+  }, refreshIn);
+}
+
+async function ensureValidToken() {
+  if (isTokenValid()) return true;
+  // Try silent refresh
+  if (gdriveTokenClient) {
+    return new Promise((resolve) => {
+      const oldCallback = gdriveTokenClient.callback;
+      const timeout = setTimeout(() => { resolve(false); }, 10000);
+      gdriveTokenClient.callback = (response) => {
+        clearTimeout(timeout);
+        gdriveTokenClient.callback = oldCallback;
+        if (response.error || !response.access_token) {
+          resolve(false);
+        } else {
+          gdriveAccessToken = response.access_token;
+          gdriveTokenExpiresAt = Date.now() + (response.expires_in * 1000);
+          localStorage.setItem('gdrive_token', JSON.stringify({
+            token: gdriveAccessToken,
+            expiresAt: gdriveTokenExpiresAt
+          }));
+          scheduleTokenAutoRefresh();
+          resolve(true);
+        }
+      };
+      gdriveTokenClient.requestAccessToken({ prompt: '' });
+    });
+  }
+  return false;
+}
+
 function handleGDriveClick() {
   if (!gdriveTokenClient) {
     alert('Google Drive belum siap, coba refresh halaman.');
     return;
   }
-  if (gdriveAccessToken) {
-    // Already logged in — show options
+  if (gdriveAccessToken && isTokenValid()) {
     const html = `
       <p>Akun: <strong>${escapeHtml(gdriveUserEmail || '(unknown)')}</strong></p>
-      <p>Status: <strong>${gdriveLastSync ? 'Tersinkron ' + formatDate(gdriveLastSync.slice(0,10)) + ' ' + gdriveLastSync.slice(11,16) : 'Belum sync'}</strong></p>
+      <p>Token expired in: <strong>${Math.max(0, Math.round((gdriveTokenExpiresAt - Date.now())/60000))} menit</strong></p>
+      <p>Status: <strong>${gdriveLastSync ? 'Tersinkron ' + new Date(gdriveLastSync).toLocaleString('id-ID') : 'Belum sync'}</strong></p>
       <p>File backup: <code>${GDRIVE_FILENAME}</code> di Google Drive Anda</p>
       <hr style="margin:10px 0;border:none;border-top:1px solid #e7e5e4;">
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn btn-success" onclick="syncToGDrive(); closeModal('modal-gdrive');">🔄 Sync Sekarang</button>
-        <button class="btn btn-warning" onclick="restoreFromGDrive()">⬇ Pull dari Drive (replace lokal)</button>
+        <button class="btn btn-success" onclick="syncToGDrive(true); closeModal('modal-gdrive');">🔄 Sync Sekarang</button>
+        <button class="btn btn-warning" onclick="restoreFromGDrive()">⬇ Pull dari Drive</button>
         <button class="btn btn-danger" onclick="logoutGDrive()">🚪 Disconnect</button>
       </div>
     `;
     document.getElementById('gdrive-modal-content').innerHTML = html;
     document.getElementById('modal-gdrive').classList.add('show');
   } else {
-    // Request token
     gdriveTokenClient.requestAccessToken({ prompt: 'consent' });
   }
 }
@@ -1160,6 +1252,7 @@ function handleGDriveClick() {
 async function onGDriveLoggedIn(silent) {
   setSyncStatus('⏳ Connecting...', '#d97706');
   document.getElementById('btn-gdrive').textContent = '☁️ Connected';
+  clearSyncError();
 
   // Get user info
   try {
@@ -1172,78 +1265,124 @@ async function onGDriveLoggedIn(silent) {
     }
   } catch (e) { console.error(e); }
 
-  // Find existing backup file in Drive
   try {
     const r = await fetch(
       `https://www.googleapis.com/drive/v3/files?q=name='${GDRIVE_FILENAME}'+and+trashed=false&spaces=drive&fields=files(id,name,modifiedTime)`,
       { headers: { Authorization: 'Bearer ' + gdriveAccessToken } }
     );
-    if (!r.ok) throw new Error('Drive search failed');
+    if (!r.ok) throw new Error('Drive search failed: ' + r.status);
     const data = await r.json();
 
     if (data.files && data.files.length > 0) {
-      // FILE EXISTS IN DRIVE — Drive always wins
       gdriveFileId = data.files[0].id;
-      setSyncStatus('⏳ Pulling from Drive...', '#d97706');
+      const driveModified = data.files[0].modifiedTime;
+      gdriveDriveModifiedTime = driveModified;
+
+      setSyncStatus('⏳ Comparing data...', '#d97706');
       const remoteData = await fetchGDriveContent();
 
       if (remoteData) {
         const remoteCount = (remoteData.customers || []).length;
-        const remotePayments = (remoteData.payments || []).length;
         const localCount = state.customers.length;
-        const driveModified = data.files[0].modifiedTime;
-        const driveModifiedFmt = driveModified ? new Date(driveModified).toLocaleString('id-ID') : '-';
+        const localLastModified = state.lastModified || 0;
+        const remoteLastModified = remoteData.lastModified || 0;
+        const driveModifiedMs = driveModified ? new Date(driveModified).getTime() : 0;
 
-        // Always use Drive as source of truth
-        const oldStateStr = JSON.stringify(state);
+        // SMART CONFLICT RESOLUTION
+        // Compare lastModified timestamps (set whenever saveState is called)
+        const localIsNewer = localLastModified > remoteLastModified;
+        const remoteIsNewer = remoteLastModified > localLastModified;
+        const sameData = JSON.stringify(state) === JSON.stringify(migrate(remoteData));
+
+        if (sameData) {
+          // No conflict
+          gdriveLastSync = new Date().toISOString();
+          setSyncStatus('✓ Synced', '#16a34a');
+          if (!silent) alert(`✅ Sudah sinkron!\n\n📊 ${remoteCount} pelanggan, ${(remoteData.payments||[]).length} pembayaran`);
+          return;
+        }
+
+        if (localIsNewer && localCount > 0) {
+          // Local is newer — push to Drive (don't overwrite local!)
+          setSyncStatus('⏳ Pushing local to Drive...', '#d97706');
+          await syncToGDrive(false);
+          if (!silent) {
+            alert(`✅ Data lokal lebih baru, sudah di-push ke Drive.\n\n📊 ${localCount} pelanggan tersimpan.`);
+          }
+          return;
+        }
+
+        // Remote is newer or local is empty — pull from Drive
+        // BUT: if local has data and remote has data, ASK before overwriting
+        if (localCount > 0 && !silent && !remoteIsNewer) {
+          // Ambiguous case (no clear winner by timestamp) — ask user
+          const localSnapshot = JSON.stringify(state).length;
+          const remoteSnapshot = JSON.stringify(remoteData).length;
+          const choice = confirm(
+            `⚠️ KONFLIK DATA TERDETEKSI\n\n` +
+            `Drive: ${remoteCount} pelanggan (${remoteSnapshot} bytes)\n` +
+            `Lokal: ${localCount} pelanggan (${localSnapshot} bytes)\n\n` +
+            `Tidak yakin mana yang lebih baru.\n\n` +
+            `OK = Pakai data Drive (lokal akan diganti)\n` +
+            `Cancel = Pakai data lokal (push ke Drive)`
+          );
+          if (choice) {
+            backupBeforeOverwrite();
+            state = migrate(remoteData);
+            saveStateLocal();
+            gdriveLastSync = new Date().toISOString();
+            setSyncStatus('✓ Synced', '#16a34a');
+            location.reload();
+            return;
+          } else {
+            await syncToGDrive(false);
+            return;
+          }
+        }
+
+        // Remote is newer (or local empty) — pull from Drive
+        backupBeforeOverwrite();
         state = migrate(remoteData);
-        const newStateStr = JSON.stringify(state);
         saveStateLocal();
         gdriveLastSync = new Date().toISOString();
         setSyncStatus('✓ Synced', '#16a34a');
 
-        const dataChanged = oldStateStr !== newStateStr;
-
         if (!silent) {
-          // Manual connect — show alert and reload to refresh UI
           alert(
             `✅ Data berhasil ditarik dari Google Drive!\n\n` +
-            `📊 ${remoteCount} pelanggan, ${remotePayments} pembayaran\n` +
-            `🕐 Terakhir update di Drive: ${driveModifiedFmt}\n` +
-            (localCount !== remoteCount && localCount > 0
-              ? `\n⚠️ Data lokal sebelumnya (${localCount} pelanggan) telah diganti dengan data dari Drive.`
-              : '')
+            `📊 ${remoteCount} pelanggan, ${(remoteData.payments||[]).length} pembayaran\n` +
+            `🕐 Update Drive: ${new Date(driveModified).toLocaleString('id-ID')}`
           );
           location.reload();
-          return;
-        } else {
-          // Auto-login on page load — just refresh UI without reload (avoid loop)
-          if (dataChanged) {
-            // Refresh whichever tab is active
-            const activeTab = document.querySelector('.tab.active');
-            if (activeTab) {
-              const tabName = activeTab.getAttribute('onclick').match(/'([^']+)'/)[1];
-              showTab(tabName, activeTab);
-            }
-          }
         }
         return;
       } else {
         throw new Error('Gagal baca isi file Drive');
       }
     } else {
-      // FILE NOT EXISTS — push local data to Drive (initial setup)
+      // No file in Drive — push local
       setSyncStatus('⏳ Creating backup...', '#d97706');
-      await syncToGDrive();
+      await syncToGDrive(false);
       if (!silent && state.customers.length > 0) {
         alert(`✅ Backup pertama dibuat di Google Drive!\n\nFile: ${GDRIVE_FILENAME}\n${state.customers.length} pelanggan ter-backup.`);
       }
     }
   } catch (e) {
     console.error('GDrive setup error:', e);
-    setSyncStatus('⚠️ Sync error', '#dc2626');
-    if (!silent) alert('⚠️ Gagal sync: ' + e.message);
+    setSyncStatus('⚠️ Error', '#dc2626');
+    showSyncError('Gagal connect ke Drive: ' + e.message, true);
   }
+}
+
+function backupBeforeOverwrite() {
+  // Save current local state as a backup before overwriting from Drive
+  try {
+    const current = localStorage.getItem(STORE_KEY);
+    if (current) {
+      localStorage.setItem(STORE_KEY + '_pre_pull_backup', current);
+      localStorage.setItem(STORE_KEY + '_pre_pull_time', new Date().toISOString());
+    }
+  } catch (e) {}
 }
 
 async function fetchGDriveContent() {
@@ -1253,7 +1392,15 @@ async function fetchGDriveContent() {
       `https://www.googleapis.com/drive/v3/files/${gdriveFileId}?alt=media`,
       { headers: { Authorization: 'Bearer ' + gdriveAccessToken } }
     );
-    if (!r.ok) return null;
+    if (!r.ok) {
+      if (r.status === 401) {
+        // Token expired
+        gdriveAccessToken = null;
+        gdriveTokenExpiresAt = 0;
+        showSyncError('Login Google expired. Klik Re-Login.', true);
+      }
+      return null;
+    }
     return await r.json();
   } catch (e) {
     console.error('Fetch GDrive content error:', e);
@@ -1261,18 +1408,37 @@ async function fetchGDriveContent() {
   }
 }
 
-async function syncToGDrive() {
-  if (!gdriveAccessToken) return;
+async function syncToGDrive(showAlert) {
+  if (!gdriveAccessToken) {
+    showSyncError('Belum login Google Drive. Data hanya tersimpan di browser.', true);
+    return;
+  }
   if (gdriveSyncing) return;
+
+  // Ensure token valid before syncing
+  if (!isTokenValid()) {
+    setSyncStatus('⏳ Refreshing token...', '#d97706');
+    const ok = await ensureValidToken();
+    if (!ok) {
+      setSyncStatus('⚠️ Login expired', '#dc2626');
+      showSyncError('Login Google expired. Data BELUM di-sync ke Drive! Klik Re-Login untuk lanjut sync.', true);
+      gdrivePendingChanges = true;
+      return;
+    }
+  }
+
   gdriveSyncing = true;
   setSyncStatus('⏳ Syncing...', '#d97706');
 
   try {
+    // Make sure state has latest timestamp
+    state.lastModified = Date.now();
+    saveStateLocal();
+
     const content = JSON.stringify(state, null, 2);
     const blob = new Blob([content], { type: 'application/json' });
 
     if (gdriveFileId) {
-      // Update existing file
       const r = await fetch(
         `https://www.googleapis.com/upload/drive/v3/files/${gdriveFileId}?uploadType=media`,
         {
@@ -1284,9 +1450,15 @@ async function syncToGDrive() {
           body: blob
         }
       );
-      if (!r.ok) throw new Error('Update failed: ' + r.status);
+      if (!r.ok) {
+        if (r.status === 401) {
+          gdriveAccessToken = null;
+          gdriveTokenExpiresAt = 0;
+          throw new Error('UNAUTHORIZED');
+        }
+        throw new Error('Update failed: ' + r.status);
+      }
     } else {
-      // Create new file
       const metadata = { name: GDRIVE_FILENAME, mimeType: 'application/json' };
       const form = new FormData();
       form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
@@ -1300,21 +1472,42 @@ async function syncToGDrive() {
           body: form
         }
       );
-      if (!r.ok) throw new Error('Create failed: ' + r.status);
+      if (!r.ok) {
+        if (r.status === 401) {
+          gdriveAccessToken = null;
+          gdriveTokenExpiresAt = 0;
+          throw new Error('UNAUTHORIZED');
+        }
+        throw new Error('Create failed: ' + r.status);
+      }
       const data = await r.json();
       gdriveFileId = data.id;
     }
     gdriveLastSync = new Date().toISOString();
-    setSyncStatus('✓ Synced', '#16a34a');
+    gdrivePendingChanges = false;
+    gdriveSyncRetryCount = 0;
+    setSyncStatus('✓ Synced ' + new Date().toLocaleTimeString('id-ID', {hour:'2-digit',minute:'2-digit'}), '#16a34a');
+    clearSyncError();
+    if (showAlert) alert('✅ Sync berhasil!');
   } catch (e) {
     console.error('Sync error:', e);
-    setSyncStatus('⚠️ Sync error', '#dc2626');
-    // Token might be expired
-    if (e.message && e.message.includes('401')) {
-      gdriveAccessToken = null;
-      localStorage.removeItem('gdrive_token');
-      document.getElementById('btn-gdrive').textContent = '☁️ Connect Drive';
+    gdrivePendingChanges = true;
+
+    if (e.message === 'UNAUTHORIZED') {
       setSyncStatus('⚠️ Login expired', '#dc2626');
+      showSyncError(
+        '⚠️ DATA TERAKHIR BELUM TERSIMPAN KE DRIVE! Login Google expired. Klik Re-Login segera untuk simpan data.',
+        true
+      );
+      localStorage.removeItem('gdrive_token');
+    } else {
+      setSyncStatus('⚠️ Sync error', '#dc2626');
+      showSyncError('Gagal sync: ' + e.message + '. Data ada di browser tapi belum ke Drive.', true);
+      // Auto retry up to 3 times
+      gdriveSyncRetryCount++;
+      if (gdriveSyncRetryCount < 3) {
+        setTimeout(() => syncToGDrive(false), 5000 * gdriveSyncRetryCount);
+      }
     }
   } finally {
     gdriveSyncing = false;
@@ -1324,6 +1517,10 @@ async function syncToGDrive() {
 async function restoreFromGDrive() {
   if (!confirm('Tarik data dari Google Drive akan MENGGANTI semua data lokal. Lanjutkan?')) return;
   closeModal('modal-gdrive');
+  if (!isTokenValid()) {
+    const ok = await ensureValidToken();
+    if (!ok) { showSyncError('Login expired, re-login dulu', true); return; }
+  }
   setSyncStatus('⏳ Pulling...', '#d97706');
   const remote = await fetchGDriveContent();
   if (!remote) {
@@ -1331,6 +1528,7 @@ async function restoreFromGDrive() {
     setSyncStatus('⚠️ Error', '#dc2626');
     return;
   }
+  backupBeforeOverwrite();
   state = migrate(remote);
   saveStateLocal();
   setSyncStatus('✓ Synced', '#16a34a');
@@ -1340,6 +1538,14 @@ async function restoreFromGDrive() {
 }
 
 function logoutGDrive() {
+  if (gdrivePendingChanges) {
+    if (!confirm(
+      '⚠️ MASIH ADA PERUBAHAN BELUM DI-SYNC KE DRIVE!\n\n' +
+      'Disconnect SEKARANG akan menghilangkan data terakhir Anda.\n\n' +
+      'Sebaiknya: klik Re-Login dulu untuk sync, BARU disconnect.\n\n' +
+      'Tetap disconnect sekarang?'
+    )) return;
+  }
   if (!confirm(
     '⚠️ DISCONNECT dari Google Drive?\n\n' +
     'Data LOKAL di browser ini akan DIHAPUS. Data di Google Drive Anda tetap aman.\n\n' +
@@ -1351,25 +1557,41 @@ function logoutGDrive() {
     try { google.accounts.oauth2.revoke(gdriveAccessToken, () => {}); } catch (e) {}
   }
   gdriveAccessToken = null;
+  gdriveTokenExpiresAt = 0;
   gdriveFileId = null;
   gdriveUserEmail = null;
   gdriveLastSync = null;
+  if (gdriveAutoRefreshTimer) clearTimeout(gdriveAutoRefreshTimer);
   localStorage.removeItem('gdrive_token');
-  // Clear local data
   localStorage.removeItem(STORE_KEY);
   closeModal('modal-gdrive');
-  alert('✅ Disconnected. Data lokal sudah dibersihkan. Refresh halaman...');
+  alert('✅ Disconnected. Refresh halaman...');
   location.reload();
 }
 
 function scheduleSyncToGDrive() {
-  if (!gdriveAccessToken) return;
+  if (!gdriveAccessToken) {
+    // Mark as pending — user needs to login
+    gdrivePendingChanges = true;
+    return;
+  }
   if (gdriveSyncTimer) clearTimeout(gdriveSyncTimer);
   setSyncStatus('⏳ Pending sync...', '#d97706');
+  gdrivePendingChanges = true;
   gdriveSyncTimer = setTimeout(() => {
-    syncToGDrive();
-  }, 3000); // debounce: sync 3 seconds after last change
+    syncToGDrive(false);
+  }, 3000);
 }
+
+// Warn user before closing if changes pending
+window.addEventListener('beforeunload', (e) => {
+  if (gdrivePendingChanges) {
+    e.preventDefault();
+    e.returnValue = 'Ada perubahan yang belum di-sync ke Drive. Tutup tetap?';
+    return e.returnValue;
+  }
+});
+
 
 // ===================== STATE =====================
 const STORE_KEY = 'wifi_rtrw_data_v2';
@@ -1399,7 +1621,8 @@ function loadState() {
     collectors: [],
     deposits: [],
     payments: [],
-    settings: { name: 'Samurai.NET', address: '', admin: '', phone: '', startDate: '' }
+    settings: { name: 'Samurai.NET', address: '', admin: '', phone: '', startDate: '' },
+    lastModified: Date.now()
   };
 }
 function migrate(s) {
@@ -1411,6 +1634,7 @@ function migrate(s) {
   if (!s.deposits) s.deposits = [];
   if (!s.settings) s.settings = { name: '', address: '', admin: '', phone: '' };
   if (s.settings.startDate === undefined) s.settings.startDate = '';
+  if (s.lastModified === undefined) s.lastModified = 0;
   // Add commission fields to legacy locations
   s.locations.forEach(l => {
     if (l.commissionPercent === undefined) l.commissionPercent = 5;
@@ -1424,6 +1648,7 @@ function migrate(s) {
 }
 function saveStateLocal() { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
 function saveState() {
+  state.lastModified = Date.now();
   saveStateLocal();
   scheduleSyncToGDrive();
 }
