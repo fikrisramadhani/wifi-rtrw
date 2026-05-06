@@ -2995,7 +2995,7 @@ function renderFastInput() {
   }
 
   let html = `<div class="alert alert-info" style="font-size:12px;padding:8px 12px;margin-bottom:8px;">
-    💡 Cara pakai: Klik <strong>Lunas</strong> untuk bayar penuh sesuai tagihan + tunggakan. Atau ketik nominal manual lalu klik <strong>Bayar</strong> / tekan Enter.
+    💡 Klik <strong>Lunas</strong> untuk bayar penuh, atau ketik nominal lalu klik <strong>Bayar</strong> / tekan Enter. Klik <strong>nama pelanggan</strong> untuk lihat detail riwayat tagihan.
   </div>`;
   html += `<div style="border:1px solid #e7e5e4;border-radius:10px;overflow:hidden;">
     <div style="background:#fafaf9;padding:8px 10px;font-size:12px;font-weight:600;color:#44403c;display:grid;grid-template-columns:30px 1fr 100px 130px 140px;gap:8px;">
@@ -3041,7 +3041,7 @@ function renderFastInput() {
 
     html += `<div class="fast-input-row ${rowClass}" id="fi-row-${c.id}" style="grid-template-columns:30px 1fr 100px 130px 140px;">
       <div>${i+1}</div>
-      <div class="name"><strong>${escapeHtml(c.name)}</strong><small>${escapeHtml(c.username||'')} ${c.phone ? '· ' + escapeHtml(c.phone) : ''}</small></div>
+      <div class="name" onclick="showCustomerDetail('${c.id}')" style="cursor:pointer;" title="Klik untuk lihat detail"><strong style="text-decoration:underline;text-decoration-style:dotted;text-decoration-color:#1e40af;">${escapeHtml(c.name)}</strong><small>${escapeHtml(c.username||'')} ${c.phone ? '· ' + escapeHtml(c.phone) : ''}</small></div>
       ${tagihanInfo}
       ${inputCell ? `<div>${inputCell}</div>` : `<div></div>`}
       <div>${actionCell}</div>
