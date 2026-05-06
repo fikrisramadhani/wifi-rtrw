@@ -553,9 +553,12 @@ tbody tr:last-child td { border-bottom: none; }
     <div class="panel">
       <div class="panel-header"><h2>Catat Pembayaran</h2></div>
       <div class="form-grid">
-        <div class="form-group">
+        <div class="form-group" style="position:relative;">
           <label>Pelanggan</label>
-          <select id="pay-customer"><option value="">— Pilih —</option></select>
+          <input type="text" id="pay-customer-search" placeholder="🔍 Ketik nama / username / HP..." autocomplete="off">
+          <input type="hidden" id="pay-customer">
+          <div id="pay-customer-info" style="display:none;font-size:12px;color:#16a34a;margin-top:4px;"></div>
+          <div id="pay-customer-suggestions" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #d6d3d1;border-radius:8px;max-height:240px;overflow-y:auto;z-index:50;box-shadow:0 4px 12px rgba(0,0,0,0.1);margin-top:2px;"></div>
         </div>
         <div class="form-group">
           <label>Periode (Bulan)</label>
@@ -1776,23 +1779,35 @@ function renderDashboard() {
 }
 
 function quickPay(customerId, period) {
-  const tabBtn = document.querySelectorAll('.tab')[5]; // Pembayaran tab
-  showTab('pembayaran', tabBtn);
+  const tabs = document.querySelectorAll('.tab');
+  // Find the Pembayaran tab
+  let payTab = null;
+  tabs.forEach(t => {
+    if (t.textContent.includes('Pembayaran')) payTab = t;
+  });
+  if (payTab) showTab('pembayaran', payTab);
   setTimeout(() => {
-    document.getElementById('pay-customer').value = customerId;
-    document.getElementById('pay-period').value = period;
     const c = state.customers.find(x => x.id === customerId);
     if (c) {
-      // Auto-fill with remaining unpaid amount for that month
+      const searchInput = document.getElementById('pay-customer-search');
+      const hiddenInput = document.getElementById('pay-customer');
+      const infoBox = document.getElementById('pay-customer-info');
+      if (searchInput) searchInput.value = c.name + (c.username ? ' (' + c.username + ')' : '');
+      if (hiddenInput) hiddenInput.value = customerId;
+      if (infoBox) {
+        infoBox.textContent = `✓ Terpilih: ${c.name}`;
+        infoBox.style.display = 'block';
+      }
+      document.getElementById('pay-period').value = period;
       const bal = calculateBalance(c.id, period);
       const me = bal.months.find(m => m.period === period);
       const sisa = me ? (me.billed - me.paid) : getPackagePrice(c.packageId);
-      document.getElementById('pay-amount').value = sisa;
+      document.getElementById('pay-amount').value = sisa > 0 ? sisa : getPackagePrice(c.packageId);
+      document.getElementById('pay-date').value = todayStr();
+      updatePayInfo();
+      updatePayPreview();
     }
-    document.getElementById('pay-date').value = todayStr();
-    updatePayInfo();
-    updatePayPreview();
-  }, 50);
+  }, 100);
 }
 
 // ===================== PELANGGAN =====================
@@ -2374,12 +2389,8 @@ function deletePackage(id) {
 
 // ===================== PEMBAYARAN =====================
 function renderPayments() {
-  refreshCustomerSelect('pay-customer');
-  if (!document.getElementById('pay-period').value) document.getElementById('pay-period').value = curMonth();
-  if (!document.getElementById('pay-date').value) document.getElementById('pay-date').value = todayStr();
-
-  document.getElementById('pay-customer').onchange = function() {
-    const c = state.customers.find(x => x.id === this.value);
+  setupCustomerSearch('pay-customer-search', 'pay-customer', 'pay-customer-suggestions', 'pay-customer-info', (customerId) => {
+    const c = state.customers.find(x => x.id === customerId);
     if (c) {
       const period = document.getElementById('pay-period').value || curMonth();
       const bal = calculateBalance(c.id, period);
@@ -2389,7 +2400,10 @@ function renderPayments() {
     }
     updatePayInfo();
     updatePayPreview();
-  };
+  });
+
+  if (!document.getElementById('pay-period').value) document.getElementById('pay-period').value = curMonth();
+  if (!document.getElementById('pay-date').value) document.getElementById('pay-date').value = todayStr();
 
   updatePayInfo();
 
@@ -2514,7 +2528,7 @@ function savePayment() {
   const paidAt = document.getElementById('pay-date').value;
   const method = document.getElementById('pay-method').value;
   const note = document.getElementById('pay-note').value.trim();
-  if (!customerId) { alert('Pilih pelanggan'); return; }
+  if (!customerId) { alert('Pilih pelanggan dulu (cari nama di kotak pencarian)'); return; }
   if (!period) { alert('Pilih periode bulan'); return; }
   if (!amount || amount <= 0) { alert('Jumlah harus lebih dari 0'); return; }
   if (!paidAt) { alert('Pilih tanggal bayar'); return; }
@@ -2524,7 +2538,12 @@ function savePayment() {
   saveState();
   document.getElementById('pay-amount').value = '';
   document.getElementById('pay-note').value = '';
+  document.getElementById('pay-customer-search').value = '';
+  document.getElementById('pay-customer').value = '';
+  const infoBox = document.getElementById('pay-customer-info');
+  if (infoBox) infoBox.style.display = 'none';
   document.getElementById('pay-preview').style.display = 'none';
+  document.getElementById('pay-info').style.display = 'none';
   renderPayments();
   showReceipt(payment.id);
 }
@@ -2929,8 +2948,11 @@ function renderFastInput() {
     return;
   }
 
-  let html = `<div style="border:1px solid #e7e5e4;border-radius:10px;overflow:hidden;">
-    <div style="background:#fafaf9;padding:8px 10px;font-size:12px;font-weight:600;color:#44403c;display:grid;grid-template-columns:30px 1fr 100px 130px 90px;gap:8px;">
+  let html = `<div class="alert alert-info" style="font-size:12px;padding:8px 12px;margin-bottom:8px;">
+    💡 Cara pakai: Klik <strong>Lunas</strong> untuk bayar penuh. Atau ketik nominal manual lalu klik <strong>Bayar</strong> / tekan Enter / klik di luar field.
+  </div>`;
+  html += `<div style="border:1px solid #e7e5e4;border-radius:10px;overflow:hidden;">
+    <div style="background:#fafaf9;padding:8px 10px;font-size:12px;font-weight:600;color:#44403c;display:grid;grid-template-columns:30px 1fr 100px 130px 140px;gap:8px;">
       <div></div><div>Pelanggan</div><div>Tagihan</div><div>Bayar</div><div>Aksi</div>
     </div>`;
 
@@ -2938,9 +2960,9 @@ function renderFastInput() {
     const bal = calculateBalance(c.id, period);
     const me = bal.months.find(m => m.period === period);
     if (!me) {
-      html += `<div class="fast-input-row"><div>${i+1}</div>
+      html += `<div class="fast-input-row" style="grid-template-columns:30px 1fr 100px 130px 140px;"><div>${i+1}</div>
         <div class="name"><strong>${escapeHtml(c.name)}</strong><small>${escapeHtml(c.username||'')}</small></div>
-        <div colspan="3" style="grid-column:span 3;color:#78716c;font-style:italic;">Tidak ditagih bulan ini</div></div>`;
+        <div style="grid-column:span 3;color:#78716c;font-style:italic;">Tidak ditagih bulan ini</div></div>`;
       return;
     }
 
@@ -2955,10 +2977,13 @@ function renderFastInput() {
       actionCell = `<div style="color:#16a34a;font-size:11px;">Sudah dibayar</div>`;
     } else {
       inputCell = `<input type="number" class="fast-input-amount" id="fi-amt-${c.id}" placeholder="${sisa}" data-customer="${c.id}" data-period="${period}" data-billed="${me.billed}" data-paid="${me.paid}">`;
-      actionCell = `<button class="btn btn-sm btn-success" onclick="fastInputPay('${c.id}','${period}',${sisa})">Lunas</button>`;
+      actionCell = `<div style="display:flex;gap:4px;">
+        <button class="btn btn-sm btn-primary" onclick="fastInputManualPay('${c.id}','${period}')" style="flex:1;">Bayar</button>
+        <button class="btn btn-sm btn-success" onclick="fastInputPay('${c.id}','${period}',${sisa})" style="flex:1;">Lunas</button>
+      </div>`;
     }
 
-    html += `<div class="fast-input-row ${rowClass}" id="fi-row-${c.id}">
+    html += `<div class="fast-input-row ${rowClass}" id="fi-row-${c.id}" style="grid-template-columns:30px 1fr 100px 130px 140px;">
       <div>${i+1}</div>
       <div class="name"><strong>${escapeHtml(c.name)}</strong><small>${escapeHtml(c.username||'')} ${c.phone ? '· ' + escapeHtml(c.phone) : ''}</small></div>
       ${tagihanInfo}
@@ -2970,14 +2995,21 @@ function renderFastInput() {
   html += `</div>`;
   container.innerHTML = html;
 
-  // Add Enter key handler for amount inputs
+  // Add Enter key & blur handlers for amount inputs
   customers.forEach(c => {
     const inp = document.getElementById('fi-amt-' + c.id);
     if (inp) {
       inp.addEventListener('keydown', e => {
         if (e.key === 'Enter') {
-          const amt = parseInt(e.target.value);
-          if (amt > 0) fastInputPay(c.id, e.target.dataset.period, amt);
+          e.preventDefault();
+          fastInputManualPay(c.id, e.target.dataset.period);
+        }
+      });
+      inp.addEventListener('blur', e => {
+        // Auto-save on blur if value entered
+        const amt = parseInt(e.target.value);
+        if (amt > 0) {
+          fastInputManualPay(c.id, e.target.dataset.period);
         }
       });
     }
@@ -2985,6 +3017,19 @@ function renderFastInput() {
 
   document.getElementById('fi-deposit-info').style.display = 'block';
   updateFastInputSummary();
+}
+
+function fastInputManualPay(customerId, period) {
+  const inp = document.getElementById('fi-amt-' + customerId);
+  if (!inp) return;
+  const amount = parseInt(inp.value);
+  if (!amount || amount <= 0) {
+    // Don't show alert on blur if empty — silent skip
+    return;
+  }
+  // Clear value to prevent double-save when blur fires after Enter
+  inp.value = '';
+  fastInputPay(customerId, period, amount);
 }
 
 function fastInputPay(customerId, period, amount) {
@@ -3020,8 +3065,8 @@ function refreshFastInputRow(customerId, period) {
 
   // Update the row class
   row.className = 'fast-input-row ' + (me.status === 'lunas' ? 'paid' : me.status === 'sebagian' ? 'partial' : '');
+  row.style.gridTemplateColumns = '30px 1fr 100px 130px 140px';
 
-  // Get the cells (the row has 5 children: index, name, tagihan, input, action)
   const cells = row.children;
   if (cells.length < 5) return;
 
@@ -3034,15 +3079,22 @@ function refreshFastInputRow(customerId, period) {
     cells[4].innerHTML = `<div style="color:#16a34a;font-size:11px;">Sudah dibayar</div>`;
   } else {
     cells[3].innerHTML = `<input type="number" class="fast-input-amount" id="fi-amt-${c.id}" placeholder="${sisa}" data-customer="${c.id}" data-period="${period}" data-billed="${me.billed}" data-paid="${me.paid}">`;
-    cells[4].innerHTML = `<button class="btn btn-sm btn-success" onclick="fastInputPay('${c.id}','${period}',${sisa})">Lunas</button>`;
-    // Re-attach Enter key handler
+    cells[4].innerHTML = `<div style="display:flex;gap:4px;">
+      <button class="btn btn-sm btn-primary" onclick="fastInputManualPay('${c.id}','${period}')" style="flex:1;">Bayar</button>
+      <button class="btn btn-sm btn-success" onclick="fastInputPay('${c.id}','${period}',${sisa})" style="flex:1;">Lunas</button>
+    </div>`;
+    // Re-attach Enter & blur handlers
     const inp = document.getElementById('fi-amt-' + c.id);
     if (inp) {
       inp.addEventListener('keydown', e => {
         if (e.key === 'Enter') {
-          const amt = parseInt(e.target.value);
-          if (amt > 0) fastInputPay(c.id, e.target.dataset.period, amt);
+          e.preventDefault();
+          fastInputManualPay(c.id, e.target.dataset.period);
         }
+      });
+      inp.addEventListener('blur', e => {
+        const amt = parseInt(e.target.value);
+        if (amt > 0) fastInputManualPay(c.id, e.target.dataset.period);
       });
     }
   }
@@ -3790,11 +3842,103 @@ function refreshLocationDropdown(elementId, selectedCode, includeEmpty) {
 }
 function refreshCustomerSelect(elementId) {
   const el = document.getElementById(elementId);
+  if (!el || el.tagName !== 'SELECT') return;
   const cur = el.value;
   const customers = state.customers.filter(c => !c.isFree).slice().sort((a,b) => a.name.localeCompare(b.name));
   el.innerHTML = '<option value="">— Pilih Pelanggan —</option>' +
     customers.map(c => `<option value="${c.id}">${escapeHtml(c.name)}${c.username ? ' (' + escapeHtml(c.username) + ')' : ''}</option>`).join('');
   el.value = cur;
+}
+
+function setupCustomerSearch(searchInputId, hiddenInputId, suggestionsId, infoId, onSelect) {
+  const searchInput = document.getElementById(searchInputId);
+  const hiddenInput = document.getElementById(hiddenInputId);
+  const suggestionsBox = document.getElementById(suggestionsId);
+  const infoBox = document.getElementById(infoId);
+  if (!searchInput || !hiddenInput || !suggestionsBox) return;
+
+  // If already initialized, restore display from hidden value
+  if (hiddenInput.value) {
+    const c = state.customers.find(x => x.id === hiddenInput.value);
+    if (c) {
+      searchInput.value = c.name + (c.username ? ' (' + c.username + ')' : '');
+      if (infoBox) {
+        infoBox.textContent = `✓ Terpilih: ${c.name}`;
+        infoBox.style.display = 'block';
+      }
+    }
+  }
+
+  // Remove old handlers by cloning
+  const newSearchInput = searchInput.cloneNode(true);
+  searchInput.parentNode.replaceChild(newSearchInput, searchInput);
+
+  newSearchInput.addEventListener('input', () => {
+    const q = newSearchInput.value.toLowerCase().trim();
+    if (!q) {
+      hiddenInput.value = '';
+      if (infoBox) infoBox.style.display = 'none';
+      suggestionsBox.style.display = 'none';
+      return;
+    }
+    const matches = state.customers.filter(c =>
+      !c.isFree && (
+        (c.name||'').toLowerCase().includes(q) ||
+        (c.username||'').toLowerCase().includes(q) ||
+        (c.phone||'').toLowerCase().includes(q) ||
+        (c.address||'').toLowerCase().includes(q)
+      )
+    ).slice(0, 30);
+
+    if (!matches.length) {
+      suggestionsBox.innerHTML = '<div style="padding:10px;color:#78716c;font-size:13px;">Tidak ada pelanggan ditemukan</div>';
+      suggestionsBox.style.display = 'block';
+      return;
+    }
+
+    suggestionsBox.innerHTML = matches.map(c => `
+      <div class="customer-suggestion" data-id="${c.id}" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #f5f5f4;">
+        <strong style="font-size:13px;">${escapeHtml(c.name)}</strong>
+        <div style="font-size:11px;color:#78716c;">
+          ${escapeHtml(c.username||'')}
+          ${c.phone ? ' · ' + escapeHtml(c.phone) : ''}
+          ${c.locationCode ? ' · ' + escapeHtml(getLocationName(c.locationCode)) : ''}
+        </div>
+      </div>
+    `).join('');
+    suggestionsBox.style.display = 'block';
+
+    suggestionsBox.querySelectorAll('.customer-suggestion').forEach(el => {
+      el.addEventListener('mouseenter', () => { el.style.background = '#f5f5f4'; });
+      el.addEventListener('mouseleave', () => { el.style.background = ''; });
+      el.addEventListener('click', () => {
+        const id = el.dataset.id;
+        const c = state.customers.find(x => x.id === id);
+        if (!c) return;
+        hiddenInput.value = id;
+        newSearchInput.value = c.name + (c.username ? ' (' + c.username + ')' : '');
+        suggestionsBox.style.display = 'none';
+        if (infoBox) {
+          infoBox.textContent = `✓ Terpilih: ${c.name}`;
+          infoBox.style.display = 'block';
+        }
+        if (onSelect) onSelect(id);
+      });
+    });
+  });
+
+  newSearchInput.addEventListener('focus', () => {
+    if (newSearchInput.value && suggestionsBox.innerHTML) {
+      suggestionsBox.style.display = 'block';
+    }
+  });
+
+  // Hide suggestions when clicking outside
+  document.addEventListener('click', (e) => {
+    if (e.target !== newSearchInput && !suggestionsBox.contains(e.target)) {
+      suggestionsBox.style.display = 'none';
+    }
+  });
 }
 function closeModal(id) { document.getElementById(id).classList.remove('show'); }
 function escapeHtml(str) {
