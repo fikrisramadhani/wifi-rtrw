@@ -2927,9 +2927,54 @@ function deleteCollector(id) {
 // ===================== INPUT CEPAT (FAST INPUT) =====================
 function initFastInput() {
   const sel = document.getElementById('fi-location');
+  // Preserve previously selected location across tab switches
+  const previousLocation = sel.value || sessionStorage.getItem('fi-last-location') || '';
+  const previousPeriod = document.getElementById('fi-period').value || sessionStorage.getItem('fi-last-period') || '';
+  const previousDate = document.getElementById('fi-date').value || sessionStorage.getItem('fi-last-date') || '';
+  const previousMethod = document.getElementById('fi-method').value || sessionStorage.getItem('fi-last-method') || '';
+
   sel.innerHTML = state.locations.map(l => `<option value="${l.code}">${escapeHtml(l.name)}</option>`).join('');
-  if (!document.getElementById('fi-period').value) document.getElementById('fi-period').value = curMonth();
-  if (!document.getElementById('fi-date').value) document.getElementById('fi-date').value = todayStr();
+  // Restore selection if location still exists
+  if (previousLocation && state.locations.some(l => l.code === previousLocation)) {
+    sel.value = previousLocation;
+  }
+
+  if (previousPeriod) {
+    document.getElementById('fi-period').value = previousPeriod;
+  } else if (!document.getElementById('fi-period').value) {
+    document.getElementById('fi-period').value = curMonth();
+  }
+
+  if (previousDate) {
+    document.getElementById('fi-date').value = previousDate;
+  } else if (!document.getElementById('fi-date').value) {
+    document.getElementById('fi-date').value = todayStr();
+  }
+
+  if (previousMethod) {
+    document.getElementById('fi-method').value = previousMethod;
+  }
+
+  // Save selections when changed
+  sel.addEventListener('change', () => {
+    sessionStorage.setItem('fi-last-location', sel.value);
+  });
+  document.getElementById('fi-period').addEventListener('change', (e) => {
+    sessionStorage.setItem('fi-last-period', e.target.value);
+  });
+  document.getElementById('fi-date').addEventListener('change', (e) => {
+    sessionStorage.setItem('fi-last-date', e.target.value);
+  });
+  document.getElementById('fi-method').addEventListener('change', (e) => {
+    sessionStorage.setItem('fi-last-method', e.target.value);
+  });
+
+  // Save current values immediately (in case user picked them before)
+  if (sel.value) sessionStorage.setItem('fi-last-location', sel.value);
+  sessionStorage.setItem('fi-last-period', document.getElementById('fi-period').value);
+  sessionStorage.setItem('fi-last-date', document.getElementById('fi-date').value);
+  sessionStorage.setItem('fi-last-method', document.getElementById('fi-method').value);
+
   renderFastInput();
 }
 
