@@ -342,9 +342,37 @@ tbody tr:last-child td { border-bottom: none; }
   margin-bottom: 12px;
 }
 
-@media (max-width: 600px) {
-  .fast-input-row { grid-template-columns: 1fr; gap: 4px; padding: 10px; }
-  .fast-input-row > * { width: 100%; }
+@media (max-width: 768px) {
+  /* Override inline grid-template-columns from JS */
+  .fast-input-row {
+    grid-template-columns: 30px 1fr !important;
+    grid-template-areas:
+      "num name"
+      "tagihan tagihan"
+      "input input"
+      "action action" !important;
+    gap: 6px !important;
+    padding: 12px 10px !important;
+  }
+  .fast-input-row > div:nth-child(1) { grid-area: num; }
+  .fast-input-row > div:nth-child(2) { grid-area: name; }
+  .fast-input-row > div:nth-child(3) { grid-area: tagihan; padding-top: 4px; border-top: 1px dashed #e7e5e4; }
+  .fast-input-row > div:nth-child(4) { grid-area: input; }
+  .fast-input-row > div:nth-child(5) { grid-area: action; }
+  .fast-input-row .name strong { font-size: 14px; }
+  .fast-input-amount {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 16px; /* min 16px to prevent iOS zoom on focus */
+  }
+  /* Make buttons taller on mobile for easier tapping */
+  .fast-input-row .btn-sm {
+    padding: 10px 12px !important;
+    font-size: 14px !important;
+    min-height: 38px;
+  }
+  /* Hide table header on mobile (it doesn't fit) */
+  .fi-table-header { display: none !important; }
 }
 
 @media (max-width: 600px) {
@@ -3056,7 +3084,7 @@ function renderFastInput() {
     💡 Klik <strong>Lunas</strong> untuk bayar penuh, atau ketik nominal lalu klik <strong>Bayar</strong> / tekan Enter. Klik <strong>nama pelanggan</strong> untuk edit data pelanggan.
   </div>`;
   html += `<div style="border:1px solid #e7e5e4;border-radius:10px;overflow:hidden;">
-    <div style="background:#fafaf9;padding:8px 10px;font-size:12px;font-weight:600;color:#44403c;display:grid;grid-template-columns:30px 1fr 100px 130px 140px;gap:8px;">
+    <div class="fi-table-header" style="background:#fafaf9;padding:8px 10px;font-size:12px;font-weight:600;color:#44403c;display:grid;grid-template-columns:30px 1fr 100px 130px 140px;gap:8px;">
       <div></div><div>Pelanggan</div><div>Tagihan</div><div>Bayar</div><div>Aksi</div>
     </div>`;
 
