@@ -532,6 +532,13 @@ tbody tr:last-child td { border-bottom: none; }
           <input type="month" id="print-period">
         </div>
       </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label>Kolom Tambahan (opsional)</label>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:4px;">
+          <label style="cursor:pointer;"><input type="checkbox" id="print-show-address"> Tampilkan kolom Alamat</label>
+          <label style="cursor:pointer;"><input type="checkbox" id="print-show-phone"> Tampilkan kolom HP</label>
+        </div>
+      </div>
       <button class="btn btn-success" onclick="generatePrintBilling()">📄 Buat & Cetak Daftar</button>
     </div>
   </div>
@@ -3774,18 +3781,24 @@ function generatePrintBilling() {
     return;
   }
 
+  // Get column toggle preferences
+  const showAddress = document.getElementById('print-show-address').checked;
+  const showPhone = document.getElementById('print-show-phone').checked;
+
   let totalTagihan = 0;
   let totalTunggakan = 0;
   let rows = '';
   let lastLocationCode = null;
   let runningNumber = 0;
+  // Total columns: No, Nama, [Alamat], [HP], Paket, Tagihan, Tunggakan, Total, Bayar
+  const totalCols = 6 + (showAddress ? 1 : 0) + (showPhone ? 1 : 0);
 
   customers.forEach((c) => {
     // Add location separator row when switching locations (only in collector mode with multiple locations)
     if (mode === 'collector' && locationCodes.length > 1 && c.locationCode !== lastLocationCode) {
       const loc = state.locations.find(x => x.code === c.locationCode);
       rows += `<tr style="background:#e0e7ff;">
-        <td colspan="9" style="border:1px solid #999;padding:6px;font-weight:bold;color:#1e40af;">📍 ${escapeHtml(loc ? loc.name : '-')}</td>
+        <td colspan="${totalCols}" style="border:1px solid #999;padding:6px;font-weight:bold;color:#1e40af;">📍 ${escapeHtml(loc ? loc.name : '-')}</td>
       </tr>`;
       lastLocationCode = c.locationCode;
     }
@@ -3810,8 +3823,8 @@ function generatePrintBilling() {
     rows += `<tr>
       <td style="border:1px solid #999;padding:4px;text-align:center;">${runningNumber}</td>
       <td style="border:1px solid #999;padding:4px;">${escapeHtml(c.name)}${isolatedNote}<br><small style="color:#666;">${escapeHtml(c.username || '')}</small></td>
-      <td style="border:1px solid #999;padding:4px;">${escapeHtml(c.address || '-')}</td>
-      <td style="border:1px solid #999;padding:4px;">${escapeHtml(c.phone || '-')}</td>
+      ${showAddress ? `<td style="border:1px solid #999;padding:4px;">${escapeHtml(c.address || '-')}</td>` : ''}
+      ${showPhone ? `<td style="border:1px solid #999;padding:4px;">${escapeHtml(c.phone || '-')}</td>` : ''}
       <td style="border:1px solid #999;padding:4px;">${escapeHtml(getPackageName(c.packageId))}</td>
       <td style="border:1px solid #999;padding:4px;text-align:right;">${billedDisplay}</td>
       <td style="border:1px solid #999;padding:4px;text-align:right;">${tunggakanSebelumnya > 0 ? `<strong style="color:#dc2626;">${fmtRp(tunggakanSebelumnya)}</strong>` : '-'}</td>
@@ -3819,6 +3832,9 @@ function generatePrintBilling() {
       <td style="border:1px solid #999;padding:4px;width:60px;height:30px;"></td>
     </tr>`;
   });
+
+  // Calculate colspan for total row (everything except last 3: tagihan, tunggakan, total — and bayar)
+  const totalLabelColspan = 2 + (showAddress ? 1 : 0) + (showPhone ? 1 : 0) + 1; // No + Nama + [Alamat] + [HP] + Paket
 
   const html = `
     <div style="font-family:Arial,sans-serif;">
@@ -3837,8 +3853,8 @@ function generatePrintBilling() {
           <tr style="background:#f0f0f0;">
             <th style="border:1px solid #999;padding:4px;">No</th>
             <th style="border:1px solid #999;padding:4px;text-align:left;">Nama</th>
-            <th style="border:1px solid #999;padding:4px;text-align:left;">Alamat</th>
-            <th style="border:1px solid #999;padding:4px;text-align:left;">HP</th>
+            ${showAddress ? '<th style="border:1px solid #999;padding:4px;text-align:left;">Alamat</th>' : ''}
+            ${showPhone ? '<th style="border:1px solid #999;padding:4px;text-align:left;">HP</th>' : ''}
             <th style="border:1px solid #999;padding:4px;text-align:left;">Paket</th>
             <th style="border:1px solid #999;padding:4px;text-align:right;">Tagihan</th>
             <th style="border:1px solid #999;padding:4px;text-align:right;">Tunggakan</th>
@@ -3849,7 +3865,7 @@ function generatePrintBilling() {
         <tbody>${rows}</tbody>
         <tfoot>
           <tr style="background:#f0f0f0;font-weight:bold;">
-            <td colspan="5" style="border:1px solid #999;padding:6px;text-align:right;">TOTAL POTENSI:</td>
+            <td colspan="${totalLabelColspan}" style="border:1px solid #999;padding:6px;text-align:right;">TOTAL POTENSI:</td>
             <td style="border:1px solid #999;padding:6px;text-align:right;">${fmtRp(totalTagihan)}</td>
             <td style="border:1px solid #999;padding:6px;text-align:right;">${fmtRp(totalTunggakan)}</td>
             <td style="border:1px solid #999;padding:6px;text-align:right;">${fmtRp(totalTagihan + totalTunggakan)}</td>
