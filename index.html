@@ -450,6 +450,7 @@ tbody tr:last-child td { border-bottom: none; }
           <div>
             <div style="font-size:12px;color:#78716c;">Total terinput</div>
             <div id="fi-total" style="font-size:22px;font-weight:600;color:#16a34a;">Rp 0</div>
+            <div id="fi-transfer-breakdown" style="display:none;margin-top:2px;"></div>
           </div>
           <div>
             <div style="font-size:12px;color:#78716c;">Pelanggan dibayar</div>
@@ -3176,7 +3177,7 @@ function renderFastInput() {
   }
 
   let html = `<div class="alert alert-info" style="font-size:12px;padding:8px 12px;margin-bottom:8px;">
-    💡 Klik <strong>Lunas</strong> untuk bayar penuh, atau ketik nominal lalu klik <strong>Bayar</strong> / tekan Enter. Klik <strong>nama pelanggan</strong> untuk edit data pelanggan.
+    💡 Klik <strong>Lunas</strong> untuk bayar penuh, atau ketik nominal lalu klik <strong>Bayar</strong>. Untuk pelanggan yang transfer langsung ke admin, klik <strong>💳 TF</strong> (tidak masuk setoran tukang). Klik <strong>nama pelanggan</strong> untuk edit data.
   </div>`;
   html += `<div style="border:1px solid #e7e5e4;border-radius:10px;overflow:hidden;">
     <div class="fi-table-header" style="background:#fafaf9;padding:8px 10px;font-size:12px;font-weight:600;color:#44403c;display:grid;grid-template-columns:30px 1fr 100px 130px 140px;gap:8px;">
@@ -3208,15 +3209,17 @@ function renderFastInput() {
         <div style="color:#16a34a;font-size:11px;font-weight:600;margin-bottom:3px;">Sudah bayar ${fmtRp(me.paid)}</div>
         <input type="number" class="fast-input-amount" id="fi-amt-${c.id}" placeholder="${sisa}" data-customer="${c.id}" data-period="${period}" data-billed="${me.billed}" data-paid="${me.paid}">
       </div>`;
-      actionCell = `<div style="display:flex;gap:4px;width:100%;">
-        <button class="btn btn-sm btn-primary" onclick="fastInputManualPay('${c.id}','${period}')" style="flex:1;justify-content:center;padding:5px 4px;">Bayar</button>
-        <button class="btn btn-sm btn-success" onclick="fastInputPay('${c.id}','${period}',${sisa})" style="flex:1;justify-content:center;padding:5px 4px;">Lunas</button>
+      actionCell = `<div style="display:flex;gap:3px;width:100%;flex-wrap:wrap;">
+        <button class="btn btn-sm btn-primary" onclick="fastInputManualPay('${c.id}','${period}')" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;">Bayar</button>
+        <button class="btn btn-sm btn-success" onclick="fastInputPay('${c.id}','${period}',${sisa})" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;">Lunas</button>
+        <button class="btn btn-sm" onclick="fastInputTransfer('${c.id}','${period}',${sisa})" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;background:#0891b2;color:white;" title="Transfer langsung ke admin (tidak masuk setoran tukang)">💳 TF</button>
       </div>`;
     } else {
       inputCell = `<input type="number" class="fast-input-amount" id="fi-amt-${c.id}" placeholder="${sisa}" data-customer="${c.id}" data-period="${period}" data-billed="${me.billed}" data-paid="${me.paid}">`;
-      actionCell = `<div style="display:flex;gap:4px;width:100%;">
-        <button class="btn btn-sm btn-primary" onclick="fastInputManualPay('${c.id}','${period}')" style="flex:1;justify-content:center;padding:5px 4px;">Bayar</button>
-        <button class="btn btn-sm btn-success" onclick="fastInputPay('${c.id}','${period}',${sisa})" style="flex:1;justify-content:center;padding:5px 4px;">Lunas</button>
+      actionCell = `<div style="display:flex;gap:3px;width:100%;flex-wrap:wrap;">
+        <button class="btn btn-sm btn-primary" onclick="fastInputManualPay('${c.id}','${period}')" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;">Bayar</button>
+        <button class="btn btn-sm btn-success" onclick="fastInputPay('${c.id}','${period}',${sisa})" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;">Lunas</button>
+        <button class="btn btn-sm" onclick="fastInputTransfer('${c.id}','${period}',${sisa})" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;background:#0891b2;color:white;" title="Transfer langsung ke admin (tidak masuk setoran tukang)">💳 TF</button>
       </div>`;
     }
 
@@ -3280,6 +3283,32 @@ function fastInputPay(customerId, period, amount) {
   updateFastInputSummary();
 }
 
+function fastInputTransfer(customerId, period, amount) {
+  if (!amount || amount <= 0) { alert('Jumlah harus lebih dari 0'); return; }
+  const c = state.customers.find(x => x.id === customerId);
+  if (!c) return;
+  if (!confirm(
+    `Catat pembayaran TRANSFER untuk ${c.name}?\n\n` +
+    `Jumlah: ${fmtRp(amount)}\n` +
+    `Periode: ${monthLabel(period)}\n\n` +
+    `⚠️ Pembayaran ini langsung masuk ke admin (rekening), TIDAK dihitung sebagai setoran tukang.`
+  )) return;
+  const paidAt = document.getElementById('fi-date').value || todayStr();
+  const payment = {
+    id: uid(),
+    customerId, period, amount, paidAt,
+    method: 'Transfer',
+    note: 'Transfer langsung ke admin',
+    fastInput: true,
+    directTransfer: true, // Flag: tidak masuk perhitungan setoran tukang
+    fastInputBatch: window.currentFastInputBatch || (window.currentFastInputBatch = uid())
+  };
+  state.payments.push(payment);
+  saveState();
+  refreshFastInputRow(customerId, period);
+  updateFastInputSummary();
+}
+
 function refreshFastInputRow(customerId, period) {
   const row = document.getElementById('fi-row-' + customerId);
   if (!row) return;
@@ -3312,9 +3341,10 @@ function refreshFastInputRow(customerId, period) {
       <div style="color:#16a34a;font-size:11px;font-weight:600;margin-bottom:3px;">Sudah bayar ${fmtRp(me.paid)}</div>
       <input type="number" class="fast-input-amount" id="fi-amt-${c.id}" placeholder="${sisa}" data-customer="${c.id}" data-period="${period}" data-billed="${me.billed}" data-paid="${me.paid}">
     </div>`;
-    cells[4].innerHTML = `<div style="display:flex;gap:4px;width:100%;">
-      <button class="btn btn-sm btn-primary" onclick="fastInputManualPay('${c.id}','${period}')" style="flex:1;justify-content:center;padding:5px 4px;">Bayar</button>
-      <button class="btn btn-sm btn-success" onclick="fastInputPay('${c.id}','${period}',${sisa})" style="flex:1;justify-content:center;padding:5px 4px;">Lunas</button>
+    cells[4].innerHTML = `<div style="display:flex;gap:3px;width:100%;flex-wrap:wrap;">
+      <button class="btn btn-sm btn-primary" onclick="fastInputManualPay('${c.id}','${period}')" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;">Bayar</button>
+      <button class="btn btn-sm btn-success" onclick="fastInputPay('${c.id}','${period}',${sisa})" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;">Lunas</button>
+      <button class="btn btn-sm" onclick="fastInputTransfer('${c.id}','${period}',${sisa})" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;background:#0891b2;color:white;" title="Transfer langsung ke admin">💳 TF</button>
     </div>`;
     const inp = document.getElementById('fi-amt-' + c.id);
     if (inp) {
@@ -3327,9 +3357,10 @@ function refreshFastInputRow(customerId, period) {
     }
   } else {
     cells[3].innerHTML = `<input type="number" class="fast-input-amount" id="fi-amt-${c.id}" placeholder="${sisa}" data-customer="${c.id}" data-period="${period}" data-billed="${me.billed}" data-paid="${me.paid}">`;
-    cells[4].innerHTML = `<div style="display:flex;gap:4px;width:100%;">
-      <button class="btn btn-sm btn-primary" onclick="fastInputManualPay('${c.id}','${period}')" style="flex:1;justify-content:center;padding:5px 4px;">Bayar</button>
-      <button class="btn btn-sm btn-success" onclick="fastInputPay('${c.id}','${period}',${sisa})" style="flex:1;justify-content:center;padding:5px 4px;">Lunas</button>
+    cells[4].innerHTML = `<div style="display:flex;gap:3px;width:100%;flex-wrap:wrap;">
+      <button class="btn btn-sm btn-primary" onclick="fastInputManualPay('${c.id}','${period}')" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;">Bayar</button>
+      <button class="btn btn-sm btn-success" onclick="fastInputPay('${c.id}','${period}',${sisa})" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;">Lunas</button>
+      <button class="btn btn-sm" onclick="fastInputTransfer('${c.id}','${period}',${sisa})" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;background:#0891b2;color:white;" title="Transfer langsung ke admin">💳 TF</button>
     </div>`;
     const inp = document.getElementById('fi-amt-' + c.id);
     if (inp) {
@@ -3359,6 +3390,8 @@ function updateFastInputSummary() {
   });
 
   const totalInput = todayPayments.reduce((s,p) => s + p.amount, 0);
+  const totalCash = todayPayments.filter(p => !p.directTransfer).reduce((s,p) => s + p.amount, 0);
+  const totalTransfer = todayPayments.filter(p => p.directTransfer).reduce((s,p) => s + p.amount, 0);
   const paidCustomerIds = new Set(todayPayments.map(p => p.customerId));
 
   // Calculate total expected from this period's billing for this location
@@ -3378,6 +3411,17 @@ function updateFastInputSummary() {
   document.getElementById('fi-total').textContent = fmtRp(totalInput);
   document.getElementById('fi-count').textContent = `${lunasCount} / ${customers.length}`;
   document.getElementById('fi-remaining').textContent = fmtRp(stillUnpaid);
+
+  // Show transfer breakdown if any transfers exist
+  const breakdownEl = document.getElementById('fi-transfer-breakdown');
+  if (breakdownEl) {
+    if (totalTransfer > 0) {
+      breakdownEl.innerHTML = `<small style="color:#0891b2;">💵 Tunai: ${fmtRp(totalCash)} · 💳 Transfer: ${fmtRp(totalTransfer)}</small>`;
+      breakdownEl.style.display = 'block';
+    } else {
+      breakdownEl.style.display = 'none';
+    }
+  }
 }
 
 function finalizeFastInput() {
@@ -3390,12 +3434,26 @@ function finalizeFastInput() {
   // Find payments made today for this location & period
   const customers = state.customers.filter(c => c.locationCode === locCode);
   const customerIds = new Set(customers.map(c => c.id));
-  const todayPayments = state.payments.filter(p =>
+  const allTodayPayments = state.payments.filter(p =>
     p.period === period && p.paidAt === today && customerIds.has(p.customerId)
   );
 
-  if (!todayPayments.length) {
+  // Exclude direct transfer payments — those don't go through the collector
+  const todayPayments = allTodayPayments.filter(p => !p.directTransfer);
+  const transferPayments = allTodayPayments.filter(p => p.directTransfer);
+
+  if (!todayPayments.length && !transferPayments.length) {
     alert('Belum ada pembayaran yang diinput hari ini');
+    return;
+  }
+
+  if (!todayPayments.length && transferPayments.length > 0) {
+    const totalTransfer = transferPayments.reduce((s,p) => s + p.amount, 0);
+    alert(
+      `Hari ini hanya ada pembayaran TRANSFER (${transferPayments.length} pelanggan, total ${fmtRp(totalTransfer)}).\n\n` +
+      `Karena transfer langsung ke admin, tidak perlu dibuat sesi setoran.\n\n` +
+      `Pembayaran sudah tercatat ✓`
+    );
     return;
   }
 
@@ -3405,13 +3463,26 @@ function finalizeFastInput() {
   openDepositModal();
   document.getElementById('deposit-location').value = locCode;
   document.getElementById('deposit-period').value = period;
-  // Auto-select collector for this location
-  if (loc.collectorId) document.getElementById('deposit-collector').value = loc.collectorId;
-  // Suggest the deposit amount
+  // Auto-select collector for this location (use new helper)
+  const collector = getCollectorForLocation(locCode);
+  if (collector) document.getElementById('deposit-collector').value = collector.id;
+  // Suggest the deposit amount (only cash, not transfer)
   document.getElementById('deposit-amount').value = totalAmount;
   // Mark these payments to be linked
   document.getElementById('deposit-id').value = '__from_fastinput__';
   window.fastInputPaymentIds = todayPayments.map(p => p.id);
+
+  // Show info about excluded transfers if any
+  if (transferPayments.length > 0) {
+    const totalTransfer = transferPayments.reduce((s,p) => s + p.amount, 0);
+    setTimeout(() => {
+      alert(
+        `ℹ️ Info: ${transferPayments.length} pembayaran via Transfer (${fmtRp(totalTransfer)}) ` +
+        `TIDAK dimasukkan ke setoran ini karena transfer langsung ke admin.`
+      );
+    }, 200);
+  }
+
   updateDepositCalc();
   // Reset fast input batch
   window.currentFastInputBatch = null;
