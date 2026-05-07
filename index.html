@@ -584,6 +584,13 @@ tbody tr:last-child td { border-bottom: none; }
           <option value="diisolir">Diisolir</option>
           <option value="nonaktif">Nonaktif</option>
         </select>
+        <select id="sort-customer" onchange="renderCustomers()">
+          <option value="name">Urut: Nama A-Z</option>
+          <option value="username">Urut: Username A-Z</option>
+          <option value="location">Urut: Daerah, Nama</option>
+          <option value="newest">Urut: Terbaru pasang</option>
+          <option value="oldest">Urut: Terlama pasang</option>
+        </select>
       </div>
       <div id="customers-info" style="font-size:13px;color:#78716c;margin-bottom:8px;"></div>
       <div class="table-wrap" style="max-height:600px;overflow-y:auto;">
@@ -1931,6 +1938,7 @@ function renderCustomers() {
   const filterLoc = document.getElementById('filter-location').value;
   const filterPaket = document.getElementById('filter-paket').value;
   const filterStatus = document.getElementById('filter-status').value;
+  const sortBy = (document.getElementById('sort-customer') || {}).value || 'name';
 
   let list = state.customers.filter(c => !c.isFree);
   if (search) list = list.filter(c =>
@@ -1941,6 +1949,22 @@ function renderCustomers() {
   if (filterLoc) list = list.filter(c => c.locationCode === filterLoc);
   if (filterPaket) list = list.filter(c => c.packageId === filterPaket);
   if (filterStatus) list = list.filter(c => c.status === filterStatus);
+
+  // Sort
+  list = list.slice().sort((a, b) => {
+    if (sortBy === 'username') return (a.username||'').localeCompare(b.username||'');
+    if (sortBy === 'location') {
+      const la = (state.locations.find(l => l.code === a.locationCode) || {}).name || '';
+      const lb = (state.locations.find(l => l.code === b.locationCode) || {}).name || '';
+      const cmp = la.localeCompare(lb);
+      if (cmp !== 0) return cmp;
+      return (a.name||'').localeCompare(b.name||'');
+    }
+    if (sortBy === 'newest') return (b.installedAt||'').localeCompare(a.installedAt||'');
+    if (sortBy === 'oldest') return (a.installedAt||'').localeCompare(b.installedAt||'');
+    // default: by name A-Z
+    return (a.name||'').localeCompare(b.name||'');
+  });
 
   document.getElementById('customers-info').innerHTML =
     `Menampilkan <strong>${list.length}</strong> dari <strong>${state.customers.filter(c => !c.isFree).length}</strong> pelanggan berbayar`;
@@ -1975,7 +1999,8 @@ function statusBadge(status) {
 }
 
 function renderFreeCustomers() {
-  const list = state.customers.filter(c => c.isFree);
+  const list = state.customers.filter(c => c.isFree)
+    .slice().sort((a, b) => (a.name||'').localeCompare(b.name||''));
   const tbody = document.querySelector('#free-customers-table tbody');
   if (!list.length) {
     tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><h3>Belum ada pelanggan gratis</h3><p>Edit pelanggan dan centang "Gratis (orang dalam)" untuk pindah ke sini</p></div></td></tr>`;
