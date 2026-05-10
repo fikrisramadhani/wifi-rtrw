@@ -3451,16 +3451,31 @@ function showFastInputPaymentDetails() {
     if (!c) return;
     const ps = byCustomer[custId];
     const subtotal = ps.reduce((s, p) => s + p.amount, 0);
-    const hasTransfer = ps.some(p => p.directTransfer);
-    const allTransfer = ps.every(p => p.directTransfer);
     cashTotal += ps.filter(p => !p.directTransfer).reduce((s, p) => s + p.amount, 0);
     transferTotal += ps.filter(p => p.directTransfer).reduce((s, p) => s + p.amount, 0);
 
-    // Get billed for this customer for this period
+    // Get allocation for THIS period after FIFO
     const bal = calculateBalance(c.id, period);
     const me = bal.months.find(m => m.period === period);
     const billed = me ? me.billed : 0;
-    const status = me ? (me.status === 'lunas' ? '✓ Lunas' : me.status === 'sebagian' ? `Sebagian (kurang ${fmtRp(me.billed - me.paid)})` : 'Belum cukup') : '-';
+    const allocatedToThisPeriod = me ? me.paid : 0;
+    const periodKurang = me ? Math.max(0, me.billed - me.paid) : 0;
+
+    let statusLabel;
+    if (!me) {
+      statusLabel = '-';
+    } else if (me.status === 'lunas') {
+      statusLabel = '<span style="color:#16a34a;font-weight:600;">✓ Lunas</span>';
+    } else if (me.status === 'sebagian') {
+      statusLabel = `<span style="color:#d97706;font-weight:600;">Sebagian</span><br><small style="color:#dc2626;">Kurang ${fmtRp(periodKurang)}</small>`;
+    } else {
+      statusLabel = '<span style="color:#dc2626;">Belum bayar</span>';
+    }
+
+    // Note about FIFO if total payment differs from allocated
+    const fifoNote = (subtotal !== allocatedToThisPeriod)
+      ? `<br><small style="color:#7c3aed;font-style:italic;">(Bayar Rp ${fmtRp(subtotal).replace('Rp ','')} — ${subtotal > allocatedToThisPeriod ? (allocatedToThisPeriod === 0 ? 'masuk ke tunggakan/bulan lain' : 'sebagian masuk tunggakan/bulan lain') : 'gabungan beberapa pembayaran'})</small>`
+      : '';
 
     const methodBadges = ps.map(p => {
       const isTransfer = p.directTransfer;
@@ -3471,8 +3486,8 @@ function showFastInputPaymentDetails() {
     rows += `<tr style="border-bottom:1px solid #e7e5e4;">
       <td style="padding:8px 6px;"><strong>${escapeHtml(c.name)}</strong><br><small style="color:#78716c;">${escapeHtml(c.username || '')}</small></td>
       <td style="padding:8px 6px;text-align:right;">${fmtRp(billed)}</td>
-      <td style="padding:8px 6px;text-align:right;"><strong style="color:#16a34a;">${fmtRp(subtotal)}</strong><br>${methodBadges}</td>
-      <td style="padding:8px 6px;font-size:12px;">${status}</td>
+      <td style="padding:8px 6px;text-align:right;"><strong style="color:#16a34a;">${fmtRp(allocatedToThisPeriod)}</strong>${fifoNote}<br>${methodBadges}</td>
+      <td style="padding:8px 6px;font-size:12px;">${statusLabel}</td>
     </tr>`;
   });
 
