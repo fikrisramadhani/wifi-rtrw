@@ -449,7 +449,7 @@ tbody tr:last-child td { border-bottom: none; }
         <div style="display:flex;gap:16px;flex-wrap:wrap;justify-content:space-between;align-items:center;">
           <div>
             <div style="font-size:12px;color:#78716c;">Total Pembayaran (periode ini)</div>
-            <div id="fi-total" style="font-size:22px;font-weight:600;color:#16a34a;">Rp 0</div>
+            <div id="fi-total" onclick="showFastInputPaymentDetails()" style="font-size:22px;font-weight:600;color:#16a34a;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:#86efac;" title="Klik untuk lihat detail pembayaran">Rp 0</div>
             <div id="fi-transfer-breakdown" style="display:none;margin-top:2px;"></div>
           </div>
           <div>
@@ -1174,6 +1174,17 @@ tbody tr:last-child td { border-bottom: none; }
     <div id="modal-detail-content"></div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('modal-detail')">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Detail Pembayaran (Fast Input) -->
+<div class="modal-bg" id="modal-fi-details">
+  <div class="modal" style="max-width:700px;">
+    <h3 id="fi-details-title">Detail Pembayaran</h3>
+    <div id="fi-details-content"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-fi-details')">Tutup</button>
     </div>
   </div>
 </div>
@@ -3397,6 +3408,108 @@ function refreshFastInputRow(customerId, period) {
       });
     }
   }
+}
+
+function showFastInputPaymentDetails() {
+  const locCode = document.getElementById('fi-location').value;
+  const period = document.getElementById('fi-period').value || curMonth();
+  if (!locCode) { alert('Pilih daerah dulu'); return; }
+
+  const loc = state.locations.find(l => l.code === locCode);
+  const customers = state.customers.filter(c =>
+    !c.isFree && c.locationCode === locCode && c.status !== 'nonaktif'
+  );
+  const customerIds = new Set(customers.map(c => c.id));
+
+  // All payments for this period & location
+  const payments = state.payments.filter(p =>
+    p.period === period && customerIds.has(p.customerId)
+  ).sort((a, b) => (a.paidAt || '').localeCompare(b.paidAt || ''));
+
+  document.getElementById('fi-details-title').textContent =
+    `Detail Pembayaran ${monthLabel(period)} — ${loc ? loc.name : '-'}`;
+
+  if (!payments.length) {
+    document.getElementById('fi-details-content').innerHTML =
+      `<div class="empty-state"><h3>Belum ada pembayaran</h3><p>Periode ini di daerah ini belum ada yang bayar.</p></div>`;
+    document.getElementById('modal-fi-details').classList.add('show');
+    return;
+  }
+
+  // Group payments by customer (handle partial payments)
+  const byCustomer = {};
+  payments.forEach(p => {
+    if (!byCustomer[p.customerId]) byCustomer[p.customerId] = [];
+    byCustomer[p.customerId].push(p);
+  });
+
+  let cashTotal = 0;
+  let transferTotal = 0;
+  let rows = '';
+  Object.keys(byCustomer).forEach(custId => {
+    const c = state.customers.find(x => x.id === custId);
+    if (!c) return;
+    const ps = byCustomer[custId];
+    const subtotal = ps.reduce((s, p) => s + p.amount, 0);
+    const hasTransfer = ps.some(p => p.directTransfer);
+    const allTransfer = ps.every(p => p.directTransfer);
+    cashTotal += ps.filter(p => !p.directTransfer).reduce((s, p) => s + p.amount, 0);
+    transferTotal += ps.filter(p => p.directTransfer).reduce((s, p) => s + p.amount, 0);
+
+    // Get billed for this customer for this period
+    const bal = calculateBalance(c.id, period);
+    const me = bal.months.find(m => m.period === period);
+    const billed = me ? me.billed : 0;
+    const status = me ? (me.status === 'lunas' ? '✓ Lunas' : me.status === 'sebagian' ? `Sebagian (kurang ${fmtRp(me.billed - me.paid)})` : 'Belum cukup') : '-';
+
+    const methodBadges = ps.map(p => {
+      const isTransfer = p.directTransfer;
+      const date = p.paidAt ? formatDate(p.paidAt) : '-';
+      return `<span style="display:inline-block;background:${isTransfer ? '#cffafe' : '#dcfce7'};color:${isTransfer ? '#0e7490' : '#166534'};padding:2px 8px;border-radius:10px;font-size:11px;margin:2px 2px 0 0;">${isTransfer ? '💳 TF' : '💵 Tunai'} ${fmtRp(p.amount)} · ${date}</span>`;
+    }).join('');
+
+    rows += `<tr style="border-bottom:1px solid #e7e5e4;">
+      <td style="padding:8px 6px;"><strong>${escapeHtml(c.name)}</strong><br><small style="color:#78716c;">${escapeHtml(c.username || '')}</small></td>
+      <td style="padding:8px 6px;text-align:right;">${fmtRp(billed)}</td>
+      <td style="padding:8px 6px;text-align:right;"><strong style="color:#16a34a;">${fmtRp(subtotal)}</strong><br>${methodBadges}</td>
+      <td style="padding:8px 6px;font-size:12px;">${status}</td>
+    </tr>`;
+  });
+
+  const grandTotal = cashTotal + transferTotal;
+  const breakdownHtml = transferTotal > 0
+    ? `<div style="font-size:12px;color:#78716c;margin-top:4px;">💵 Tunai: ${fmtRp(cashTotal)} · 💳 Transfer: ${fmtRp(transferTotal)}</div>`
+    : '';
+
+  document.getElementById('fi-details-content').innerHTML = `
+    <div style="background:#f5f5f4;padding:10px 12px;border-radius:8px;margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <div>
+          <div style="font-size:12px;color:#78716c;">Total Pembayaran</div>
+          <div style="font-size:20px;font-weight:600;color:#16a34a;">${fmtRp(grandTotal)}</div>
+          ${breakdownHtml}
+        </div>
+        <div>
+          <div style="font-size:12px;color:#78716c;">Jumlah Pelanggan Bayar</div>
+          <div style="font-size:20px;font-weight:600;">${Object.keys(byCustomer).length}</div>
+        </div>
+      </div>
+    </div>
+    <div style="max-height:400px;overflow-y:auto;border:1px solid #e7e5e4;border-radius:8px;">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead style="background:#fafaf9;position:sticky;top:0;">
+          <tr>
+            <th style="padding:8px 6px;text-align:left;border-bottom:1px solid #d6d3d1;">Pelanggan</th>
+            <th style="padding:8px 6px;text-align:right;border-bottom:1px solid #d6d3d1;">Tagihan</th>
+            <th style="padding:8px 6px;text-align:right;border-bottom:1px solid #d6d3d1;">Dibayar</th>
+            <th style="padding:8px 6px;text-align:left;border-bottom:1px solid #d6d3d1;">Status</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `;
+  document.getElementById('modal-fi-details').classList.add('show');
 }
 
 function updateFastInputSummary() {
