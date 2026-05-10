@@ -546,24 +546,13 @@ tbody tr:last-child td { border-bottom: none; }
   <!-- DASHBOARD -->
   <div id="tab-dashboard" class="tab-content">
     <div class="stats-grid" id="stats"></div>
+
     <div class="panel">
-      <div class="panel-header"><h2>Status Pembayaran Bulan Ini</h2>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          <select id="dashboard-location" onchange="renderDashboard()" style="max-width:160px;">
-            <option value="">Semua Lokasi</option>
-          </select>
-          <select id="dashboard-month" onchange="renderDashboard()" style="max-width:160px;"></select>
-        </div>
+      <div class="panel-header">
+        <h2>📊 Status Pembayaran</h2>
+        <select id="dashboard-month" onchange="renderDashboardCharts()" style="max-width:160px;"></select>
       </div>
-      <div class="search-bar">
-        <input type="text" id="dashboard-search" placeholder="🔍 Cari pelanggan..." oninput="renderDashboard()">
-      </div>
-      <div class="table-wrap">
-        <table id="dashboard-table">
-          <thead><tr><th>Pelanggan</th><th>Lokasi</th><th>Paket</th><th>Tagihan</th><th>Status</th><th>Aksi</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
+      <div id="dashboard-charts-content"></div>
     </div>
   </div>
 
@@ -701,16 +690,6 @@ tbody tr:last-child td { border-bottom: none; }
       </div>
       <div id="pay-preview" style="display:none;margin-bottom:10px;"></div>
       <button class="btn btn-success" onclick="savePayment()">💾 Simpan Pembayaran</button>
-    </div>
-
-    <div class="panel">
-      <div class="panel-header">
-        <h2>📊 Ringkasan Pembayaran 12 Bulan</h2>
-        <select id="yearly-summary-year" onchange="renderYearlySummary()" style="max-width:120px;"></select>
-      </div>
-      <div id="yearly-summary-stats" class="stats-grid" style="margin-bottom:14px;"></div>
-      <div id="yearly-summary-chart" style="margin-bottom:14px;"></div>
-      <div id="yearly-summary-top" style="margin-bottom:8px;"></div>
     </div>
 
     <div class="panel">
@@ -1909,24 +1888,20 @@ function renderDashboard() {
     }
     sel.innerHTML = opts;
   }
-  refreshLocationDropdown('dashboard-location');
   const month = sel.value || curMonth();
-  const filterLoc = document.getElementById('dashboard-location').value;
-  const search = (document.getElementById('dashboard-search').value || '').toLowerCase();
 
-  // Stats: paid customers (not free)
+  // Top stats
   const paidActive = state.customers.filter(c => !c.isFree && c.status === 'aktif');
   const paidIsolated = state.customers.filter(c => !c.isFree && c.status === 'diisolir');
   const free = state.customers.filter(c => c.isFree);
   const expectedRevenue = paidActive.reduce((s,c) => s + getPackagePrice(c.packageId), 0);
   const paidThisMonth = state.payments.filter(p => p.period === month).reduce((s,p) => s + p.amount, 0);
 
-  // Status counts based on balance per month
   let lunasCount = 0, sebagianCount = 0, belumCount = 0;
   paidActive.forEach(c => {
     const bal = calculateBalance(c.id, month);
     const me = bal.months.find(m => m.period === month);
-    if (!me) return; // not billable
+    if (!me) return;
     if (me.status === 'lunas') lunasCount++;
     else if (me.status === 'sebagian') sebagianCount++;
     else belumCount++;
@@ -1943,50 +1918,154 @@ function renderDashboard() {
     <div class="stat-card blue"><div class="stat-label">Potensi Pendapatan</div><div class="stat-value" style="font-size:16px;">${fmtRp(expectedRevenue)}</div></div>
   `;
 
-  // List active customers
-  let list = paidActive;
-  if (filterLoc) list = list.filter(c => c.locationCode === filterLoc);
-  if (search) list = list.filter(c =>
-    (c.name||'').toLowerCase().includes(search) ||
-    (c.username||'').toLowerCase().includes(search));
+  renderDashboardCharts();
+}
 
-  const tbody = document.querySelector('#dashboard-table tbody');
-  if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><h3>Belum ada pelanggan</h3><p>Tambahkan pelanggan dari menu Pelanggan</p></div></td></tr>`;
-    return;
-  }
-  tbody.innerHTML = list.map(c => {
+function renderDashboardCharts() {
+  const sel = document.getElementById('dashboard-month');
+  const month = (sel && sel.value) || curMonth();
+  const container = document.getElementById('dashboard-charts-content');
+  if (!container) return;
+
+  const paidActive = state.customers.filter(c => !c.isFree && c.status === 'aktif');
+
+  // ===== DONUT: Status Pembayaran (Lunas/Sebagian/Belum) =====
+  let lunasCount = 0, sebagianCount = 0, belumCount = 0;
+  paidActive.forEach(c => {
     const bal = calculateBalance(c.id, month);
-    const monthEntry = bal.months.find(m => m.period === month);
-    const price = getPackagePrice(c.packageId);
-    let statusBadgeHtml, actionBtn;
-    if (!monthEntry) {
-      // Month not billable (e.g., before install date or during isolation)
-      statusBadgeHtml = '<span class="badge badge-gray">Tidak ditagih</span>';
-      actionBtn = '-';
-    } else if (monthEntry.status === 'lunas') {
-      statusBadgeHtml = '<span class="badge badge-success">✓ Lunas</span>';
-      const lastPayment = monthEntry.payments[monthEntry.payments.length - 1];
-      actionBtn = lastPayment
-        ? `<button class="btn btn-sm" onclick="showReceipt('${lastPayment.id}')">🧾 Struk</button>`
-        : '<span style="color:#78716c;font-size:12px;">Tertutup oleh kredit</span>';
-    } else if (monthEntry.status === 'sebagian') {
-      const sisa = monthEntry.billed - monthEntry.paid;
-      statusBadgeHtml = `<span class="badge badge-warning">Sebagian</span><br><small style="color:#9a3412;">Kurang ${fmtRp(sisa)}</small>`;
-      actionBtn = `<button class="btn btn-sm btn-warning" onclick="quickPay('${c.id}','${month}')">💰 Lanjut Bayar</button>`;
-    } else {
-      statusBadgeHtml = '<span class="badge badge-danger">Belum Bayar</span>';
-      actionBtn = `<button class="btn btn-sm btn-success" onclick="quickPay('${c.id}','${month}')">💰 Bayar</button>`;
+    const me = bal.months.find(m => m.period === month);
+    if (!me) return;
+    if (me.status === 'lunas') lunasCount++;
+    else if (me.status === 'sebagian') sebagianCount++;
+    else belumCount++;
+  });
+  const totalActive = lunasCount + sebagianCount + belumCount;
+
+  // SVG donut
+  function donutSVG() {
+    if (totalActive === 0) return '<div style="text-align:center;color:#78716c;padding:40px;">Tidak ada data</div>';
+    const segments = [
+      { value: lunasCount, color: '#16a34a', label: 'Lunas' },
+      { value: sebagianCount, color: '#d97706', label: 'Sebagian' },
+      { value: belumCount, color: '#dc2626', label: 'Belum' }
+    ].filter(s => s.value > 0);
+
+    const cx = 100, cy = 100, r = 70, strokeWidth = 28;
+    let cumulativeAngle = -Math.PI / 2; // start from top
+    let arcs = '';
+    segments.forEach(s => {
+      const angle = (s.value / totalActive) * Math.PI * 2;
+      if (s.value === totalActive) {
+        // Single full circle
+        arcs += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${s.color}" stroke-width="${strokeWidth}"/>`;
+      } else {
+        const x1 = cx + r * Math.cos(cumulativeAngle);
+        const y1 = cy + r * Math.sin(cumulativeAngle);
+        const x2 = cx + r * Math.cos(cumulativeAngle + angle);
+        const y2 = cy + r * Math.sin(cumulativeAngle + angle);
+        const largeArc = angle > Math.PI ? 1 : 0;
+        arcs += `<path d="M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}" fill="none" stroke="${s.color}" stroke-width="${strokeWidth}" stroke-linecap="butt"/>`;
+      }
+      cumulativeAngle += angle;
+    });
+    const persenLunas = Math.round((lunasCount / totalActive) * 100);
+    return `
+      <svg viewBox="0 0 200 200" style="width:100%;max-width:240px;height:auto;">
+        ${arcs}
+        <text x="100" y="92" text-anchor="middle" font-size="32" font-weight="700" fill="#16a34a">${persenLunas}%</text>
+        <text x="100" y="115" text-anchor="middle" font-size="12" fill="#78716c">Sudah Lunas</text>
+      </svg>
+    `;
+  }
+
+  const donutLegend = `
+    <div style="display:flex;flex-direction:column;gap:6px;font-size:13px;">
+      <div style="display:flex;align-items:center;gap:6px;"><span style="display:inline-block;width:14px;height:14px;background:#16a34a;border-radius:3px;"></span> Lunas: <strong>${lunasCount}</strong> ${totalActive ? '(' + Math.round(lunasCount/totalActive*100) + '%)' : ''}</div>
+      <div style="display:flex;align-items:center;gap:6px;"><span style="display:inline-block;width:14px;height:14px;background:#d97706;border-radius:3px;"></span> Sebagian: <strong>${sebagianCount}</strong> ${totalActive ? '(' + Math.round(sebagianCount/totalActive*100) + '%)' : ''}</div>
+      <div style="display:flex;align-items:center;gap:6px;"><span style="display:inline-block;width:14px;height:14px;background:#dc2626;border-radius:3px;"></span> Belum: <strong>${belumCount}</strong> ${totalActive ? '(' + Math.round(belumCount/totalActive*100) + '%)' : ''}</div>
+      <div style="border-top:1px solid #e7e5e4;margin-top:4px;padding-top:4px;"><strong>Total:</strong> ${totalActive} pelanggan aktif</div>
+    </div>
+  `;
+
+  // ===== BAR CHART: Pendapatan per Daerah =====
+  const perLocation = {};
+  state.locations.forEach(l => {
+    perLocation[l.code] = { name: l.name, paid: 0, expected: 0, lunasCount: 0, totalCount: 0 };
+  });
+
+  paidActive.forEach(c => {
+    const data = perLocation[c.locationCode];
+    if (!data) return;
+    const bal = calculateBalance(c.id, month);
+    const me = bal.months.find(m => m.period === month);
+    if (!me) return;
+    data.expected += me.billed;
+    data.paid += me.paid;
+    data.totalCount++;
+    if (me.status === 'lunas') data.lunasCount++;
+  });
+
+  const locArr = Object.values(perLocation).filter(d => d.totalCount > 0);
+  const maxExpected = Math.max(1, ...locArr.map(d => d.expected));
+
+  let barRows = '';
+  if (locArr.length === 0) {
+    barRows = '<div style="text-align:center;color:#78716c;padding:20px;">Belum ada pelanggan aktif</div>';
+  } else {
+    locArr.forEach(d => {
+      const paidPct = d.expected > 0 ? Math.min(100, (d.paid / d.expected) * 100) : 0;
+      const widthPct = (d.expected / maxExpected) * 100;
+      const lunasPctOfPaid = d.lunasCount;
+      barRows += `
+        <div style="margin-bottom:12px;">
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
+            <strong>${escapeHtml(d.name)}</strong>
+            <span style="color:#78716c;">${lunasPctOfPaid}/${d.totalCount} lunas · ${fmtRp(d.paid)} dari ${fmtRp(d.expected)}</span>
+          </div>
+          <div style="height:24px;background:#f5f5f4;border-radius:4px;overflow:hidden;position:relative;width:${widthPct}%;min-width:100px;">
+            <div style="height:100%;width:${paidPct}%;background:linear-gradient(90deg,#16a34a,#22c55e);border-radius:4px;display:flex;align-items:center;padding:0 8px;color:white;font-size:11px;font-weight:600;">
+              ${paidPct > 15 ? Math.round(paidPct) + '%' : ''}
+            </div>
+          </div>
+        </div>
+      `;
+    });
+  }
+
+  // ===== Total tunggakan summary =====
+  let totalArrears = 0;
+  let arrearsCount = 0;
+  state.customers.filter(c => !c.isFree && c.status !== 'nonaktif').forEach(c => {
+    const bal = calculateBalance(c.id);
+    if (bal.balance > 0) {
+      totalArrears += bal.balance;
+      arrearsCount++;
     }
-    return `<tr>
-      <td><strong>${escapeHtml(c.name)}</strong>${c.username ? `<br><small style="color:#78716c;">${escapeHtml(c.username)}</small>` : ''}</td>
-      <td>${escapeHtml(getLocationName(c.locationCode))}</td>
-      <td>${escapeHtml(getPackageName(c.packageId))}</td>
-      <td>${fmtRp(price)}</td>
-      <td>${statusBadgeHtml}</td>
-      <td>${actionBtn}</td>
-    </tr>`;
-  }).join('');
+  });
+
+  container.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;">
+      <div>
+        <h3 style="margin:0 0 10px;font-size:14px;color:#44403c;">Status ${monthLabel(month)}</h3>
+        <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;">
+          ${donutSVG()}
+          ${donutLegend}
+        </div>
+      </div>
+      <div>
+        <h3 style="margin:0 0 10px;font-size:14px;color:#44403c;">Pendapatan per Daerah</h3>
+        ${barRows}
+      </div>
+    </div>
+    <div style="margin-top:18px;padding:12px;background:${totalArrears > 0 ? '#fef2f2' : '#f0fdf4'};border:1px solid ${totalArrears > 0 ? '#fecaca' : '#bbf7d0'};border-radius:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+      <div>
+        <div style="font-size:12px;color:#78716c;">Total Tunggakan Akumulasi</div>
+        <div style="font-size:22px;font-weight:700;color:${totalArrears > 0 ? '#dc2626' : '#16a34a'};">${fmtRp(totalArrears)}</div>
+        ${totalArrears > 0 ? `<div style="font-size:11px;color:#78716c;">${arrearsCount} pelanggan punya tunggakan</div>` : '<div style="font-size:11px;color:#16a34a;">🎉 Semua pelanggan tidak ada tunggakan</div>'}
+      </div>
+      ${totalArrears > 0 ? `<button class="btn btn-sm btn-warning" onclick="(function(){const tabs=document.querySelectorAll('.tab');tabs.forEach(t=>{if(t.textContent.includes('Tunggakan'))showTab('tunggakan',t);});})()">Lihat Detail Tunggakan →</button>` : ''}
+    </div>
+  `;
 }
 
 function quickPay(customerId, period) {
