@@ -718,10 +718,77 @@ tbody tr:last-child td { border-bottom: none; }
         <h2>Riwayat Pembayaran</h2>
         <button class="btn btn-sm" onclick="exportPaymentsCSV()">⬇ Export CSV</button>
       </div>
-      <div class="search-bar">
-        <input type="text" id="search-payment" placeholder="🔍 Cari pelanggan..." oninput="renderPayments()">
-        <input type="month" id="filter-payment-period" onchange="renderPayments()">
+
+      <!-- Filter Panel -->
+      <div style="background:#fafaf9;border:1px solid #e7e5e4;border-radius:10px;padding:12px;margin-bottom:10px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;">
+          <div>
+            <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Cari Pelanggan</label>
+            <input type="text" id="search-payment" placeholder="🔍 Nama / username / HP" oninput="renderPayments()">
+          </div>
+          <div>
+            <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Periode Tagihan</label>
+            <input type="month" id="filter-payment-period" onchange="renderPayments()">
+          </div>
+          <div>
+            <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Daerah</label>
+            <select id="filter-payment-location" onchange="renderPayments()">
+              <option value="">Semua Daerah</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Tukang</label>
+            <select id="filter-payment-collector" onchange="renderPayments()">
+              <option value="">Semua Tukang</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Metode Pembayaran</label>
+            <select id="filter-payment-method" onchange="renderPayments()">
+              <option value="">Semua Metode</option>
+              <option value="Tunai">💵 Tunai</option>
+              <option value="Transfer">💳 Transfer</option>
+              <option value="QRIS">📱 QRIS</option>
+              <option value="__direct__">🏦 Transfer Langsung ke Admin</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Urutkan</label>
+            <select id="sort-payment" onchange="renderPayments()">
+              <option value="date-desc">Terbaru</option>
+              <option value="date-asc">Terlama</option>
+              <option value="amount-desc">Jumlah terbesar</option>
+              <option value="amount-asc">Jumlah terkecil</option>
+              <option value="name-asc">Nama A-Z</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:10px;">
+          <div>
+            <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Tgl Bayar Dari</label>
+            <input type="date" id="filter-payment-date-from" onchange="renderPayments()">
+          </div>
+          <div>
+            <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Tgl Bayar Sampai</label>
+            <input type="date" id="filter-payment-date-to" onchange="renderPayments()">
+          </div>
+          <div>
+            <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Nominal Min</label>
+            <input type="number" id="filter-payment-min" placeholder="Rp 0" oninput="renderPayments()">
+          </div>
+          <div>
+            <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Nominal Max</label>
+            <input type="number" id="filter-payment-max" placeholder="Tanpa batas" oninput="renderPayments()">
+          </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:10px;">
+          <button class="btn btn-sm" onclick="resetPaymentFilters()" style="background:#f5f5f4;">↻ Reset Filter</button>
+        </div>
       </div>
+
+      <!-- Summary -->
+      <div id="payment-summary" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:13px;display:none;"></div>
+
       <div class="table-wrap">
         <table id="payments-table">
           <thead><tr><th>Tgl Bayar</th><th>Pelanggan</th><th>Periode</th><th>Jumlah</th><th>Metode</th><th>Aksi</th></tr></thead>
@@ -2580,37 +2647,183 @@ function renderPayments() {
   if (!document.getElementById('pay-period').value) document.getElementById('pay-period').value = curMonth();
   if (!document.getElementById('pay-date').value) document.getElementById('pay-date').value = todayStr();
 
+  // Populate filter dropdowns
+  const locSel = document.getElementById('filter-payment-location');
+  if (locSel) {
+    const cur = locSel.value;
+    locSel.innerHTML = '<option value="">Semua Daerah</option>' +
+      state.locations.map(l => `<option value="${l.code}">${escapeHtml(l.name)}</option>`).join('');
+    locSel.value = cur;
+  }
+  const colSel = document.getElementById('filter-payment-collector');
+  if (colSel) {
+    const cur = colSel.value;
+    colSel.innerHTML = '<option value="">Semua Tukang</option>' +
+      '<option value="__direct__">🏦 Transfer Langsung (tanpa tukang)</option>' +
+      state.collectors.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+    colSel.value = cur;
+  }
+
   updatePayInfo();
+  applyPaymentFilters();
+}
 
-  const search = document.getElementById('search-payment').value.toLowerCase();
+function applyPaymentFilters() {
+  const search = (document.getElementById('search-payment').value || '').toLowerCase();
   const filterPeriod = document.getElementById('filter-payment-period').value;
+  const filterLoc = document.getElementById('filter-payment-location').value;
+  const filterCollector = document.getElementById('filter-payment-collector').value;
+  const filterMethod = document.getElementById('filter-payment-method').value;
+  const dateFrom = document.getElementById('filter-payment-date-from').value;
+  const dateTo = document.getElementById('filter-payment-date-to').value;
+  const minAmount = parseInt(document.getElementById('filter-payment-min').value) || 0;
+  const maxAmount = parseInt(document.getElementById('filter-payment-max').value) || Infinity;
+  const sortBy = document.getElementById('sort-payment').value || 'date-desc';
 
-  let list = [...state.payments].sort((a,b) => b.paidAt.localeCompare(a.paidAt));
+  let list = [...state.payments];
+
+  // Filter by search (name/username/phone)
   if (search) list = list.filter(p => {
     const c = state.customers.find(x => x.id === p.customerId);
-    return c && (c.name.toLowerCase().includes(search) || (c.username||'').toLowerCase().includes(search));
+    if (!c) return false;
+    return (c.name||'').toLowerCase().includes(search) ||
+           (c.username||'').toLowerCase().includes(search) ||
+           (c.phone||'').toLowerCase().includes(search);
   });
+
+  // Filter by period (bulan tagihan)
   if (filterPeriod) list = list.filter(p => p.period === filterPeriod);
+
+  // Filter by location
+  if (filterLoc) list = list.filter(p => {
+    const c = state.customers.find(x => x.id === p.customerId);
+    return c && c.locationCode === filterLoc;
+  });
+
+  // Filter by collector or direct transfer
+  if (filterCollector === '__direct__') {
+    list = list.filter(p => p.directTransfer);
+  } else if (filterCollector) {
+    list = list.filter(p => {
+      if (p.directTransfer) return false; // direct transfer tidak ada tukang
+      const c = state.customers.find(x => x.id === p.customerId);
+      if (!c) return false;
+      const collector = getCollectorForLocation(c.locationCode);
+      return collector && collector.id === filterCollector;
+    });
+  }
+
+  // Filter by method
+  if (filterMethod === '__direct__') {
+    list = list.filter(p => p.directTransfer);
+  } else if (filterMethod) {
+    list = list.filter(p => p.method === filterMethod);
+  }
+
+  // Filter by date range
+  if (dateFrom) list = list.filter(p => (p.paidAt || '') >= dateFrom);
+  if (dateTo) list = list.filter(p => (p.paidAt || '') <= dateTo);
+
+  // Filter by amount range
+  list = list.filter(p => p.amount >= minAmount && p.amount <= maxAmount);
+
+  // Sort
+  list.sort((a, b) => {
+    if (sortBy === 'date-asc') return (a.paidAt||'').localeCompare(b.paidAt||'');
+    if (sortBy === 'amount-desc') return b.amount - a.amount;
+    if (sortBy === 'amount-asc') return a.amount - b.amount;
+    if (sortBy === 'name-asc') {
+      const ca = state.customers.find(x => x.id === a.customerId);
+      const cb = state.customers.find(x => x.id === b.customerId);
+      return (ca ? ca.name : '').localeCompare(cb ? cb.name : '');
+    }
+    // default: date-desc
+    return (b.paidAt||'').localeCompare(a.paidAt||'');
+  });
+
+  // Update summary
+  const summaryEl = document.getElementById('payment-summary');
+  if (list.length > 0) {
+    const total = list.reduce((s, p) => s + p.amount, 0);
+    const cashTotal = list.filter(p => !p.directTransfer && p.method !== 'Transfer').reduce((s, p) => s + p.amount, 0);
+    const transferTotal = list.filter(p => p.method === 'Transfer' && !p.directTransfer).reduce((s, p) => s + p.amount, 0);
+    const directTransferTotal = list.filter(p => p.directTransfer).reduce((s, p) => s + p.amount, 0);
+    const uniqueCustomers = new Set(list.map(p => p.customerId)).size;
+
+    summaryEl.style.display = 'block';
+    summaryEl.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;">
+        <div>
+          <div style="font-size:11px;color:#78716c;">Total Hasil Filter</div>
+          <div style="font-size:18px;font-weight:600;color:#1e40af;">${fmtRp(total)}</div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:#78716c;">Jumlah Pembayaran</div>
+          <div style="font-size:18px;font-weight:600;">${list.length}x</div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:#78716c;">Pelanggan Unik</div>
+          <div style="font-size:18px;font-weight:600;">${uniqueCustomers}</div>
+        </div>
+        ${(transferTotal > 0 || directTransferTotal > 0) ? `
+        <div>
+          <div style="font-size:11px;color:#78716c;">Breakdown</div>
+          <div style="font-size:11px;">
+            ${cashTotal > 0 ? `💵 ${fmtRp(cashTotal)}<br>` : ''}
+            ${transferTotal > 0 ? `💳 TF tukang ${fmtRp(transferTotal)}<br>` : ''}
+            ${directTransferTotal > 0 ? `🏦 TF langsung ${fmtRp(directTransferTotal)}` : ''}
+          </div>
+        </div>
+        ` : ''}
+      </div>
+    `;
+  } else {
+    summaryEl.style.display = 'none';
+  }
 
   const tbody = document.querySelector('#payments-table tbody');
   if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><h3>Belum ada pembayaran</h3></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><h3>Tidak ada pembayaran</h3><p>Tidak ada hasil sesuai filter. Coba reset atau ubah filter.</p></div></td></tr>`;
     return;
   }
-  tbody.innerHTML = list.slice(0, 200).map(p => {
+  tbody.innerHTML = list.slice(0, 500).map(p => {
     const c = state.customers.find(x => x.id === p.customerId);
+    const methodBadge = p.directTransfer
+      ? `<span class="badge" style="background:#cffafe;color:#0e7490;">🏦 TF Langsung</span>`
+      : p.method === 'Transfer'
+      ? `<span class="badge" style="background:#dbeafe;color:#1e40af;">💳 ${escapeHtml(p.method)}</span>`
+      : `<span class="badge badge-info">💵 ${escapeHtml(p.method)}</span>`;
     return `<tr>
       <td>${formatDate(p.paidAt)}</td>
-      <td>${escapeHtml(c ? c.name : '?')}${c && c.username ? `<br><small style="color:#78716c;">${escapeHtml(c.username)}</small>` : ''}</td>
+      <td>${escapeHtml(c ? c.name : '?')}${c && c.username ? `<br><small style="color:#78716c;">${escapeHtml(c.username)} ${c.locationCode ? '· ' + escapeHtml(getLocationName(c.locationCode)) : ''}</small>` : ''}</td>
       <td>${monthLabel(p.period)}</td>
       <td><strong>${fmtRp(p.amount)}</strong></td>
-      <td><span class="badge badge-info">${p.method}</span></td>
+      <td>${methodBadge}</td>
       <td style="white-space:nowrap;">
         <button class="btn btn-sm" onclick="showReceipt('${p.id}')">🧾</button>
         <button class="btn btn-sm btn-danger" onclick="deletePayment('${p.id}')">🗑</button>
       </td>
     </tr>`;
   }).join('');
+
+  // If list truncated, add note
+  if (list.length > 500) {
+    tbody.innerHTML += `<tr><td colspan="6" style="text-align:center;padding:12px;color:#78716c;font-size:12px;">Menampilkan 500 dari ${list.length} pembayaran. Persempit filter untuk melihat lebih spesifik.</td></tr>`;
+  }
+}
+
+function resetPaymentFilters() {
+  document.getElementById('search-payment').value = '';
+  document.getElementById('filter-payment-period').value = '';
+  document.getElementById('filter-payment-location').value = '';
+  document.getElementById('filter-payment-collector').value = '';
+  document.getElementById('filter-payment-method').value = '';
+  document.getElementById('filter-payment-date-from').value = '';
+  document.getElementById('filter-payment-date-to').value = '';
+  document.getElementById('filter-payment-min').value = '';
+  document.getElementById('filter-payment-max').value = '';
+  document.getElementById('sort-payment').value = 'date-desc';
+  applyPaymentFilters();
 }
 
 function updatePayInfo() {
@@ -4380,16 +4593,68 @@ function importData(event) {
 
 function exportPaymentsCSV() {
   if (!state.payments.length) { alert('Belum ada pembayaran'); return; }
-  const headers = ['Tgl Bayar','Username','Nama Pelanggan','Lokasi','Periode','Jumlah','Metode','Catatan'];
-  const rows = state.payments.map(p => {
+
+  // Use the same filter logic as renderPayments to export filtered data
+  const search = (document.getElementById('search-payment').value || '').toLowerCase();
+  const filterPeriod = document.getElementById('filter-payment-period').value;
+  const filterLoc = document.getElementById('filter-payment-location').value;
+  const filterCollector = document.getElementById('filter-payment-collector').value;
+  const filterMethod = document.getElementById('filter-payment-method').value;
+  const dateFrom = document.getElementById('filter-payment-date-from').value;
+  const dateTo = document.getElementById('filter-payment-date-to').value;
+  const minAmount = parseInt(document.getElementById('filter-payment-min').value) || 0;
+  const maxAmount = parseInt(document.getElementById('filter-payment-max').value) || Infinity;
+
+  let list = [...state.payments];
+  if (search) list = list.filter(p => {
     const c = state.customers.find(x => x.id === p.customerId);
+    if (!c) return false;
+    return (c.name||'').toLowerCase().includes(search) ||
+           (c.username||'').toLowerCase().includes(search) ||
+           (c.phone||'').toLowerCase().includes(search);
+  });
+  if (filterPeriod) list = list.filter(p => p.period === filterPeriod);
+  if (filterLoc) list = list.filter(p => {
+    const c = state.customers.find(x => x.id === p.customerId);
+    return c && c.locationCode === filterLoc;
+  });
+  if (filterCollector === '__direct__') {
+    list = list.filter(p => p.directTransfer);
+  } else if (filterCollector) {
+    list = list.filter(p => {
+      if (p.directTransfer) return false;
+      const c = state.customers.find(x => x.id === p.customerId);
+      if (!c) return false;
+      const collector = getCollectorForLocation(c.locationCode);
+      return collector && collector.id === filterCollector;
+    });
+  }
+  if (filterMethod === '__direct__') {
+    list = list.filter(p => p.directTransfer);
+  } else if (filterMethod) {
+    list = list.filter(p => p.method === filterMethod);
+  }
+  if (dateFrom) list = list.filter(p => (p.paidAt || '') >= dateFrom);
+  if (dateTo) list = list.filter(p => (p.paidAt || '') <= dateTo);
+  list = list.filter(p => p.amount >= minAmount && p.amount <= maxAmount);
+
+  if (!list.length) { alert('Tidak ada pembayaran sesuai filter aktif'); return; }
+
+  const headers = ['Tgl Bayar','Username','Nama Pelanggan','Lokasi','Tukang','Periode','Jumlah','Metode','Tipe','Catatan'];
+  const rows = list.map(p => {
+    const c = state.customers.find(x => x.id === p.customerId);
+    const collector = c && !p.directTransfer ? getCollectorForLocation(c.locationCode) : null;
     return [
       p.paidAt,
       c ? (c.username || '') : '',
       c ? c.name : '',
       c ? getLocationName(c.locationCode) : '',
+      collector ? collector.name : (p.directTransfer ? '(Transfer Langsung)' : '-'),
       monthLabel(p.period),
-      p.amount, p.method, p.note || ''
+      p.amount,
+      p.method,
+      p.directTransfer ? 'TF Langsung Admin' : 'Via Tukang',
+      p.note || ''
     ];
   });
   downloadCSV([headers, ...rows], `pembayaran-${todayStr()}.csv`);
