@@ -4580,10 +4580,15 @@ function calculateBalance(customerId, asOfMonth) {
   const allMonths = monthsBetween(billingStartYM, endMonth);
 
   // Determine which months are billable (excluding isolation periods)
+  // ISOLATION PERIODE TETAP DIPAKAI walaupun status sudah Aktif lagi.
+  // Ini supaya bulan saat diisolir (lampau) tidak tiba-tiba ditagih saat pelanggan diaktifkan.
   let billableMonths = allMonths;
-  if (c.status === 'diisolir' && c.isolatedFrom) {
+  if (c.isolatedFrom) {
     const isolFromYM = c.isolatedFrom.slice(0,7);
-    const isolUntilYM = c.isolatedUntil ? c.isolatedUntil.slice(0,7) : '9999-12';
+    // Kalau status masih diisolir & isolatedUntil kosong, anggap masih berlangsung
+    const isolUntilYM = c.isolatedUntil
+      ? c.isolatedUntil.slice(0,7)
+      : (c.status === 'diisolir' ? '9999-12' : isolFromYM);
     billableMonths = allMonths.filter(m => m < isolFromYM || m > isolUntilYM);
   }
 
