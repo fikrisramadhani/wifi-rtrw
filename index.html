@@ -3523,8 +3523,14 @@ function renderFastInput() {
   ).sort((a,b) => a.name.localeCompare(b.name));
 
   const container = document.getElementById('fi-list');
-  if (!customers.length) {
-    container.innerHTML = `<div class="empty-state"><h3>Tidak ada pelanggan aktif di daerah ini</h3></div>`;
+
+  // Check isolated customers with arrears too — even if no active customers, isolated may need to pay
+  const _isolatedWithArrearsCheck = state.customers.filter(c =>
+    !c.isFree && c.locationCode === locCode && c.status === 'diisolir'
+  ).some(c => calculateBalance(c.id, period).balance > 0);
+
+  if (!customers.length && !_isolatedWithArrearsCheck) {
+    container.innerHTML = `<div class="empty-state"><h3>Tidak ada pelanggan di daerah ini</h3><p>Tidak ada pelanggan aktif maupun diisolir dengan tunggakan.</p></div>`;
     document.getElementById('fi-deposit-info').style.display = 'none';
     return;
   }
@@ -3533,10 +3539,12 @@ function renderFastInput() {
     💡 <strong>Tunai:</strong> klik <strong>Lunas</strong> untuk bayar penuh, atau ketik nominal lalu klik <strong>Bayar</strong>.
     <strong>Transfer:</strong> klik <strong>💳 TF</strong> (full), atau ketik nominal dulu lalu klik <strong>💳 TF</strong> (sebagian). Klik <strong>nama pelanggan</strong> untuk edit.
   </div>`;
-  html += `<div style="border:1px solid #e7e5e4;border-radius:10px;overflow:hidden;">
-    <div class="fi-table-header" style="background:#fafaf9;padding:8px 10px;font-size:12px;font-weight:600;color:#44403c;display:grid;grid-template-columns:30px 1fr 100px 130px 140px;gap:8px;">
-      <div></div><div>Pelanggan</div><div>Tagihan</div><div>Bayar</div><div>Aksi</div>
-    </div>`;
+  if (customers.length > 0) {
+    html += `<div style="border:1px solid #e7e5e4;border-radius:10px;overflow:hidden;">
+      <div class="fi-table-header" style="background:#fafaf9;padding:8px 10px;font-size:12px;font-weight:600;color:#44403c;display:grid;grid-template-columns:30px 1fr 100px 130px 140px;gap:8px;">
+        <div></div><div>Pelanggan</div><div>Tagihan</div><div>Bayar</div><div>Aksi</div>
+      </div>`;
+  }
 
   customers.forEach((c, i) => {
     const bal = calculateBalance(c.id, period);
@@ -3598,11 +3606,76 @@ function renderFastInput() {
     </div>`;
   });
 
-  html += `</div>`;
+  if (customers.length > 0) {
+    html += `</div>`;
+  }
+
+  // ===== ISOLATED CUSTOMERS WITH ARREARS =====
+  const isolatedWithArrears = state.customers.filter(c =>
+    !c.isFree && c.locationCode === locCode && c.status === 'diisolir'
+  ).map(c => {
+    const bal = calculateBalance(c.id, period);
+    return { customer: c, balance: bal.balance };
+  }).filter(x => x.balance > 0)
+    .sort((a, b) => b.balance - a.balance); // urutkan tunggakan terbesar
+
+  if (isolatedWithArrears.length > 0) {
+    html += `<div style="margin-top:14px;border:1px solid #fed7aa;border-radius:10px;overflow:hidden;background:#fffbeb;">
+      <div style="background:#fef3c7;padding:10px 12px;font-size:13px;font-weight:600;color:#92400e;border-bottom:1px solid #fcd34d;">
+        ⚠️ Pelanggan Diisolir dengan Tunggakan (${isolatedWithArrears.length})
+        <div style="font-size:11px;font-weight:400;color:#a16207;margin-top:2px;">Layanan dihentikan tapi punya tunggakan. Catat pembayaran tunggakannya di sini.</div>
+      </div>
+      <div class="fi-table-header" style="background:#fef3c7;padding:8px 10px;font-size:12px;font-weight:600;color:#44403c;display:grid;grid-template-columns:30px 1fr 100px 130px 140px;gap:8px;border-bottom:1px solid #fcd34d;">
+        <div></div><div>Pelanggan</div><div>Tunggakan</div><div>Bayar</div><div>Aksi</div>
+      </div>`;
+
+    isolatedWithArrears.forEach((item, i) => {
+      const c = item.customer;
+      const arrears = item.balance;
+      // Use a synthetic "period" key for isolated customers — we'll attach payment to the latest unpaid month
+      // For UI purposes, we use the current period the user has selected
+      const isolatedFromYM = (c.isolatedFrom || '').slice(0, 7);
+      const isolatedNote = isolatedFromYM ? `Diisolir sejak ${monthLabel(isolatedFromYM)}` : 'Diisolir';
+
+      // Calculate raw payments for this period (for FIFO display consistency)
+      const rawPaidThisPeriod = state.payments
+        .filter(p => p.customerId === c.id && p.period === period)
+        .reduce((s, p) => s + p.amount, 0);
+      const showFromHint = rawPaidThisPeriod > 0;
+
+      const tagihanInfo = `<div><strong style="color:#dc2626;">${fmtRp(arrears)}</strong><br><small style="color:#a16207;">${isolatedNote}</small></div>`;
+
+      const paidInfo = showFromHint
+        ? `<div style="color:#16a34a;font-size:11px;font-weight:600;margin-bottom:3px;">Sudah bayar ${fmtRp(rawPaidThisPeriod)}</div>`
+        : '';
+
+      const inputCell = `<div>
+        ${paidInfo}
+        <input type="number" class="fast-input-amount" id="fi-amt-${c.id}" placeholder="${arrears}" data-customer="${c.id}" data-period="${period}">
+      </div>`;
+      const actionCell = `<div style="display:flex;gap:3px;width:100%;flex-wrap:wrap;">
+        <button class="btn btn-sm btn-primary" onclick="fastInputManualPay('${c.id}','${period}')" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;">Bayar</button>
+        <button class="btn btn-sm btn-success" onclick="fastInputPay('${c.id}','${period}',${arrears})" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;" title="Bayar lunas semua tunggakan">Lunas</button>
+        <button class="btn btn-sm" onclick="fastInputTransfer('${c.id}','${period}',${arrears})" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;background:#0891b2;color:white;" title="Transfer langsung ke admin">💳 TF</button>
+      </div>`;
+
+      html += `<div class="fast-input-row" id="fi-row-${c.id}" style="grid-template-columns:30px 1fr 100px 130px 140px;background:#fffbeb;">
+        <div>${i+1}</div>
+        <div class="name" onclick="editCustomer('${c.id}')" style="cursor:pointer;" title="Klik untuk edit pelanggan"><strong style="text-decoration:underline;text-decoration-style:dotted;text-decoration-color:#1e40af;">${escapeHtml(c.name)}</strong> <span style="background:#fde68a;color:#92400e;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;">DIISOLIR</span><small>${escapeHtml(c.username||'')} ${c.phone ? '· ' + escapeHtml(c.phone) : ''}</small></div>
+        ${tagihanInfo}
+        <div>${inputCell}</div>
+        <div>${actionCell}</div>
+      </div>`;
+    });
+
+    html += `</div>`;
+  }
+
   container.innerHTML = html;
 
-  // Add Enter key handlers for amount inputs (no auto-save on blur — explicit click only)
-  customers.forEach(c => {
+  // Add Enter key handlers for amount inputs (active + isolated)
+  const allCustomersForHandlers = customers.concat(isolatedWithArrears.map(x => x.customer));
+  allCustomersForHandlers.forEach(c => {
     const inp = document.getElementById('fi-amt-' + c.id);
     if (inp) {
       inp.addEventListener('keydown', e => {
