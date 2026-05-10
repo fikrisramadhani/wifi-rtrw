@@ -999,15 +999,17 @@ tbody tr:last-child td { border-bottom: none; }
       </select>
     </div>
     <div id="isolation-fields" style="display:none;">
-      <div class="alert alert-warning">⚠️ Saat diisolir, tagihan TIDAK bertambah. Saat status diubah ke Aktif lagi, tagihan akan dihitung dari tanggal aktif kembali.</div>
+      <div class="alert alert-warning">⚠️ Saat diisolir, tagihan TIDAK bertambah. <strong>Tgl Aktif Kembali</strong>: kalau diisi & tanggal sudah lewat, status otomatis berubah ke Aktif (auto-detect saat aplikasi dibuka).</div>
       <div class="form-grid">
         <div class="form-group">
           <label>Tgl Mulai Isolir</label>
           <input type="date" id="customer-isolated-from">
+          <small style="color:#78716c;">Kapan pelanggan mulai diisolir</small>
         </div>
         <div class="form-group">
-          <label>Tgl Aktif Kembali (kosongkan jika masih diisolir)</label>
+          <label>Tgl Aktif Kembali</label>
           <input type="date" id="customer-isolated-until">
+          <small style="color:#78716c;">Kapan pelanggan aktif kembali. Kosongkan kalau belum tahu.</small>
         </div>
       </div>
     </div>
@@ -1872,6 +1874,35 @@ function migrate(s) {
   });
   return s;
 }
+
+// Auto-update isolation status: jika Tgl Aktif Kembali sudah lewat, status jadi Aktif
+function autoUpdateIsolationStatus() {
+  const today = todayStr();
+  let changed = 0;
+  const reactivated = [];
+  state.customers.forEach(c => {
+    if (c.status === 'diisolir' && c.isolatedUntil && c.isolatedUntil < today) {
+      c.status = 'aktif';
+      reactivated.push(c.name);
+      changed++;
+    }
+  });
+  if (changed > 0) {
+    saveState();
+    console.log('Auto-reactivated', changed, 'customers:', reactivated);
+    // Show notification
+    setTimeout(() => {
+      const names = reactivated.slice(0, 5).join(', ');
+      const more = reactivated.length > 5 ? ` dan ${reactivated.length - 5} lainnya` : '';
+      const banner = document.createElement('div');
+      banner.style.cssText = 'position:fixed;top:60px;right:20px;background:#16a34a;color:white;padding:12px 16px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:9998;max-width:340px;font-size:13px;';
+      banner.innerHTML = `✅ <strong>${changed} pelanggan otomatis diaktifkan</strong> karena Tgl Aktif Kembali sudah lewat:<br><small>${escapeHtml(names)}${escapeHtml(more)}</small><br><button onclick="this.parentElement.remove()" style="margin-top:6px;background:rgba(255,255,255,0.2);color:white;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px;">Tutup</button>`;
+      document.body.appendChild(banner);
+      setTimeout(() => banner.remove(), 10000);
+    }, 1500);
+  }
+  return changed;
+}
 function saveStateLocal() { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
 function saveState() {
   state.lastModified = Date.now();
@@ -2281,6 +2312,31 @@ function saveCustomer() {
   const packageId = document.getElementById('customer-package').value;
   if (!name) { alert('Nama wajib diisi'); return; }
   if (!packageId) { alert('Pilih paket dulu'); return; }
+
+  let status = document.getElementById('customer-status').value;
+  const isolatedFrom = document.getElementById('customer-isolated-from').value;
+  const isolatedUntil = document.getElementById('customer-isolated-until').value;
+
+  // Validasi: Tgl Aktif Kembali tidak boleh lebih awal dari Tgl Mulai Isolir
+  if (status === 'diisolir' && isolatedFrom && isolatedUntil) {
+    if (isolatedUntil < isolatedFrom) {
+      alert('⚠️ Tgl Aktif Kembali tidak boleh lebih awal dari Tgl Mulai Isolir.\n\nContoh yang benar:\n- Diisolir sejak: 1 April\n- Aktif kembali: 30 April');
+      return;
+    }
+    // Kalau Tgl Aktif Kembali sudah lewat hari ini, otomatis ubah status ke Aktif
+    const today = todayStr();
+    if (isolatedUntil < today) {
+      if (confirm(
+        `Tgl Aktif Kembali (${formatDate(isolatedUntil)}) sudah lewat dari hari ini (${formatDate(today)}).\n\n` +
+        `Status akan otomatis diubah ke "Aktif".\n\nLanjutkan?`
+      )) {
+        status = 'aktif';
+      } else {
+        return;
+      }
+    }
+  }
+
   const data = {
     id: id || uid(),
     username: document.getElementById('customer-username').value.trim(),
@@ -2291,10 +2347,10 @@ function saveCustomer() {
     packageId,
     installedAt: document.getElementById('customer-installed').value,
     openingBalance: parseInt(document.getElementById('customer-opening-balance').value) || 0,
-    status: document.getElementById('customer-status').value,
+    status,
     isFree: document.getElementById('customer-is-free').checked,
-    isolatedFrom: document.getElementById('customer-isolated-from').value,
-    isolatedUntil: document.getElementById('customer-isolated-until').value
+    isolatedFrom,
+    isolatedUntil
   };
   if (id) {
     const idx = state.customers.findIndex(c => c.id === id);
@@ -5033,6 +5089,8 @@ function formatDate(d) {
 
 // init
 document.getElementById('header-info').textContent = state.settings.name || 'Sistem manajemen tagihan internet warga';
+// Auto-reactivate isolated customers whose isolatedUntil date has passed
+autoUpdateIsolationStatus();
 renderDashboard();
 
 // Initialize Google Drive sync after a short delay (for libraries to load)
