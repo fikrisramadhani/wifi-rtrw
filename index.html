@@ -3667,19 +3667,34 @@ function renderFastInput() {
   }
 
   // ===== ISOLATED CUSTOMERS WITH ARREARS =====
+  // Include 2 kasus:
+  // 1. Status saat ini 'diisolir' DAN punya tunggakan
+  // 2. Status saat ini 'aktif' TAPI periode yang dipilih jatuh dalam isolation range
+  //    (karena periode tersebut tidak ditagih, tapi pelanggan mungkin punya tunggakan
+  //     yang ingin dibayar di periode ini)
+  function isPeriodInIsolation(c, p) {
+    if (!c.isolatedFrom) return false;
+    const isolFromYM = c.isolatedFrom.slice(0, 7);
+    const isolUntilYM = c.isolatedUntil
+      ? c.isolatedUntil.slice(0, 7)
+      : (c.status === 'diisolir' ? '9999-12' : isolFromYM);
+    return p >= isolFromYM && p <= isolUntilYM;
+  }
+
   const isolatedWithArrears = state.customers.filter(c =>
-    !c.isFree && c.locationCode === locCode && c.status === 'diisolir'
+    !c.isFree && c.locationCode === locCode &&
+    (c.status === 'diisolir' || (c.status === 'aktif' && isPeriodInIsolation(c, period)))
   ).map(c => {
     const bal = calculateBalance(c.id, period);
     return { customer: c, balance: bal.balance };
   }).filter(x => x.balance > 0)
-    .sort((a, b) => b.balance - a.balance); // urutkan tunggakan terbesar
+    .sort((a, b) => b.balance - a.balance);
 
   if (isolatedWithArrears.length > 0) {
     html += `<div style="margin-top:14px;border:1px solid #fed7aa;border-radius:10px;overflow:hidden;background:#fffbeb;">
       <div style="background:#fef3c7;padding:10px 12px;font-size:13px;font-weight:600;color:#92400e;border-bottom:1px solid #fcd34d;">
-        ⚠️ Pelanggan Diisolir dengan Tunggakan (${isolatedWithArrears.length})
-        <div style="font-size:11px;font-weight:400;color:#a16207;margin-top:2px;">Layanan dihentikan tapi punya tunggakan. Catat pembayaran tunggakannya di sini.</div>
+        ⚠️ Pelanggan dengan Tunggakan (Periode Isolasi) (${isolatedWithArrears.length})
+        <div style="font-size:11px;font-weight:400;color:#a16207;margin-top:2px;">Pelanggan yang periode ini tidak ditagih (saat diisolir / pernah diisolir) tapi punya tunggakan. Catat pembayaran tunggakannya di sini.</div>
       </div>
       <div class="fi-table-header" style="background:#fef3c7;padding:8px 10px;font-size:12px;font-weight:600;color:#44403c;display:grid;grid-template-columns:30px 1fr 100px 130px 140px;gap:8px;border-bottom:1px solid #fcd34d;">
         <div></div><div>Pelanggan</div><div>Tunggakan</div><div>Bayar</div><div>Aksi</div>
@@ -3688,12 +3703,22 @@ function renderFastInput() {
     isolatedWithArrears.forEach((item, i) => {
       const c = item.customer;
       const arrears = item.balance;
-      // Use a synthetic "period" key for isolated customers — we'll attach payment to the latest unpaid month
-      // For UI purposes, we use the current period the user has selected
       const isolatedFromYM = (c.isolatedFrom || '').slice(0, 7);
-      const isolatedNote = isolatedFromYM ? `Diisolir sejak ${monthLabel(isolatedFromYM)}` : 'Diisolir';
+      const isolatedUntilYM = (c.isolatedUntil || '').slice(0, 7);
+      // Different label based on current status
+      let isolatedNote;
+      let badge;
+      if (c.status === 'diisolir') {
+        isolatedNote = isolatedFromYM ? `Sedang diisolir sejak ${monthLabel(isolatedFromYM)}` : 'Sedang diisolir';
+        badge = '<span style="background:#fde68a;color:#92400e;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;">DIISOLIR</span>';
+      } else {
+        // Status aktif tapi periode dipilih jatuh dalam isolation range
+        isolatedNote = isolatedFromYM && isolatedUntilYM
+          ? `Pernah diisolir ${monthLabel(isolatedFromYM)} - ${monthLabel(isolatedUntilYM)}`
+          : 'Pernah diisolir';
+        badge = '<span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;">AKTIF (periode tdk ditagih)</span>';
+      }
 
-      // Calculate raw payments for this period (for FIFO display consistency)
       const rawPaidThisPeriod = state.payments
         .filter(p => p.customerId === c.id && p.period === period)
         .reduce((s, p) => s + p.amount, 0);
@@ -3717,7 +3742,7 @@ function renderFastInput() {
 
       html += `<div class="fast-input-row" id="fi-row-${c.id}" style="grid-template-columns:30px 1fr 100px 130px 140px;background:#fffbeb;">
         <div>${i+1}</div>
-        <div class="name" onclick="editCustomer('${c.id}')" style="cursor:pointer;" title="Klik untuk edit pelanggan"><strong style="text-decoration:underline;text-decoration-style:dotted;text-decoration-color:#1e40af;">${escapeHtml(c.name)}</strong> <span style="background:#fde68a;color:#92400e;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;">DIISOLIR</span><small>${escapeHtml(c.username||'')} ${c.phone ? '· ' + escapeHtml(c.phone) : ''}</small></div>
+        <div class="name" onclick="editCustomer('${c.id}')" style="cursor:pointer;" title="Klik untuk edit pelanggan"><strong style="text-decoration:underline;text-decoration-style:dotted;text-decoration-color:#1e40af;">${escapeHtml(c.name)}</strong> ${badge}<small>${escapeHtml(c.username||'')} ${c.phone ? '· ' + escapeHtml(c.phone) : ''}</small></div>
         ${tagihanInfo}
         <div>${inputCell}</div>
         <div>${actionCell}</div>
