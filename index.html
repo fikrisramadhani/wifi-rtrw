@@ -3442,113 +3442,159 @@ function showFastInputPaymentDetails() {
 
   const loc = state.locations.find(l => l.code === locCode);
   const customers = state.customers.filter(c =>
-    !c.isFree && c.locationCode === locCode && c.status !== 'nonaktif'
-  );
-  const customerIds = new Set(customers.map(c => c.id));
-
-  // All payments for this period & location
-  const payments = state.payments.filter(p =>
-    p.period === period && customerIds.has(p.customerId)
-  ).sort((a, b) => (a.paidAt || '').localeCompare(b.paidAt || ''));
+    !c.isFree && c.locationCode === locCode && c.status === 'aktif'
+  ).sort((a, b) => a.name.localeCompare(b.name));
 
   document.getElementById('fi-details-title').textContent =
-    `Detail Pembayaran ${monthLabel(period)} — ${loc ? loc.name : '-'}`;
+    `Detail Periode ${monthLabel(period)} — ${loc ? loc.name : '-'}`;
 
-  if (!payments.length) {
-    document.getElementById('fi-details-content').innerHTML =
-      `<div class="empty-state"><h3>Belum ada pembayaran</h3><p>Periode ini di daerah ini belum ada yang bayar.</p></div>`;
-    document.getElementById('modal-fi-details').classList.add('show');
-    return;
-  }
-
-  // Group payments by customer (handle partial payments)
-  const byCustomer = {};
-  payments.forEach(p => {
-    if (!byCustomer[p.customerId]) byCustomer[p.customerId] = [];
-    byCustomer[p.customerId].push(p);
-  });
-
+  // Calculate per-customer info
+  const paid = []; // customers who paid (full or partial)
+  const unpaid = []; // customers who haven't paid for this period
   let cashTotal = 0;
   let transferTotal = 0;
-  let rows = '';
-  Object.keys(byCustomer).forEach(custId => {
-    const c = state.customers.find(x => x.id === custId);
-    if (!c) return;
-    const ps = byCustomer[custId];
-    const subtotal = ps.reduce((s, p) => s + p.amount, 0);
+  let totalArrearsAll = 0; // total tunggakan dari seluruh pelanggan di lokasi ini
+  let arrearsCount = 0; // jumlah pelanggan yang punya tunggakan (di luar periode ini)
+
+  customers.forEach(c => {
+    const bal = calculateBalance(c.id, period);
+    const me = bal.months.find(m => m.period === period);
+    if (!me) return;
+
+    const ps = state.payments.filter(p => p.customerId === c.id && p.period === period);
+    const rawPaid = ps.reduce((s, p) => s + p.amount, 0);
+
+    // Tunggakan dari bulan sebelum periode ini (akumulasi)
+    const arrears = Math.max(0, bal.balance - (me.billed - me.paid));
+    if (arrears > 0) {
+      totalArrearsAll += arrears;
+      arrearsCount++;
+    }
+
     cashTotal += ps.filter(p => !p.directTransfer).reduce((s, p) => s + p.amount, 0);
     transferTotal += ps.filter(p => p.directTransfer).reduce((s, p) => s + p.amount, 0);
 
-    // Get allocation for THIS period after FIFO
-    const bal = calculateBalance(c.id, period);
-    const me = bal.months.find(m => m.period === period);
-    const billed = me ? me.billed : 0;
-    const allocatedToThisPeriod = me ? me.paid : 0;
-    const periodKurang = me ? Math.max(0, me.billed - me.paid) : 0;
+    const data = { customer: c, me, ps, rawPaid, arrears, balance: bal.balance };
+    if (rawPaid > 0 || me.status === 'lunas') paid.push(data);
+    else unpaid.push(data);
+  });
+
+  // Sort: paid by name, unpaid by arrears desc (yang paling banyak tunggakannya di atas)
+  paid.sort((a, b) => a.customer.name.localeCompare(b.customer.name));
+  unpaid.sort((a, b) => b.arrears - a.arrears || a.customer.name.localeCompare(b.customer.name));
+
+  const grandPaid = cashTotal + transferTotal;
+  const breakdownHtml = transferTotal > 0
+    ? `<div style="font-size:12px;color:#78716c;margin-top:4px;">💵 Tunai: ${fmtRp(cashTotal)} · 💳 Transfer: ${fmtRp(transferTotal)}</div>`
+    : '';
+
+  // Build rows
+  let paidRows = '';
+  paid.forEach(d => {
+    const c = d.customer;
+    const allocatedToThisPeriod = d.me.paid;
+    const fifoNote = (d.rawPaid !== allocatedToThisPeriod && d.rawPaid > 0)
+      ? `<br><small style="color:#7c3aed;">(dari ${fmtRp(d.rawPaid)})</small>` : '';
 
     let statusLabel;
-    if (!me) {
-      statusLabel = '-';
-    } else if (me.status === 'lunas') {
+    const periodKurang = Math.max(0, d.me.billed - d.me.paid);
+    if (d.me.status === 'lunas') {
       statusLabel = '<span style="color:#16a34a;font-weight:600;">✓ Lunas</span>';
-    } else if (me.status === 'sebagian') {
+    } else if (d.me.status === 'sebagian') {
       statusLabel = `<span style="color:#d97706;font-weight:600;">Sebagian</span><br><small style="color:#dc2626;">Kurang ${fmtRp(periodKurang)}</small>`;
     } else {
-      statusLabel = '<span style="color:#dc2626;">Belum bayar</span>';
+      statusLabel = '<span style="color:#dc2626;">Belum cukup</span>';
     }
 
-    // Note about FIFO if total payment differs from allocated (ringkas: hanya "dari X")
-    const fifoNote = (subtotal !== allocatedToThisPeriod && subtotal > 0)
-      ? `<br><small style="color:#7c3aed;">(dari ${fmtRp(subtotal)})</small>`
-      : '';
-
-    const methodBadges = ps.map(p => {
+    const methodBadges = d.ps.map(p => {
       const isTransfer = p.directTransfer;
       const date = p.paidAt ? formatDate(p.paidAt) : '-';
       return `<span style="display:inline-block;background:${isTransfer ? '#cffafe' : '#dcfce7'};color:${isTransfer ? '#0e7490' : '#166534'};padding:2px 8px;border-radius:10px;font-size:11px;margin:2px 2px 0 0;">${isTransfer ? '💳 TF' : '💵 Tunai'} ${fmtRp(p.amount)} · ${date}</span>`;
     }).join('');
 
-    rows += `<tr style="border-bottom:1px solid #e7e5e4;">
+    paidRows += `<tr style="border-bottom:1px solid #e7e5e4;">
       <td style="padding:8px 6px;"><strong>${escapeHtml(c.name)}</strong><br><small style="color:#78716c;">${escapeHtml(c.username || '')}</small></td>
-      <td style="padding:8px 6px;text-align:right;">${fmtRp(billed)}</td>
+      <td style="padding:8px 6px;text-align:right;">${fmtRp(d.me.billed)}</td>
+      <td style="padding:8px 6px;text-align:right;">${d.arrears > 0 ? `<strong style="color:#dc2626;">${fmtRp(d.arrears)}</strong>` : '<span style="color:#a8a29e;">-</span>'}</td>
       <td style="padding:8px 6px;text-align:right;"><strong style="color:#16a34a;">${fmtRp(allocatedToThisPeriod)}</strong>${fifoNote}<br>${methodBadges}</td>
       <td style="padding:8px 6px;font-size:12px;">${statusLabel}</td>
     </tr>`;
   });
 
-  const grandTotal = cashTotal + transferTotal;
-  const breakdownHtml = transferTotal > 0
-    ? `<div style="font-size:12px;color:#78716c;margin-top:4px;">💵 Tunai: ${fmtRp(cashTotal)} · 💳 Transfer: ${fmtRp(transferTotal)}</div>`
-    : '';
+  let unpaidRows = '';
+  unpaid.forEach(d => {
+    const c = d.customer;
+    const totalDue = d.me.billed + d.arrears;
+    unpaidRows += `<tr style="border-bottom:1px solid #e7e5e4;background:#fff7ed;">
+      <td style="padding:8px 6px;"><strong>${escapeHtml(c.name)}</strong><br><small style="color:#78716c;">${escapeHtml(c.username || '')} ${c.phone ? '· ' + escapeHtml(c.phone) : ''}</small></td>
+      <td style="padding:8px 6px;text-align:right;">${fmtRp(d.me.billed)}</td>
+      <td style="padding:8px 6px;text-align:right;">${d.arrears > 0 ? `<strong style="color:#dc2626;">${fmtRp(d.arrears)}</strong>` : '<span style="color:#a8a29e;">-</span>'}</td>
+      <td style="padding:8px 6px;text-align:right;"><strong style="color:#dc2626;">${fmtRp(totalDue)}</strong></td>
+      <td style="padding:8px 6px;font-size:12px;"><span style="color:#dc2626;">Belum bayar</span></td>
+    </tr>`;
+  });
 
-  document.getElementById('fi-details-content').innerHTML = `
+  const tableHeader = `
+    <thead style="background:#fafaf9;position:sticky;top:0;">
+      <tr>
+        <th style="padding:8px 6px;text-align:left;border-bottom:1px solid #d6d3d1;">Pelanggan</th>
+        <th style="padding:8px 6px;text-align:right;border-bottom:1px solid #d6d3d1;">Tagihan</th>
+        <th style="padding:8px 6px;text-align:right;border-bottom:1px solid #d6d3d1;">Tunggakan</th>
+        <th style="padding:8px 6px;text-align:right;border-bottom:1px solid #d6d3d1;">${paidRows ? 'Dibayar' : 'Total'}</th>
+        <th style="padding:8px 6px;text-align:left;border-bottom:1px solid #d6d3d1;">Status</th>
+      </tr>
+    </thead>`;
+
+  let content = `
     <div style="background:#f5f5f4;padding:10px 12px;border-radius:8px;margin-bottom:10px;">
-      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;">
         <div>
           <div style="font-size:12px;color:#78716c;">Total Pembayaran</div>
-          <div style="font-size:20px;font-weight:600;color:#16a34a;">${fmtRp(grandTotal)}</div>
+          <div style="font-size:18px;font-weight:600;color:#16a34a;">${fmtRp(grandPaid)}</div>
           ${breakdownHtml}
         </div>
         <div>
-          <div style="font-size:12px;color:#78716c;">Jumlah Pelanggan Bayar</div>
-          <div style="font-size:20px;font-weight:600;">${Object.keys(byCustomer).length}</div>
+          <div style="font-size:12px;color:#78716c;">Pelanggan Bayar</div>
+          <div style="font-size:18px;font-weight:600;">${paid.length} / ${customers.length}</div>
+        </div>
+        <div>
+          <div style="font-size:12px;color:#78716c;">Total Tunggakan</div>
+          <div style="font-size:18px;font-weight:600;color:#dc2626;">${fmtRp(totalArrearsAll)}</div>
+          <div style="font-size:11px;color:#a8a29e;">${arrearsCount} pelanggan punya tunggakan</div>
         </div>
       </div>
     </div>
-    <div style="max-height:400px;overflow-y:auto;border:1px solid #e7e5e4;border-radius:8px;">
-      <table style="width:100%;border-collapse:collapse;font-size:13px;">
-        <thead style="background:#fafaf9;position:sticky;top:0;">
-          <tr>
-            <th style="padding:8px 6px;text-align:left;border-bottom:1px solid #d6d3d1;">Pelanggan</th>
-            <th style="padding:8px 6px;text-align:right;border-bottom:1px solid #d6d3d1;">Tagihan</th>
-            <th style="padding:8px 6px;text-align:right;border-bottom:1px solid #d6d3d1;">Dibayar</th>
-            <th style="padding:8px 6px;text-align:left;border-bottom:1px solid #d6d3d1;">Status</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>
   `;
+
+  if (paid.length > 0) {
+    content += `
+      <h4 style="margin:12px 0 6px;font-size:14px;color:#16a34a;">✓ Sudah Bayar (${paid.length})</h4>
+      <div style="max-height:300px;overflow-y:auto;border:1px solid #e7e5e4;border-radius:8px;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+          ${tableHeader}
+          <tbody>${paidRows}</tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  if (unpaid.length > 0) {
+    content += `
+      <h4 style="margin:12px 0 6px;font-size:14px;color:#dc2626;">⚠️ Belum Bayar (${unpaid.length})</h4>
+      <div style="max-height:300px;overflow-y:auto;border:1px solid #fed7aa;border-radius:8px;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+          ${tableHeader}
+          <tbody>${unpaidRows}</tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  if (paid.length === 0 && unpaid.length === 0) {
+    content = `<div class="empty-state"><h3>Tidak ada pelanggan aktif</h3></div>`;
+  }
+
+  document.getElementById('fi-details-content').innerHTML = content;
   document.getElementById('modal-fi-details').classList.add('show');
 }
 
