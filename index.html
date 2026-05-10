@@ -3920,45 +3920,68 @@ function showFastInputPaymentDetails() {
   if (!locCode) { alert('Pilih daerah dulu'); return; }
 
   const loc = state.locations.find(l => l.code === locCode);
-  const customers = state.customers.filter(c =>
-    !c.isFree && c.locationCode === locCode && c.status === 'aktif'
+  // Include all non-free customers in this location (active + isolated)
+  // We need to handle billable & non-billable separately
+  const allLocCustomers = state.customers.filter(c =>
+    !c.isFree && c.locationCode === locCode && c.status !== 'nonaktif'
   ).sort((a, b) => a.name.localeCompare(b.name));
 
   document.getElementById('fi-details-title').textContent =
     `Detail Periode ${monthLabel(period)} — ${loc ? loc.name : '-'}`;
 
-  // Calculate per-customer info
-  const paid = []; // customers who paid (full or partial)
-  const unpaid = []; // customers who haven't paid for this period
+  // Categorize:
+  // - paid: pelanggan yang ada pembayaran untuk periode ini
+  // - unpaid: pelanggan aktif yang harusnya ditagih tapi belum bayar
+  const paid = [];
+  const unpaid = [];
   let cashTotal = 0;
   let transferTotal = 0;
-  let totalArrearsAll = 0; // total tunggakan dari seluruh pelanggan di lokasi ini
-  let arrearsCount = 0; // jumlah pelanggan yang punya tunggakan (di luar periode ini)
+  let totalArrearsAll = 0;
+  let arrearsCount = 0;
 
-  customers.forEach(c => {
+  allLocCustomers.forEach(c => {
     const bal = calculateBalance(c.id, period);
     const me = bal.months.find(m => m.period === period);
-    if (!me) return;
 
+    // Hitung pembayaran untuk periode ini (regardless of billable)
     const ps = state.payments.filter(p => p.customerId === c.id && p.period === period);
     const rawPaid = ps.reduce((s, p) => s + p.amount, 0);
 
-    // Tunggakan dari bulan sebelum periode ini (akumulasi)
-    const arrears = Math.max(0, bal.balance - (me.billed - me.paid));
+    cashTotal += ps.filter(p => !p.directTransfer).reduce((s, p) => s + p.amount, 0);
+    transferTotal += ps.filter(p => p.directTransfer).reduce((s, p) => s + p.amount, 0);
+
+    // Tunggakan = total balance (kalau periode ini billable, kurangi sisa periode ini; kalau non-billable, semuanya tunggakan)
+    let arrears;
+    if (me) {
+      arrears = Math.max(0, bal.balance - (me.billed - me.paid));
+    } else {
+      // Period ini tidak billable (misalnya saat isolasi). Semua balance jadi "tunggakan"
+      arrears = bal.balance;
+    }
     if (arrears > 0) {
       totalArrearsAll += arrears;
       arrearsCount++;
     }
 
-    cashTotal += ps.filter(p => !p.directTransfer).reduce((s, p) => s + p.amount, 0);
-    transferTotal += ps.filter(p => p.directTransfer).reduce((s, p) => s + p.amount, 0);
-
+    // Tentukan kategori: paid atau unpaid
     const data = { customer: c, me, ps, rawPaid, arrears, balance: bal.balance };
-    if (rawPaid > 0 || me.status === 'lunas') paid.push(data);
-    else unpaid.push(data);
+
+    if (rawPaid > 0) {
+      // Pelanggan ini ada pembayaran untuk periode ini → masuk "sudah bayar"
+      paid.push(data);
+    } else if (me && me.status !== 'lunas') {
+      // Pelanggan aktif yang harusnya ditagih bulan ini tapi belum bayar
+      unpaid.push(data);
+    } else if (me && me.status === 'lunas' && me.billed === 0) {
+      // skip: tidak ditagih bulan ini, tidak ada pembayaran
+    } else if (!me && bal.balance > 0) {
+      // Pelanggan diisolir (tidak ditagih) tapi punya tunggakan → ditampilkan di "belum bayar"
+      // (supaya admin tahu ada tunggakan walaupun tidak ditagih bulan ini)
+      unpaid.push(data);
+    }
   });
 
-  // Sort: paid by name, unpaid by arrears desc (yang paling banyak tunggakannya di atas)
+  // Sort: paid by name, unpaid by arrears desc
   paid.sort((a, b) => a.customer.name.localeCompare(b.customer.name));
   unpaid.sort((a, b) => b.arrears - a.arrears || a.customer.name.localeCompare(b.customer.name));
 
@@ -3971,18 +3994,24 @@ function showFastInputPaymentDetails() {
   let paidRows = '';
   paid.forEach(d => {
     const c = d.customer;
-    const allocatedToThisPeriod = d.me.paid;
+    const isIsolatedOrInIsolationPeriod = !d.me; // me undefined = period tidak billable
+    const allocatedToThisPeriod = d.me ? d.me.paid : 0;
     const fifoNote = (d.rawPaid !== allocatedToThisPeriod && d.rawPaid > 0)
       ? `<br><small style="color:#7c3aed;">(dari ${fmtRp(d.rawPaid)})</small>` : '';
 
     let statusLabel;
-    const periodKurang = Math.max(0, d.me.billed - d.me.paid);
-    if (d.me.status === 'lunas') {
-      statusLabel = '<span style="color:#16a34a;font-weight:600;">✓ Lunas</span>';
-    } else if (d.me.status === 'sebagian') {
-      statusLabel = `<span style="color:#d97706;font-weight:600;">Sebagian</span><br><small style="color:#dc2626;">Kurang ${fmtRp(periodKurang)}</small>`;
+    if (isIsolatedOrInIsolationPeriod) {
+      // Bayar untuk periode yang tidak ditagih (saat isolasi) — semua pembayaran masuk tunggakan
+      statusLabel = `<span style="color:#7c3aed;font-weight:600;">💸 Bayar Tunggakan</span><br><small style="color:#78716c;">(periode tidak ditagih)</small>`;
     } else {
-      statusLabel = '<span style="color:#dc2626;">Belum cukup</span>';
+      const periodKurang = Math.max(0, d.me.billed - d.me.paid);
+      if (d.me.status === 'lunas') {
+        statusLabel = '<span style="color:#16a34a;font-weight:600;">✓ Lunas</span>';
+      } else if (d.me.status === 'sebagian') {
+        statusLabel = `<span style="color:#d97706;font-weight:600;">Sebagian</span><br><small style="color:#dc2626;">Kurang ${fmtRp(periodKurang)}</small>`;
+      } else {
+        statusLabel = '<span style="color:#dc2626;">Belum cukup</span>';
+      }
     }
 
     const methodBadges = d.ps.map(p => {
@@ -3991,11 +4020,18 @@ function showFastInputPaymentDetails() {
       return `<span style="display:inline-block;background:${isTransfer ? '#cffafe' : '#dcfce7'};color:${isTransfer ? '#0e7490' : '#166534'};padding:2px 8px;border-radius:10px;font-size:11px;margin:2px 2px 0 0;">${isTransfer ? '💳 TF' : '💵 Tunai'} ${fmtRp(p.amount)} · ${date}</span>`;
     }).join('');
 
-    paidRows += `<tr style="border-bottom:1px solid #e7e5e4;">
-      <td style="padding:8px 6px;"><strong>${escapeHtml(c.name)}</strong><br><small style="color:#78716c;">${escapeHtml(c.username || '')}</small></td>
-      <td style="padding:8px 6px;text-align:right;">${fmtRp(d.me.billed)}</td>
+    // Status badge for customer
+    const customerBadge = c.status === 'diisolir'
+      ? '<span style="background:#fde68a;color:#92400e;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:600;margin-left:4px;">DIISOLIR</span>'
+      : isIsolatedOrInIsolationPeriod
+        ? '<span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:600;margin-left:4px;">PERIODE ISOLASI</span>'
+        : '';
+
+    paidRows += `<tr style="border-bottom:1px solid #e7e5e4;${isIsolatedOrInIsolationPeriod ? 'background:#fffbeb;' : ''}">
+      <td style="padding:8px 6px;"><strong>${escapeHtml(c.name)}</strong>${customerBadge}<br><small style="color:#78716c;">${escapeHtml(c.username || '')}</small></td>
+      <td style="padding:8px 6px;text-align:right;">${d.me ? fmtRp(d.me.billed) : '<span style="color:#a8a29e;">tdk ditagih</span>'}</td>
       <td style="padding:8px 6px;text-align:right;">${d.arrears > 0 ? `<strong style="color:#dc2626;">${fmtRp(d.arrears)}</strong>` : '<span style="color:#a8a29e;">-</span>'}</td>
-      <td style="padding:8px 6px;text-align:right;"><strong style="color:#16a34a;">${fmtRp(allocatedToThisPeriod)}</strong>${fifoNote}<br>${methodBadges}</td>
+      <td style="padding:8px 6px;text-align:right;"><strong style="color:#16a34a;">${fmtRp(d.rawPaid)}</strong>${fifoNote}<br>${methodBadges}</td>
       <td style="padding:8px 6px;font-size:12px;">${statusLabel}</td>
     </tr>`;
   });
@@ -4003,13 +4039,26 @@ function showFastInputPaymentDetails() {
   let unpaidRows = '';
   unpaid.forEach(d => {
     const c = d.customer;
-    const totalDue = d.me.billed + d.arrears;
-    unpaidRows += `<tr style="border-bottom:1px solid #e7e5e4;background:#fff7ed;">
-      <td style="padding:8px 6px;"><strong>${escapeHtml(c.name)}</strong><br><small style="color:#78716c;">${escapeHtml(c.username || '')} ${c.phone ? '· ' + escapeHtml(c.phone) : ''}</small></td>
-      <td style="padding:8px 6px;text-align:right;">${fmtRp(d.me.billed)}</td>
+    const billed = d.me ? d.me.billed : 0;
+    const totalDue = billed + d.arrears;
+    const isIsolatedOrInIsolationPeriod = !d.me;
+
+    const customerBadge = c.status === 'diisolir'
+      ? '<span style="background:#fde68a;color:#92400e;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:600;margin-left:4px;">DIISOLIR</span>'
+      : isIsolatedOrInIsolationPeriod
+        ? '<span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:600;margin-left:4px;">PERIODE ISOLASI</span>'
+        : '';
+
+    const statusLabel = isIsolatedOrInIsolationPeriod
+      ? '<span style="color:#7c3aed;">Tunggakan (periode tdk ditagih)</span>'
+      : '<span style="color:#dc2626;">Belum bayar</span>';
+
+    unpaidRows += `<tr style="border-bottom:1px solid #e7e5e4;background:${isIsolatedOrInIsolationPeriod ? '#fffbeb' : '#fff7ed'};">
+      <td style="padding:8px 6px;"><strong>${escapeHtml(c.name)}</strong>${customerBadge}<br><small style="color:#78716c;">${escapeHtml(c.username || '')} ${c.phone ? '· ' + escapeHtml(c.phone) : ''}</small></td>
+      <td style="padding:8px 6px;text-align:right;">${d.me ? fmtRp(billed) : '<span style="color:#a8a29e;">tdk ditagih</span>'}</td>
       <td style="padding:8px 6px;text-align:right;">${d.arrears > 0 ? `<strong style="color:#dc2626;">${fmtRp(d.arrears)}</strong>` : '<span style="color:#a8a29e;">-</span>'}</td>
       <td style="padding:8px 6px;text-align:right;"><strong style="color:#dc2626;">${fmtRp(totalDue)}</strong></td>
-      <td style="padding:8px 6px;font-size:12px;"><span style="color:#dc2626;">Belum bayar</span></td>
+      <td style="padding:8px 6px;font-size:12px;">${statusLabel}</td>
     </tr>`;
   });
 
@@ -4034,7 +4083,7 @@ function showFastInputPaymentDetails() {
         </div>
         <div>
           <div style="font-size:12px;color:#78716c;">Pelanggan Bayar</div>
-          <div style="font-size:18px;font-weight:600;">${paid.length} / ${customers.length}</div>
+          <div style="font-size:18px;font-weight:600;">${paid.length} / ${allLocCustomers.length}</div>
         </div>
         <div>
           <div style="font-size:12px;color:#78716c;">Total Tunggakan</div>
@@ -4059,7 +4108,7 @@ function showFastInputPaymentDetails() {
 
   if (unpaid.length > 0) {
     content += `
-      <h4 style="margin:12px 0 6px;font-size:14px;color:#dc2626;">⚠️ Belum Bayar (${unpaid.length})</h4>
+      <h4 style="margin:12px 0 6px;font-size:14px;color:#dc2626;">⚠️ Belum Bayar / Punya Tunggakan (${unpaid.length})</h4>
       <div style="max-height:300px;overflow-y:auto;border:1px solid #fed7aa;border-radius:8px;">
         <table style="width:100%;border-collapse:collapse;font-size:13px;">
           ${tableHeader}
@@ -4070,7 +4119,7 @@ function showFastInputPaymentDetails() {
   }
 
   if (paid.length === 0 && unpaid.length === 0) {
-    content = `<div class="empty-state"><h3>Tidak ada pelanggan aktif</h3></div>`;
+    content = `<div class="empty-state"><h3>Tidak ada data</h3></div>`;
   }
 
   document.getElementById('fi-details-content').innerHTML = content;
