@@ -4081,17 +4081,17 @@ function calculateBalance(customerId, asOfMonth) {
     };
   });
 
-  // Get all payments for this customer
+  // Get all payments for this customer, sorted by paid date
   const payments = state.payments
     .filter(p => p.customerId === customerId)
     .sort((a,b) => (a.paidAt || '').localeCompare(b.paidAt || ''));
 
-  // First pass: assign payments to their declared period
+  // Track which payment is associated with which month (for receipt history)
+  // We DON'T use p.period for allocation — we use FIFO from oldest unpaid month
   payments.forEach(p => {
     const monthEntry = months.find(m => m.period === p.period);
     if (monthEntry) {
       monthEntry.payments.push(p);
-      monthEntry.paid += p.amount;
     }
   });
 
@@ -4101,40 +4101,26 @@ function calculateBalance(customerId, asOfMonth) {
   let creditPool = openingBalance < 0 ? -openingBalance : 0;
   let preexistingDebt = openingBalance > 0 ? openingBalance : 0;
 
-  // Add payments for non-billable months as credit
+  // ALL payments become credit pool (regardless of declared period)
+  // FIFO will allocate them from oldest unpaid month forward
   payments.forEach(p => {
-    if (!months.find(m => m.period === p.period)) {
-      creditPool += p.amount;
-    }
+    creditPool += p.amount;
   });
 
-  // Apply credit pool against pre-existing debt first
+  // Apply credit pool against pre-existing debt first (oldest debt)
   if (creditPool > 0 && preexistingDebt > 0) {
     const take = Math.min(creditPool, preexistingDebt);
     creditPool -= take;
     preexistingDebt -= take;
   }
 
-  // FIFO redistribution through monthly billing
+  // FIFO allocation: oldest month gets paid first
   for (let i = 0; i < months.length; i++) {
     const mo = months[i];
-    if (creditPool > 0 && mo.paid < mo.billed) {
-      const need = mo.billed - mo.paid;
-      const take = Math.min(creditPool, need);
-      mo.paid += take;
+    if (creditPool > 0) {
+      const take = Math.min(creditPool, mo.billed);
+      mo.paid = take;
       creditPool -= take;
-    }
-    if (mo.paid > mo.billed) {
-      const overflow = mo.paid - mo.billed;
-      mo.paid = mo.billed;
-      // First absorb pre-existing debt with overflow
-      if (preexistingDebt > 0) {
-        const take = Math.min(overflow, preexistingDebt);
-        preexistingDebt -= take;
-        creditPool += (overflow - take);
-      } else {
-        creditPool += overflow;
-      }
     }
     if (mo.paid === 0) mo.status = 'belum';
     else if (mo.paid >= mo.billed) mo.status = 'lunas';
