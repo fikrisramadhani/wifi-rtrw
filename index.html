@@ -448,7 +448,7 @@ tbody tr:last-child td { border-bottom: none; }
       <div id="fi-deposit-info" class="deposit-summary" style="display:none;">
         <div style="display:flex;gap:16px;flex-wrap:wrap;justify-content:space-between;align-items:center;">
           <div>
-            <div style="font-size:12px;color:#78716c;">Total terinput</div>
+            <div style="font-size:12px;color:#78716c;">Total Pembayaran (periode ini)</div>
             <div id="fi-total" style="font-size:22px;font-weight:600;color:#16a34a;">Rp 0</div>
             <div id="fi-transfer-breakdown" style="display:none;margin-top:2px;"></div>
           </div>
@@ -701,6 +701,16 @@ tbody tr:last-child td { border-bottom: none; }
       </div>
       <div id="pay-preview" style="display:none;margin-bottom:10px;"></div>
       <button class="btn btn-success" onclick="savePayment()">💾 Simpan Pembayaran</button>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <h2>📊 Ringkasan Pembayaran 12 Bulan</h2>
+        <select id="yearly-summary-year" onchange="renderYearlySummary()" style="max-width:120px;"></select>
+      </div>
+      <div id="yearly-summary-stats" class="stats-grid" style="margin-bottom:14px;"></div>
+      <div id="yearly-summary-chart" style="margin-bottom:14px;"></div>
+      <div id="yearly-summary-top" style="margin-bottom:8px;"></div>
     </div>
 
     <div class="panel">
@@ -1803,7 +1813,7 @@ function showTab(name, btn) {
   if (name === 'gratis') renderFreeCustomers();
   if (name === 'lokasi') renderLocations();
   if (name === 'paket') renderPackages();
-  if (name === 'pembayaran') renderPayments();
+  if (name === 'pembayaran') { renderPayments(); renderYearlySummary(); }
   if (name === 'tunggakan') renderArrears();
   if (name === 'pengaturan') { loadSettings(); renderLocationsList(); }
 }
@@ -3392,39 +3402,39 @@ function refreshFastInputRow(customerId, period) {
 function updateFastInputSummary() {
   const locCode = document.getElementById('fi-location').value;
   const period = document.getElementById('fi-period').value || curMonth();
+
+  // Customers in this location (include isolated, exclude only nonaktif & free)
   const customers = state.customers.filter(c =>
-    !c.isFree && c.locationCode === locCode && c.status === 'aktif'
+    !c.isFree && c.locationCode === locCode && c.status !== 'nonaktif'
+  );
+  const customerIds = new Set(customers.map(c => c.id));
+
+  // ALL payments for this period & location (regardless of paid date)
+  // This shows total accumulated payments for the period
+  const periodPayments = state.payments.filter(p =>
+    p.period === period &&
+    customerIds.has(p.customerId)
   );
 
-  // Find payments made in this fast input session (today, this period, this location)
-  const today = todayStr();
-  const todayPayments = state.payments.filter(p => {
-    if (p.period !== period || p.paidAt !== today) return false;
-    const c = customers.find(x => x.id === p.customerId);
-    return !!c;
-  });
+  const totalInput = periodPayments.reduce((s,p) => s + p.amount, 0);
+  const totalCash = periodPayments.filter(p => !p.directTransfer).reduce((s,p) => s + p.amount, 0);
+  const totalTransfer = periodPayments.filter(p => p.directTransfer).reduce((s,p) => s + p.amount, 0);
 
-  const totalInput = todayPayments.reduce((s,p) => s + p.amount, 0);
-  const totalCash = todayPayments.filter(p => !p.directTransfer).reduce((s,p) => s + p.amount, 0);
-  const totalTransfer = todayPayments.filter(p => p.directTransfer).reduce((s,p) => s + p.amount, 0);
-  const paidCustomerIds = new Set(todayPayments.map(p => p.customerId));
-
-  // Calculate total expected from this period's billing for this location
-  let totalExpected = 0;
+  // Calculate stats only from active customers (isolated tidak ditagih)
+  const activeCustomers = customers.filter(c => c.status === 'aktif');
   let stillUnpaid = 0;
   let lunasCount = 0;
-  customers.forEach(c => {
+  activeCustomers.forEach(c => {
     const bal = calculateBalance(c.id, period);
     const me = bal.months.find(m => m.period === period);
     if (me) {
-      totalExpected += me.billed;
       if (me.status === 'lunas') lunasCount++;
       else stillUnpaid += (me.billed - me.paid);
     }
   });
 
   document.getElementById('fi-total').textContent = fmtRp(totalInput);
-  document.getElementById('fi-count').textContent = `${lunasCount} / ${customers.length}`;
+  document.getElementById('fi-count').textContent = `${lunasCount} / ${activeCustomers.length}`;
   document.getElementById('fi-remaining').textContent = fmtRp(stillUnpaid);
 
   // Show transfer breakdown if any transfers exist
@@ -3442,23 +3452,31 @@ function updateFastInputSummary() {
 function finalizeFastInput() {
   const locCode = document.getElementById('fi-location').value;
   const period = document.getElementById('fi-period').value || curMonth();
-  const today = todayStr();
   const loc = state.locations.find(l => l.code === locCode);
   if (!loc) { alert('Pilih daerah dulu'); return; }
 
-  // Find payments made today for this location & period
+  // Find payments for this location & period that haven't been linked to a deposit yet
   const customers = state.customers.filter(c => c.locationCode === locCode);
   const customerIds = new Set(customers.map(c => c.id));
-  const allTodayPayments = state.payments.filter(p =>
-    p.period === period && p.paidAt === today && customerIds.has(p.customerId)
+
+  // Collect all paymentIds that are already linked to existing deposits
+  const depositedPaymentIds = new Set();
+  state.deposits.forEach(d => {
+    (d.paymentIds || []).forEach(pid => depositedPaymentIds.add(pid));
+  });
+
+  const allUndepositedPayments = state.payments.filter(p =>
+    p.period === period &&
+    customerIds.has(p.customerId) &&
+    !depositedPaymentIds.has(p.id)
   );
 
   // Exclude direct transfer payments — those don't go through the collector
-  const todayPayments = allTodayPayments.filter(p => !p.directTransfer);
-  const transferPayments = allTodayPayments.filter(p => p.directTransfer);
+  const todayPayments = allUndepositedPayments.filter(p => !p.directTransfer);
+  const transferPayments = allUndepositedPayments.filter(p => p.directTransfer);
 
   if (!todayPayments.length && !transferPayments.length) {
-    alert('Belum ada pembayaran yang diinput hari ini');
+    alert('Tidak ada pembayaran baru yang belum disetor untuk periode ini');
     return;
   }
 
