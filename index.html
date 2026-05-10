@@ -3228,14 +3228,26 @@ function renderFastInput() {
     const tunggakan = bal.balance - sisa;
     let tagihanInfo = `<div><strong>${fmtRp(me.billed)}</strong>${tunggakan > 0 ? `<br><small style="color:#dc2626;">+${fmtRp(tunggakan)} tunggak</small>` : ''}</div>`;
 
+    // Calculate raw payment for this period (before FIFO redistribution)
+    const rawPaidThisPeriod = state.payments
+      .filter(p => p.customerId === c.id && p.period === period)
+      .reduce((s, p) => s + p.amount, 0);
+    const showFromHint = (me.status === 'sebagian' || me.status === 'lunas') &&
+                         rawPaidThisPeriod > 0 && rawPaidThisPeriod !== me.paid;
+
     let inputCell, actionCell;
     if (me.status === 'lunas') {
-      inputCell = `<div style="color:#16a34a;font-weight:600;">✓ Lunas (${fmtRp(me.paid)})</div>`;
+      const lunasLabel = showFromHint
+        ? `✓ Lunas (${fmtRp(me.paid)} dari ${fmtRp(rawPaidThisPeriod)})`
+        : `✓ Lunas (${fmtRp(me.paid)})`;
+      inputCell = `<div style="color:#16a34a;font-weight:600;">${lunasLabel}</div>`;
       actionCell = `<div style="color:#16a34a;font-size:11px;">Sudah dibayar</div>`;
     } else if (me.status === 'sebagian') {
-      // Show how much already paid + input for additional payment
+      const paidLabel = showFromHint
+        ? `Sudah bayar ${fmtRp(me.paid)} (dari ${fmtRp(rawPaidThisPeriod)})`
+        : `Sudah bayar ${fmtRp(me.paid)}`;
       inputCell = `<div>
-        <div style="color:#16a34a;font-size:11px;font-weight:600;margin-bottom:3px;">Sudah bayar ${fmtRp(me.paid)}</div>
+        <div style="color:#16a34a;font-size:11px;font-weight:600;margin-bottom:3px;">${paidLabel}</div>
         <input type="number" class="fast-input-amount" id="fi-amt-${c.id}" placeholder="${sisa}" data-customer="${c.id}" data-period="${period}" data-billed="${me.billed}" data-paid="${me.paid}">
       </div>`;
       actionCell = `<div style="display:flex;gap:3px;width:100%;flex-wrap:wrap;">
@@ -3358,6 +3370,13 @@ function refreshFastInputRow(customerId, period) {
   const sisa = me.billed - me.paid;
   const tunggakan = bal.balance - sisa;
 
+  // Calculate raw payment for this period (before FIFO redistribution)
+  const rawPaidThisPeriod = state.payments
+    .filter(p => p.customerId === c.id && p.period === period)
+    .reduce((s, p) => s + p.amount, 0);
+  const showFromHint = (me.status === 'sebagian' || me.status === 'lunas') &&
+                       rawPaidThisPeriod > 0 && rawPaidThisPeriod !== me.paid;
+
   // Update the row class
   row.className = 'fast-input-row ' + (me.status === 'lunas' ? 'paid' : me.status === 'sebagian' ? 'partial' : '');
   row.style.gridTemplateColumns = '30px 1fr 100px 130px 140px';
@@ -3370,11 +3389,17 @@ function refreshFastInputRow(customerId, period) {
 
   // Update input & action cells (index 3 & 4)
   if (me.status === 'lunas') {
-    cells[3].innerHTML = `<div style="color:#16a34a;font-weight:600;">✓ Lunas (${fmtRp(me.paid)})</div>`;
+    const lunasLabel = showFromHint
+      ? `✓ Lunas (${fmtRp(me.paid)} dari ${fmtRp(rawPaidThisPeriod)})`
+      : `✓ Lunas (${fmtRp(me.paid)})`;
+    cells[3].innerHTML = `<div style="color:#16a34a;font-weight:600;">${lunasLabel}</div>`;
     cells[4].innerHTML = `<div style="color:#16a34a;font-size:11px;">Sudah dibayar</div>`;
   } else if (me.status === 'sebagian') {
+    const paidLabel = showFromHint
+      ? `Sudah bayar ${fmtRp(me.paid)} (dari ${fmtRp(rawPaidThisPeriod)})`
+      : `Sudah bayar ${fmtRp(me.paid)}`;
     cells[3].innerHTML = `<div>
-      <div style="color:#16a34a;font-size:11px;font-weight:600;margin-bottom:3px;">Sudah bayar ${fmtRp(me.paid)}</div>
+      <div style="color:#16a34a;font-size:11px;font-weight:600;margin-bottom:3px;">${paidLabel}</div>
       <input type="number" class="fast-input-amount" id="fi-amt-${c.id}" placeholder="${sisa}" data-customer="${c.id}" data-period="${period}" data-billed="${me.billed}" data-paid="${me.paid}">
     </div>`;
     cells[4].innerHTML = `<div style="display:flex;gap:3px;width:100%;flex-wrap:wrap;">
@@ -3472,9 +3497,9 @@ function showFastInputPaymentDetails() {
       statusLabel = '<span style="color:#dc2626;">Belum bayar</span>';
     }
 
-    // Note about FIFO if total payment differs from allocated
-    const fifoNote = (subtotal !== allocatedToThisPeriod)
-      ? `<br><small style="color:#7c3aed;font-style:italic;">(Bayar Rp ${fmtRp(subtotal).replace('Rp ','')} — ${subtotal > allocatedToThisPeriod ? (allocatedToThisPeriod === 0 ? 'masuk ke tunggakan/bulan lain' : 'sebagian masuk tunggakan/bulan lain') : 'gabungan beberapa pembayaran'})</small>`
+    // Note about FIFO if total payment differs from allocated (ringkas: hanya "dari X")
+    const fifoNote = (subtotal !== allocatedToThisPeriod && subtotal > 0)
+      ? `<br><small style="color:#7c3aed;">(dari ${fmtRp(subtotal)})</small>`
       : '';
 
     const methodBadges = ps.map(p => {
