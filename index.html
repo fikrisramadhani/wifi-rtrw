@@ -820,16 +820,71 @@ tbody tr:last-child td { border-bottom: none; }
       <div class="alert alert-info">
         ℹ️ Tunggakan dihitung sejak tanggal pasang sampai bulan ini. Pelanggan diisolir dan gratis tidak menambah tunggakan selama masa isolir / status gratis.
       </div>
-      <div class="search-bar">
-        <select id="filter-arrears-location" onchange="renderArrears()">
-          <option value="">Semua Lokasi</option>
-        </select>
-        <select id="filter-arrears-status" onchange="renderArrears()">
-          <option value="">Semua Status</option>
-          <option value="aktif">Hanya Aktif</option>
-          <option value="diisolir">Hanya Diisolir</option>
-        </select>
+
+      <!-- Filter Panel -->
+      <div style="background:#fafaf9;border:1px solid #e7e5e4;border-radius:10px;padding:12px;margin-bottom:10px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;">
+          <div>
+            <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Cari Pelanggan</label>
+            <input type="text" id="search-arrears" placeholder="🔍 Nama / username / HP" oninput="renderArrears()">
+          </div>
+          <div>
+            <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Daerah</label>
+            <select id="filter-arrears-location" onchange="renderArrears()">
+              <option value="">Semua Daerah</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Tukang</label>
+            <select id="filter-arrears-collector" onchange="renderArrears()">
+              <option value="">Semua Tukang</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Status Pelanggan</label>
+            <select id="filter-arrears-status" onchange="renderArrears()">
+              <option value="">Semua Status</option>
+              <option value="aktif">🟢 Hanya Aktif</option>
+              <option value="diisolir">🟡 Hanya Diisolir</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Umur Tunggakan</label>
+            <select id="filter-arrears-age" onchange="renderArrears()">
+              <option value="">Semua Umur</option>
+              <option value="1">≤ 1 bulan</option>
+              <option value="2-3">2 - 3 bulan</option>
+              <option value="3+">> 3 bulan (kritis)</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Urutkan</label>
+            <select id="sort-arrears" onchange="renderArrears()">
+              <option value="amount-desc">Tunggakan terbesar</option>
+              <option value="amount-asc">Tunggakan terkecil</option>
+              <option value="age-desc">Tunggakan paling lama</option>
+              <option value="name-asc">Nama A-Z</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:10px;">
+          <div>
+            <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Tunggakan Min (Rp)</label>
+            <input type="number" id="filter-arrears-min" placeholder="0" oninput="renderArrears()">
+          </div>
+          <div>
+            <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Tunggakan Max (Rp)</label>
+            <input type="number" id="filter-arrears-max" placeholder="Tanpa batas" oninput="renderArrears()">
+          </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:10px;">
+          <button class="btn btn-sm" onclick="resetArrearsFilters()" style="background:#f5f5f4;">↻ Reset Filter</button>
+        </div>
       </div>
+
+      <!-- Summary (filtered) -->
+      <div id="arrears-summary" style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:13px;display:none;"></div>
+
       <div class="stats-grid" id="arrears-stats"></div>
       <div class="table-wrap" style="max-height:600px;overflow-y:auto;">
         <table id="arrears-table">
@@ -3112,60 +3167,163 @@ function deletePayment(id) {
 }
 
 // ===================== TUNGGAKAN =====================
+function calcMonthsDiff(fromYM, toYM) {
+  const [fy, fm] = fromYM.split('-').map(Number);
+  const [ty, tm] = toYM.split('-').map(Number);
+  return (ty - fy) * 12 + (tm - fm);
+}
+
 function renderArrears() {
   refreshLocationDropdown('filter-arrears-location');
+
+  // Populate collector dropdown
+  const colSel = document.getElementById('filter-arrears-collector');
+  if (colSel) {
+    const cur = colSel.value;
+    colSel.innerHTML = '<option value="">Semua Tukang</option>' +
+      state.collectors.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+    colSel.value = cur;
+  }
+
+  // Get filter values
+  const search = (document.getElementById('search-arrears').value || '').toLowerCase();
   const filterLoc = document.getElementById('filter-arrears-location').value;
+  const filterCol = document.getElementById('filter-arrears-collector').value;
   const filterStatus = document.getElementById('filter-arrears-status').value;
+  const filterAge = document.getElementById('filter-arrears-age').value;
+  const minA = parseInt(document.getElementById('filter-arrears-min').value) || 0;
+  const maxA = parseInt(document.getElementById('filter-arrears-max').value) || Infinity;
+  const sortBy = document.getElementById('sort-arrears').value || 'amount-desc';
 
   // Get customers (not free, not nonaktif)
   let customers = state.customers.filter(c => !c.isFree && c.status !== 'nonaktif');
+
+  // Apply customer-level filters
+  if (search) customers = customers.filter(c =>
+    (c.name || '').toLowerCase().includes(search) ||
+    (c.username || '').toLowerCase().includes(search) ||
+    (c.phone || '').toLowerCase().includes(search)
+  );
   if (filterLoc) customers = customers.filter(c => c.locationCode === filterLoc);
+  if (filterCol) customers = customers.filter(c => {
+    const col = getCollectorForLocation(c.locationCode);
+    return col && col.id === filterCol;
+  });
   if (filterStatus) customers = customers.filter(c => c.status === filterStatus);
 
-  const arrears = customers.map(c => {
+  // Calculate arrears with age
+  const now = curMonth();
+  let arrears = customers.map(c => {
     const bal = calculateBalance(c.id);
     if (bal.balance <= 0) return null;
-    // Count months that are not lunas
-    const unpaidMonthCount = bal.months.filter(m => m.status !== 'lunas').length;
+    const unpaidMonths = bal.months.filter(m => m.status !== 'lunas');
     const partialMonths = bal.months.filter(m => m.status === 'sebagian');
     const fullUnpaid = bal.months.filter(m => m.status === 'belum');
+    const oldestUnpaidYM = unpaidMonths.length ? unpaidMonths[0].period : null;
+    const ageMonths = oldestUnpaidYM ? calcMonthsDiff(oldestUnpaidYM, now) : 0;
     return {
       customer: c,
       balance: bal.balance,
       credit: bal.credit,
-      unpaidMonthCount,
+      unpaidMonthCount: unpaidMonths.length,
       partialCount: partialMonths.length,
       fullUnpaidCount: fullUnpaid.length,
+      ageMonths,
+      oldestUnpaidYM,
       months: bal.months
     };
-  }).filter(a => a !== null)
-    .sort((a,b) => b.balance - a.balance);
+  }).filter(a => a !== null);
 
-  const totalArrears = arrears.reduce((s,a) => s + a.balance, 0);
-  const totalCustomers = arrears.length;
-  const totalMonthsArr = arrears.reduce((s,a) => s + a.unpaidMonthCount, 0);
+  // Compute stats from UNFILTERED arrears (for header overview)
+  const totalArrearsAll = arrears.reduce((s,a) => s + a.balance, 0);
+  const totalCustomersAll = arrears.length;
+  const totalMonthsAll = arrears.reduce((s,a) => s + a.unpaidMonthCount, 0);
 
+  // Apply nominal & age filter
+  let filtered = arrears.filter(a => a.balance >= minA && a.balance <= maxA);
+  if (filterAge === '1') filtered = filtered.filter(a => a.ageMonths <= 1);
+  else if (filterAge === '2-3') filtered = filtered.filter(a => a.ageMonths >= 2 && a.ageMonths <= 3);
+  else if (filterAge === '3+') filtered = filtered.filter(a => a.ageMonths > 3);
+
+  // Sort
+  filtered.sort((a, b) => {
+    if (sortBy === 'amount-asc') return a.balance - b.balance;
+    if (sortBy === 'age-desc') return b.ageMonths - a.ageMonths || b.balance - a.balance;
+    if (sortBy === 'name-asc') return a.customer.name.localeCompare(b.customer.name);
+    return b.balance - a.balance; // default amount-desc
+  });
+
+  // Stats (overall)
   document.getElementById('arrears-stats').innerHTML = `
-    <div class="stat-card red"><div class="stat-label">Pelanggan Menunggak</div><div class="stat-value">${totalCustomers}</div></div>
-    <div class="stat-card amber"><div class="stat-label">Total Bulan Bermasalah</div><div class="stat-value">${totalMonthsArr}</div></div>
-    <div class="stat-card red"><div class="stat-label">Total Tunggakan</div><div class="stat-value" style="font-size:16px;">${fmtRp(totalArrears)}</div></div>
+    <div class="stat-card red"><div class="stat-label">Pelanggan Menunggak</div><div class="stat-value">${totalCustomersAll}</div></div>
+    <div class="stat-card amber"><div class="stat-label">Total Bulan Bermasalah</div><div class="stat-value">${totalMonthsAll}</div></div>
+    <div class="stat-card red"><div class="stat-label">Total Tunggakan</div><div class="stat-value" style="font-size:16px;">${fmtRp(totalArrearsAll)}</div></div>
   `;
 
+  // Filtered summary (only show when filter actually narrows results)
+  const summaryEl = document.getElementById('arrears-summary');
+  const isFiltering = search || filterLoc || filterCol || filterStatus || filterAge || minA > 0 || maxA < Infinity;
+  if (isFiltering && filtered.length > 0) {
+    const filteredTotal = filtered.reduce((s,a) => s + a.balance, 0);
+    const avgPerCustomer = Math.round(filteredTotal / filtered.length);
+    const kritisCount = filtered.filter(a => a.ageMonths > 3).length;
+    summaryEl.style.display = 'block';
+    summaryEl.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;">
+        <div>
+          <div style="font-size:11px;color:#78716c;">Total Tunggakan (Filter)</div>
+          <div style="font-size:18px;font-weight:600;color:#dc2626;">${fmtRp(filteredTotal)}</div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:#78716c;">Jumlah Pelanggan</div>
+          <div style="font-size:18px;font-weight:600;">${filtered.length}</div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:#78716c;">Rata-rata per Pelanggan</div>
+          <div style="font-size:18px;font-weight:600;">${fmtRp(avgPerCustomer)}</div>
+        </div>
+        ${kritisCount > 0 ? `
+        <div>
+          <div style="font-size:11px;color:#78716c;">Tunggakan Kritis (>3 bln)</div>
+          <div style="font-size:18px;font-weight:600;color:#7f1d1d;">${kritisCount}</div>
+        </div>
+        ` : ''}
+      </div>
+    `;
+  } else {
+    summaryEl.style.display = 'none';
+  }
+
   const tbody = document.querySelector('#arrears-table tbody');
-  if (!arrears.length) {
-    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><h3>🎉 Tidak ada tunggakan</h3></div></td></tr>`;
+  if (!filtered.length) {
+    const msg = isFiltering
+      ? '<h3>Tidak ada tunggakan sesuai filter</h3><p>Coba ubah atau reset filter.</p>'
+      : '<h3>🎉 Tidak ada tunggakan</h3>';
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state">${msg}</div></td></tr>`;
     return;
   }
-  tbody.innerHTML = arrears.map(a => {
+
+  tbody.innerHTML = filtered.map(a => {
     const detail = [];
     if (a.fullUnpaidCount > 0) detail.push(`${a.fullUnpaidCount} bulan belum bayar`);
     if (a.partialCount > 0) detail.push(`${a.partialCount} bulan sebagian`);
+
+    // Age badge color: < 2 mo = amber, 2-3 = orange, > 3 = red
+    let ageBadge = '';
+    if (a.ageMonths > 3) {
+      ageBadge = `<br><span style="background:#fee2e2;color:#7f1d1d;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;">⚠️ KRITIS · ${a.ageMonths} bln</span>`;
+    } else if (a.ageMonths >= 2) {
+      ageBadge = `<br><span style="background:#fed7aa;color:#9a3412;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;">${a.ageMonths} bln</span>`;
+    } else if (a.ageMonths >= 1) {
+      ageBadge = `<br><span style="background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;">${a.ageMonths} bln</span>`;
+    }
+
     return `<tr>
       <td><strong>${escapeHtml(a.customer.name)}</strong>${a.customer.username ? `<br><small style="color:#78716c;">${escapeHtml(a.customer.username)}</small>` : ''}</td>
       <td>${statusBadge(a.customer.status)}</td>
       <td>${escapeHtml(getLocationName(a.customer.locationCode))}</td>
       <td>${escapeHtml(a.customer.phone || '-')}</td>
-      <td><span class="badge badge-danger">${a.unpaidMonthCount} bulan</span><br>
+      <td><span class="badge badge-danger">${a.unpaidMonthCount} bulan</span>${ageBadge}<br>
         <small style="color:#78716c;">${detail.join(', ')}</small></td>
       <td><strong style="color:#dc2626;">${fmtRp(a.balance)}</strong></td>
       <td style="white-space:nowrap;">
@@ -3175,6 +3333,18 @@ function renderArrears() {
       </td>
     </tr>`;
   }).join('');
+}
+
+function resetArrearsFilters() {
+  document.getElementById('search-arrears').value = '';
+  document.getElementById('filter-arrears-location').value = '';
+  document.getElementById('filter-arrears-collector').value = '';
+  document.getElementById('filter-arrears-status').value = '';
+  document.getElementById('filter-arrears-age').value = '';
+  document.getElementById('filter-arrears-min').value = '';
+  document.getElementById('filter-arrears-max').value = '';
+  document.getElementById('sort-arrears').value = 'amount-desc';
+  renderArrears();
 }
 
 function sendWA(customerId, total, count) {
@@ -4981,26 +5151,58 @@ function exportPaymentsCSV() {
 }
 
 function exportArrearsCSV() {
-  const customers = state.customers.filter(c => !c.isFree && c.status !== 'nonaktif');
-  const headers = ['Username','Nama','Status','Lokasi','HP','Bulan Bermasalah','Total Tagihan','Total Dibayar','Tunggakan'];
+  // Use same filter logic as renderArrears
+  const search = (document.getElementById('search-arrears').value || '').toLowerCase();
+  const filterLoc = document.getElementById('filter-arrears-location').value;
+  const filterCol = document.getElementById('filter-arrears-collector').value;
+  const filterStatus = document.getElementById('filter-arrears-status').value;
+  const filterAge = document.getElementById('filter-arrears-age').value;
+  const minA = parseInt(document.getElementById('filter-arrears-min').value) || 0;
+  const maxA = parseInt(document.getElementById('filter-arrears-max').value) || Infinity;
+
+  let customers = state.customers.filter(c => !c.isFree && c.status !== 'nonaktif');
+  if (search) customers = customers.filter(c =>
+    (c.name || '').toLowerCase().includes(search) ||
+    (c.username || '').toLowerCase().includes(search) ||
+    (c.phone || '').toLowerCase().includes(search)
+  );
+  if (filterLoc) customers = customers.filter(c => c.locationCode === filterLoc);
+  if (filterCol) customers = customers.filter(c => {
+    const col = getCollectorForLocation(c.locationCode);
+    return col && col.id === filterCol;
+  });
+  if (filterStatus) customers = customers.filter(c => c.status === filterStatus);
+
+  const now = curMonth();
+  const headers = ['Username','Nama','Status','Lokasi','Tukang','HP','Bulan Bermasalah','Umur Tunggakan (bln)','Total Tagihan','Total Dibayar','Tunggakan'];
   const rows = [];
   customers.forEach(c => {
     const bal = calculateBalance(c.id);
     if (bal.balance <= 0) return;
-    const unpaidCount = bal.months.filter(m => m.status !== 'lunas').length;
+    if (bal.balance < minA || bal.balance > maxA) return;
+    const unpaidMonths = bal.months.filter(m => m.status !== 'lunas');
+    const unpaidCount = unpaidMonths.length;
+    const oldestUnpaidYM = unpaidMonths.length ? unpaidMonths[0].period : null;
+    const ageMonths = oldestUnpaidYM ? calcMonthsDiff(oldestUnpaidYM, now) : 0;
+    if (filterAge === '1' && ageMonths > 1) return;
+    if (filterAge === '2-3' && (ageMonths < 2 || ageMonths > 3)) return;
+    if (filterAge === '3+' && ageMonths <= 3) return;
+    const col = getCollectorForLocation(c.locationCode);
     rows.push([
       c.username || '',
       c.name,
       c.status,
       getLocationName(c.locationCode),
+      col ? col.name : '-',
       c.phone || '',
       unpaidCount,
+      ageMonths,
       bal.totalBilled,
       bal.totalPaid,
       bal.balance
     ]);
   });
-  if (!rows.length) { alert('Tidak ada tunggakan'); return; }
+  if (!rows.length) { alert('Tidak ada tunggakan sesuai filter aktif'); return; }
   downloadCSV([headers, ...rows], `tunggakan-${todayStr()}.csv`);
 }
 
