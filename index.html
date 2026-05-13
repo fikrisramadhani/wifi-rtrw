@@ -829,6 +829,10 @@ tbody tr:last-child td { border-bottom: none; }
             <input type="text" id="search-arrears" placeholder="🔍 Nama / username / HP" oninput="renderArrears()">
           </div>
           <div>
+            <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Periode Tunggakan</label>
+            <input type="month" id="filter-arrears-period" onchange="renderArrears()" title="Tampilkan pelanggan yang bulan ini belum lunas">
+          </div>
+          <div>
             <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Daerah</label>
             <select id="filter-arrears-location" onchange="renderArrears()">
               <option value="">Semua Daerah</option>
@@ -3187,6 +3191,7 @@ function renderArrears() {
 
   // Get filter values
   const search = (document.getElementById('search-arrears').value || '').toLowerCase();
+  const filterPeriod = document.getElementById('filter-arrears-period').value;
   const filterLoc = document.getElementById('filter-arrears-location').value;
   const filterCol = document.getElementById('filter-arrears-collector').value;
   const filterStatus = document.getElementById('filter-arrears-status').value;
@@ -3245,6 +3250,15 @@ function renderArrears() {
   else if (filterAge === '2-3') filtered = filtered.filter(a => a.ageMonths >= 2 && a.ageMonths <= 3);
   else if (filterAge === '3+') filtered = filtered.filter(a => a.ageMonths > 3);
 
+  // Filter periode tunggakan: hanya pelanggan yang bulan filterPeriod belum lunas
+  if (filterPeriod) {
+    filtered = filtered.filter(a => {
+      const monthEntry = a.months.find(m => m.period === filterPeriod);
+      // Hanya tampilkan kalau bulan ini ada di billable months DAN belum lunas
+      return monthEntry && monthEntry.status !== 'lunas';
+    });
+  }
+
   // Sort
   filtered.sort((a, b) => {
     if (sortBy === 'amount-asc') return a.balance - b.balance;
@@ -3262,7 +3276,7 @@ function renderArrears() {
 
   // Filtered summary (only show when filter actually narrows results)
   const summaryEl = document.getElementById('arrears-summary');
-  const isFiltering = search || filterLoc || filterCol || filterStatus || filterAge || minA > 0 || maxA < Infinity;
+  const isFiltering = search || filterPeriod || filterLoc || filterCol || filterStatus || filterAge || minA > 0 || maxA < Infinity;
   if (isFiltering && filtered.length > 0) {
     const filteredTotal = filtered.reduce((s,a) => s + a.balance, 0);
     const avgPerCustomer = Math.round(filteredTotal / filtered.length);
@@ -3337,6 +3351,7 @@ function renderArrears() {
 
 function resetArrearsFilters() {
   document.getElementById('search-arrears').value = '';
+  document.getElementById('filter-arrears-period').value = '';
   document.getElementById('filter-arrears-location').value = '';
   document.getElementById('filter-arrears-collector').value = '';
   document.getElementById('filter-arrears-status').value = '';
@@ -5153,6 +5168,7 @@ function exportPaymentsCSV() {
 function exportArrearsCSV() {
   // Use same filter logic as renderArrears
   const search = (document.getElementById('search-arrears').value || '').toLowerCase();
+  const filterPeriod = document.getElementById('filter-arrears-period').value;
   const filterLoc = document.getElementById('filter-arrears-location').value;
   const filterCol = document.getElementById('filter-arrears-collector').value;
   const filterStatus = document.getElementById('filter-arrears-status').value;
@@ -5187,6 +5203,11 @@ function exportArrearsCSV() {
     if (filterAge === '1' && ageMonths > 1) return;
     if (filterAge === '2-3' && (ageMonths < 2 || ageMonths > 3)) return;
     if (filterAge === '3+' && ageMonths <= 3) return;
+    // Filter periode tunggakan
+    if (filterPeriod) {
+      const monthEntry = bal.months.find(m => m.period === filterPeriod);
+      if (!monthEntry || monthEntry.status === 'lunas') return;
+    }
     const col = getCollectorForLocation(c.locationCode);
     rows.push([
       c.username || '',
