@@ -1524,6 +1524,8 @@ tbody tr:last-child td { border-bottom: none; }
 const GDRIVE_CLIENT_ID = '889684485290-lib3q13j1bug77jacugl3d30jtv2vqsa.apps.googleusercontent.com';
 const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const GDRIVE_FILENAME = 'wifi-rtrw-backup.json';
+const GDRIVE_FOLDER_NAME = 'Samurai.NET';
+let gdriveFolderId = null; // ID folder Samurai.NET di Drive (cached)
 
 let gdriveAccessToken = null;
 let gdriveTokenExpiresAt = 0;
@@ -1685,7 +1687,7 @@ function handleGDriveClick() {
       <p>Akun: <strong>${escapeHtml(gdriveUserEmail || '(unknown)')}</strong></p>
       <p>Token expired in: <strong>${Math.max(0, Math.round((gdriveTokenExpiresAt - Date.now())/60000))} menit</strong></p>
       <p>Status: <strong>${gdriveLastSync ? 'Tersinkron ' + new Date(gdriveLastSync).toLocaleString('id-ID') : 'Belum sync'}</strong></p>
-      <p>File backup: <code>${GDRIVE_FILENAME}</code> di Google Drive Anda</p>
+      <p>Lokasi backup: <code>📁 ${GDRIVE_FOLDER_NAME}/${GDRIVE_FILENAME}</code></p>
       <hr style="margin:10px 0;border:none;border-top:1px solid #e7e5e4;">
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn btn-success" onclick="syncToGDrive(true); closeModal('modal-gdrive');">🔄 Sync Sekarang</button>
@@ -1697,6 +1699,70 @@ function handleGDriveClick() {
     document.getElementById('modal-gdrive').classList.add('show');
   } else {
     gdriveTokenClient.requestAccessToken({ prompt: 'consent' });
+  }
+}
+
+// Get atau create folder Samurai.NET di root Drive
+// Returns: folder ID
+async function getOrCreateGDriveFolder() {
+  if (!gdriveAccessToken) throw new Error('Not authenticated');
+
+  // Search folder by name di root
+  const searchUrl = `https://www.googleapis.com/drive/v3/files?q=name='${encodeURIComponent(GDRIVE_FOLDER_NAME)}'+and+mimeType='application/vnd.google-apps.folder'+and+'root'+in+parents+and+trashed=false&fields=files(id,name)`;
+  const sr = await fetch(searchUrl, { headers: { Authorization: 'Bearer ' + gdriveAccessToken } });
+  if (!sr.ok) {
+    if (sr.status === 401) { gdriveAccessToken = null; gdriveTokenExpiresAt = 0; throw new Error('UNAUTHORIZED'); }
+    throw new Error('Folder search failed: ' + sr.status);
+  }
+  const sd = await sr.json();
+  if (sd.files && sd.files.length > 0) {
+    // Folder exists
+    return sd.files[0].id;
+  }
+
+  // Create folder
+  const metadata = {
+    name: GDRIVE_FOLDER_NAME,
+    mimeType: 'application/vnd.google-apps.folder',
+    parents: ['root']
+  };
+  const cr = await fetch('https://www.googleapis.com/drive/v3/files?fields=id', {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer ' + gdriveAccessToken,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(metadata)
+  });
+  if (!cr.ok) {
+    if (cr.status === 401) { gdriveAccessToken = null; gdriveTokenExpiresAt = 0; throw new Error('UNAUTHORIZED'); }
+    throw new Error('Folder create failed: ' + cr.status);
+  }
+  const cd = await cr.json();
+  return cd.id;
+}
+
+// Migrasi file lama di root Drive ke folder Samurai.NET
+async function migrateGDriveFileToFolder(fileId, folderId) {
+  if (!gdriveAccessToken) return;
+  try {
+    // Get current parents
+    const gr = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=parents`, {
+      headers: { Authorization: 'Bearer ' + gdriveAccessToken }
+    });
+    if (!gr.ok) return;
+    const gd = await gr.json();
+    const oldParents = (gd.parents || []).join(',');
+
+    // Move: add new parent, remove old
+    const url = `https://www.googleapis.com/drive/v3/files/${fileId}?addParents=${folderId}&removeParents=${oldParents}&fields=id,parents`;
+    const mr = await fetch(url, {
+      method: 'PATCH',
+      headers: { Authorization: 'Bearer ' + gdriveAccessToken }
+    });
+    if (mr.ok) console.log('File moved to folder:', folderId);
+  } catch (e) {
+    console.error('Migration error:', e);
   }
 }
 
@@ -1716,13 +1782,42 @@ async function onGDriveLoggedIn(silent) {
     }
   } catch (e) { console.error(e); }
 
+  // Ensure Samurai.NET folder exists
   try {
+    setSyncStatus('⏳ Checking folder...', '#d97706');
+    gdriveFolderId = await getOrCreateGDriveFolder();
+  } catch (e) {
+    console.error('Folder error:', e);
+    setSyncError('Gagal akses folder Drive');
+    return;
+  }
+
+  try {
+    // Search file di dalam folder Samurai.NET
     const r = await fetch(
-      `https://www.googleapis.com/drive/v3/files?q=name='${GDRIVE_FILENAME}'+and+trashed=false&spaces=drive&fields=files(id,name,modifiedTime)`,
+      `https://www.googleapis.com/drive/v3/files?q=name='${GDRIVE_FILENAME}'+and+'${gdriveFolderId}'+in+parents+and+trashed=false&fields=files(id,name,modifiedTime,parents)`,
       { headers: { Authorization: 'Bearer ' + gdriveAccessToken } }
     );
     if (!r.ok) throw new Error('Drive search failed: ' + r.status);
-    const data = await r.json();
+    let data = await r.json();
+
+    // Kalau tidak ada di folder, cek apakah ada file lama di root → migrasi
+    if (!data.files || data.files.length === 0) {
+      const r2 = await fetch(
+        `https://www.googleapis.com/drive/v3/files?q=name='${GDRIVE_FILENAME}'+and+trashed=false&fields=files(id,name,modifiedTime,parents)`,
+        { headers: { Authorization: 'Bearer ' + gdriveAccessToken } }
+      );
+      if (r2.ok) {
+        const d2 = await r2.json();
+        if (d2.files && d2.files.length > 0) {
+          // File lama ditemukan (mungkin di root), pindahkan ke folder
+          console.log('Found legacy file, migrating to folder...');
+          setSyncStatus('⏳ Migrasi file ke folder...', '#d97706');
+          await migrateGDriveFileToFolder(d2.files[0].id, gdriveFolderId);
+          data = d2;
+        }
+      }
+    }
 
     if (data.files && data.files.length > 0) {
       gdriveFileId = data.files[0].id;
@@ -1910,7 +2005,11 @@ async function syncToGDrive(showAlert) {
         throw new Error('Update failed: ' + r.status);
       }
     } else {
-      const metadata = { name: GDRIVE_FILENAME, mimeType: 'application/json' };
+      const metadata = {
+        name: GDRIVE_FILENAME,
+        mimeType: 'application/json',
+        parents: gdriveFolderId ? [gdriveFolderId] : ['root']
+      };
       const form = new FormData();
       form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
       form.append('file', blob);
