@@ -2155,8 +2155,19 @@ function monthLabel(ym) {
   const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
   return months[parseInt(m)-1] + ' ' + y;
 }
-function todayStr() { return new Date().toISOString().slice(0,10); }
-function curMonth() { return new Date().toISOString().slice(0,7); }
+function todayStr() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+function curMonth() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  return `${y}-${m}`;
+}
 
 // ===================== TABS =====================
 function showTab(name, btn) {
@@ -2186,7 +2197,10 @@ function renderDashboard() {
     let opts = '';
     for (let i = 0; i < 12; i++) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const ym = d.toISOString().slice(0,7);
+      // Use local timezone to avoid UTC offset issues
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const ym = `${y}-${m}`;
       opts += `<option value="${ym}">${monthLabel(ym)}</option>`;
     }
     sel.innerHTML = opts;
@@ -2891,7 +2905,9 @@ function renderLocations() {
     let opts = '';
     for (let i = 0; i < 12; i++) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const ym = d.toISOString().slice(0,7);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const ym = `${y}-${m}`;
       opts += `<option value="${ym}">${monthLabel(ym)}</option>`;
     }
     sel.innerHTML = opts;
