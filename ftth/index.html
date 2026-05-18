@@ -621,6 +621,54 @@ input:focus, select:focus, textarea:focus {
   50% { filter: drop-shadow(0 0 20px #fbbf24); }
 }
 
+/* DRAG & DROP styles */
+.tree-node-rect.draggable { cursor: grab; }
+.tree-node-rect.dragging { opacity: 0.4; cursor: grabbing; }
+.tree-node-rect.drop-target {
+  stroke: #10b981 !important;
+  stroke-width: 3 !important;
+  stroke-dasharray: 4 4;
+  animation: dash-flow 0.5s linear infinite;
+}
+.tree-node-rect.drop-invalid {
+  stroke: #ef4444 !important;
+  stroke-width: 3 !important;
+  stroke-dasharray: 4 4;
+}
+@keyframes dash-flow {
+  to { stroke-dashoffset: -8; }
+}
+.canvas-container.drag-mode { cursor: grabbing !important; }
+.canvas-container.drag-mode .tree-node-rect:not(.dragging):not(.drop-target):not(.drop-invalid) {
+  opacity: 0.6;
+}
+
+/* Drag indicator badge */
+.drag-info {
+  position: fixed;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  z-index: 1500;
+  display: none;
+  box-shadow: 0 8px 24px rgba(59,130,246,0.4);
+  border: 1px solid rgba(255,255,255,0.2);
+}
+.drag-info.show { display: block; }
+.drag-info .hint { font-size: 10px; opacity: 0.85; margin-top: 2px; font-weight: 400; }
+
+/* Drop position indicator (line between siblings) */
+.drop-line {
+  fill: #10b981;
+  pointer-events: none;
+}
+
 /* Undo/Redo button disabled state */
 .btn:disabled {
   opacity: 0.4;
@@ -1115,6 +1163,12 @@ input:focus, select:focus, textarea:focus {
   <button class="btn btn-sm" id="btn-undo" onclick="undoAction()" title="Undo (Ctrl+Z)" disabled>↶ Undo</button>
   <button class="btn btn-sm" id="btn-redo" onclick="redoAction()" title="Redo (Ctrl+Y)" disabled>↷ Redo</button>
   <button class="btn btn-sm" onclick="openModal('modal-shortcuts')" title="Keyboard shortcuts (?)">⌨️</button>
+</div>
+
+<!-- DRAG INFO Badge (shown during drag) -->
+<div id="drag-info" class="drag-info">
+  <div id="drag-info-text">Dragging node</div>
+  <div class="hint">Esc untuk batal · Lepaskan di parent baru</div>
 </div>
 
 <div id="toast" class="toast">
@@ -1942,6 +1996,12 @@ function renderTree() {
   g.querySelectorAll('[data-node-id]').forEach(el => {
     el.addEventListener('click', (e) => {
       e.stopPropagation();
+      // Don't open editor if we just finished a drag operation
+      if (dragState.dragStarted) {
+        // Reset the flag so next click works normally
+        dragState.dragStarted = false;
+        return;
+      }
       selectedNodeId = el.dataset.nodeId;
       renderTree();
       openNodeEditor(selectedNodeId);
@@ -2293,8 +2353,9 @@ function setupCanvasInteractions() {
 
   // Pan with drag
   container.addEventListener('mousedown', (e) => {
-    // Don't pan if clicking on a node
+    // Don't pan if clicking on a node OR if node drag is happening
     if (e.target.tagName === 'rect' || e.target.tagName === 'text') return;
+    if (dragState.draggedNodeId) return;
     isDragging = true;
     dragStartX = e.clientX - canvasOffsetX;
     dragStartY = e.clientY - canvasOffsetY;
@@ -2303,6 +2364,7 @@ function setupCanvasInteractions() {
 
   document.addEventListener('mousemove', (e) => {
     if (!isDragging) return;
+    if (dragState.isDragging) return; // node drag takes precedence
     canvasOffsetX = e.clientX - dragStartX;
     canvasOffsetY = e.clientY - dragStartY;
     updateCanvasTransform();
@@ -3380,6 +3442,294 @@ setMode = function(mode) {
 };
 
 // ============================================================
+// PHASE 3C — DRAG & DROP REORDER + MOVE SUBTREE
+// ============================================================
+
+// ====== DRAG STATE ======
+let dragState = {
+  isDragging: false,
+  draggedNodeId: null,
+  dragStartX: 0,
+  dragStartY: 0,
+  currentTargetId: null,
+  isValidTarget: false,
+  mouseDownTime: 0,
+  mouseDownX: 0,
+  mouseDownY: 0,
+  dragStarted: false
+};
+const DRAG_THRESHOLD = 5; // pixels of movement before drag starts (prevents accidental drag on click)
+const CLICK_TIME_THRESHOLD = 200; // ms - faster click = treated as click not drag
+
+// ====== HELPERS ======
+function isDescendant(rootNode, possibleDescendantId) {
+  if (rootNode.id === possibleDescendantId) return true;
+  for (const child of rootNode.children || []) {
+    if (isDescendant(child, possibleDescendantId)) return true;
+  }
+  return false;
+}
+
+function canDragNode(node) {
+  // Cannot drag: root OLT, port nodes
+  if (!node || node.id === 'root' || node.type === 'port') return false;
+  return true;
+}
+
+function canDropOn(draggedNode, targetNode, treeRoot) {
+  if (!draggedNode || !targetNode) return false;
+  // Cannot drop on itself
+  if (draggedNode.id === targetNode.id) return false;
+  // Cannot drop on its own descendant (would create cycle)
+  if (isDescendant(draggedNode, targetNode.id)) return false;
+  // Cannot drop on port (ports only have coupler as parent, and accept only normal children via "add child" flow)
+  // Actually, ports CAN have children, so drop on port should be allowed
+  // But for simplicity & avoiding edge cases, only allow drop on normal, OLT, and port
+  if (targetNode.type === 'split') return false; // Can't drop directly on coupler split (its children must be A/B ports)
+  return true;
+}
+
+// Move node from current location to under newParentId
+function moveNodeInTree(tree, draggedId, newParentId) {
+  // First, find and remove the dragged node (keep reference)
+  let draggedNode = null;
+  function removeFromParent(node) {
+    if (!node.children) return false;
+    const idx = node.children.findIndex(c => c.id === draggedId);
+    if (idx >= 0) {
+      draggedNode = node.children[idx];
+      node.children.splice(idx, 1);
+      return true;
+    }
+    for (const child of node.children) {
+      if (removeFromParent(child)) return true;
+    }
+    return false;
+  }
+  removeFromParent(tree);
+
+  if (!draggedNode) return false;
+
+  // Find new parent and add dragged node
+  const newParent = findNode(newParentId, tree);
+  if (!newParent) return false;
+  newParent.children = newParent.children || [];
+  newParent.children.push(draggedNode);
+  return true;
+}
+
+// ====== DRAG EVENTS ======
+function onNodeMouseDown(e, nodeId) {
+  // Only handle left mouse button
+  if (e.button !== 0) return;
+  const p = getActiveTopoProject();
+  if (!p) return;
+  const node = findNode(nodeId, p.tree);
+  if (!canDragNode(node)) return;
+
+  // Record initial position - don't start drag yet (wait for threshold)
+  dragState.mouseDownTime = Date.now();
+  dragState.mouseDownX = e.clientX;
+  dragState.mouseDownY = e.clientY;
+  dragState.draggedNodeId = nodeId;
+  dragState.dragStarted = false;
+
+  // Stop propagation to prevent canvas pan
+  e.stopPropagation();
+  e.preventDefault();
+}
+
+function onCanvasMouseMove(e) {
+  if (!dragState.draggedNodeId) return;
+  if (dragState.dragStarted) {
+    // Already dragging - update target
+    updateDragTarget(e);
+    return;
+  }
+
+  // Check if movement exceeds threshold to start drag
+  const dx = e.clientX - dragState.mouseDownX;
+  const dy = e.clientY - dragState.mouseDownY;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist >= DRAG_THRESHOLD) {
+    startDrag(e);
+  }
+}
+
+function startDrag(e) {
+  dragState.isDragging = true;
+  dragState.dragStarted = true;
+
+  const p = getActiveTopoProject();
+  if (!p) return;
+  const node = findNode(dragState.draggedNodeId, p.tree);
+  if (!node) return;
+
+  // Visual feedback
+  document.getElementById('canvas-container').classList.add('drag-mode');
+  const draggedRect = document.querySelector(`[data-node-id="${dragState.draggedNodeId}"]`);
+  if (draggedRect) draggedRect.classList.add('dragging');
+
+  // Show info badge
+  const infoEl = document.getElementById('drag-info');
+  document.getElementById('drag-info-text').textContent = `Memindahkan: ${node.name || node.id}`;
+  infoEl.classList.add('show');
+
+  updateDragTarget(e);
+}
+
+function updateDragTarget(e) {
+  // Clear previous target highlight
+  document.querySelectorAll('.tree-node-rect.drop-target, .tree-node-rect.drop-invalid').forEach(el => {
+    el.classList.remove('drop-target', 'drop-invalid');
+  });
+
+  // Find element under cursor
+  const elemBelow = document.elementFromPoint(e.clientX, e.clientY);
+  if (!elemBelow) {
+    dragState.currentTargetId = null;
+    dragState.isValidTarget = false;
+    return;
+  }
+
+  // Get node id from rect or text
+  let targetRect = elemBelow;
+  if (targetRect.tagName === 'text') {
+    // Get sibling rect by position
+    const x = parseFloat(targetRect.getAttribute('x'));
+    const y = parseFloat(targetRect.getAttribute('y'));
+    targetRect = document.elementFromPoint(e.clientX + 10, e.clientY);
+  }
+
+  const targetId = targetRect && targetRect.dataset ? targetRect.dataset.nodeId : null;
+  if (!targetId || targetId === dragState.draggedNodeId) {
+    dragState.currentTargetId = null;
+    dragState.isValidTarget = false;
+    return;
+  }
+
+  const p = getActiveTopoProject();
+  if (!p) return;
+  const draggedNode = findNode(dragState.draggedNodeId, p.tree);
+  const targetNode = findNode(targetId, p.tree);
+  const valid = canDropOn(draggedNode, targetNode, p.tree);
+
+  dragState.currentTargetId = targetId;
+  dragState.isValidTarget = valid;
+
+  if (valid) {
+    targetRect.classList.add('drop-target');
+    document.getElementById('drag-info-text').textContent =
+      `Pindahkan "${draggedNode.name || ''}" ke "${targetNode.name || ''}"`;
+  } else {
+    targetRect.classList.add('drop-invalid');
+    document.getElementById('drag-info-text').textContent = 'Tidak bisa di-drop di sini';
+  }
+}
+
+function onCanvasMouseUp(e) {
+  if (!dragState.draggedNodeId) return;
+
+  // If drag never started, treat as click (already handled by click handler)
+  if (!dragState.dragStarted) {
+    dragState.draggedNodeId = null;
+    return;
+  }
+
+  // Drag ended - try to drop
+  const p = getActiveTopoProject();
+  if (p && dragState.isValidTarget && dragState.currentTargetId) {
+    // Push undo before modification
+    pushUndo(p.id, p.tree);
+    // Perform move
+    const ok = moveNodeInTree(p.tree, dragState.draggedNodeId, dragState.currentTargetId);
+    if (ok) {
+      const movedNode = findNode(dragState.draggedNodeId, p.tree);
+      const newParent = findNode(dragState.currentTargetId, p.tree);
+      showToast(`"${movedNode ? movedNode.name : 'Node'}" dipindah ke "${newParent ? newParent.name : ''}"`, 'success');
+      // Re-render and re-fit
+      renderTree();
+      setTimeout(() => fitCanvas(), 50);
+    } else {
+      showToast('Gagal memindahkan node', 'error');
+    }
+  } else if (dragState.dragStarted && !dragState.isValidTarget) {
+    showToast('Drag dibatalkan', 'info');
+  }
+
+  endDrag();
+}
+
+function endDrag() {
+  document.getElementById('canvas-container').classList.remove('drag-mode');
+  document.querySelectorAll('.tree-node-rect.dragging').forEach(el => el.classList.remove('dragging'));
+  document.querySelectorAll('.tree-node-rect.drop-target, .tree-node-rect.drop-invalid').forEach(el => {
+    el.classList.remove('drop-target', 'drop-invalid');
+  });
+  document.getElementById('drag-info').classList.remove('show');
+
+  dragState.isDragging = false;
+  dragState.draggedNodeId = null;
+  dragState.currentTargetId = null;
+  dragState.isValidTarget = false;
+  dragState.dragStarted = false;
+}
+
+function cancelDrag() {
+  if (!dragState.isDragging) return;
+  endDrag();
+  showToast('Drag dibatalkan', 'info');
+}
+
+// Setup global mouse listeners
+function setupDragDrop() {
+  const container = document.getElementById('canvas-container');
+
+  // Mouse move on document (to track even outside container)
+  document.addEventListener('mousemove', (e) => {
+    if (dragState.draggedNodeId) {
+      onCanvasMouseMove(e);
+    }
+  });
+
+  document.addEventListener('mouseup', (e) => {
+    if (dragState.draggedNodeId) {
+      onCanvasMouseUp(e);
+    }
+  });
+
+  // Esc to cancel
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && dragState.isDragging) {
+      cancelDrag();
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  });
+}
+
+// ====== INTEGRATION: Override node click handler in renderTree ======
+// We hook into renderTree to add drag handlers on each node rect after rendering
+
+const _originalRenderTree = renderTree;
+renderTree = function() {
+  _originalRenderTree();
+  // After tree rendered, add drag handlers to each draggable node
+  const p = getActiveTopoProject();
+  if (!p) return;
+  document.querySelectorAll('[data-node-id]').forEach(el => {
+    const nodeId = el.dataset.nodeId;
+    const node = findNode(nodeId, p.tree);
+    if (!node) return;
+    if (canDragNode(node)) {
+      el.classList.add('draggable');
+      // Use mousedown handler (click is handled by existing logic via mouseup if no drag)
+      el.addEventListener('mousedown', (e) => onNodeMouseDown(e, nodeId));
+    }
+  });
+};
+
+// ============================================================
 // INIT
 // ============================================================
 function init() {
@@ -3393,6 +3743,7 @@ function init() {
   }
   setupCanvasInteractions();
   setupKeyboardShortcuts();
+  setupDragDrop();
   // Show export buttons by default (since default mode = single)
   document.getElementById('header-export-buttons').classList.add('visible');
   // Init undo button states
