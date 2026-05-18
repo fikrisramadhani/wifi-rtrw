@@ -17,19 +17,92 @@ body {
 }
 .container { max-width: 100%; margin: 0 auto; padding: 16px 24px; }
 header {
-  background: #1e40af;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #1e40af 100%);
   color: white;
-  padding: 16px 20px;
-  border-radius: 12px;
+  padding: 18px 24px;
+  border-radius: 14px;
   margin-bottom: 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 14px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.25), inset 0 1px 0 rgba(255,255,255,0.08);
+  position: relative;
+  overflow: hidden;
 }
-header h1 { font-size: 20px; font-weight: 600; }
-header p { font-size: 13px; opacity: 0.9; margin-top: 2px; }
+header::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -10%;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%);
+  pointer-events: none;
+}
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  position: relative;
+  z-index: 1;
+}
+.header-logo {
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.08);
+  padding: 4px;
+  flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,0.12);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+.header-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 6px;
+}
+.header-text h1 {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  margin: 0;
+  background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.header-text p {
+  font-size: 12px;
+  margin: 3px 0 0 0;
+  color: #94a3b8;
+  letter-spacing: 0.2px;
+}
+.header-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+}
+.header-actions .btn {
+  background: rgba(255,255,255,0.08) !important;
+  color: white !important;
+  border: 1px solid rgba(255,255,255,0.18) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: all 0.2s;
+}
+.header-actions .btn:hover {
+  background: rgba(255,255,255,0.18) !important;
+  border-color: rgba(255,255,255,0.35) !important;
+  transform: translateY(-1px);
+}
+header h1 { font-size: 22px; font-weight: 700; }
+header p { font-size: 12px; opacity: 0.85; margin-top: 2px; }
 .tabs {
   display: flex;
   gap: 4px;
@@ -397,7 +470,11 @@ tbody tr:last-child td { border-bottom: none; }
 }
 
 @media (max-width: 600px) {
-  header h1 { font-size: 17px; }
+  header { padding: 14px 16px; }
+  .header-logo { width: 40px; height: 40px; }
+  .header-text h1 { font-size: 16px; }
+  .header-text p { font-size: 11px; }
+  .header-actions .btn { padding: 6px 10px; font-size: 12px; }
   .stat-value { font-size: 20px; }
   .panel { padding: 14px; }
 }
@@ -439,15 +516,20 @@ tbody tr:last-child td { border-bottom: none; }
 
 <div class="container">
   <header>
-    <div>
-      <h1>📡 Tagihan WiFi RT/RW</h1>
-      <p id="header-info">Sistem manajemen tagihan internet warga</p>
+    <div class="header-brand">
+      <div class="header-logo">
+        <img id="header-logo-img" alt="Samurai.NET">
+      </div>
+      <div class="header-text">
+        <h1>Tagihan WiFi RT/RW</h1>
+        <p id="header-info">Samurai.NET</p>
+      </div>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-      <div id="sync-status" style="font-size:12px;padding:5px 10px;border-radius:6px;background:rgba(255,255,255,0.15);color:white;display:none;"></div>
-      <button id="btn-gdrive" class="btn btn-sm" onclick="handleGDriveClick()" style="background:rgba(255,255,255,0.15);color:white;border-color:rgba(255,255,255,0.3);">☁️ Connect Drive</button>
-      <button class="btn btn-sm" onclick="exportData()" style="background:rgba(255,255,255,0.15);color:white;border-color:rgba(255,255,255,0.3);">⬇ Backup</button>
-      <button class="btn btn-sm" onclick="document.getElementById('import-file').click()" style="background:rgba(255,255,255,0.15);color:white;border-color:rgba(255,255,255,0.3);">⬆ Restore</button>
+    <div class="header-actions">
+      <div id="sync-status" style="font-size:12px;padding:5px 10px;border-radius:6px;background:rgba(255,255,255,0.08);color:white;display:none;border:1px solid rgba(255,255,255,0.15);"></div>
+      <button id="btn-gdrive" class="btn btn-sm" onclick="handleGDriveClick()">☁️ Connect Drive</button>
+      <button class="btn btn-sm" onclick="exportData()">⬇ Backup</button>
+      <button class="btn btn-sm" onclick="document.getElementById('import-file').click()">⬆ Restore</button>
       <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
     </div>
   </header>
@@ -5683,7 +5765,17 @@ function formatDate(d) {
 }
 
 // init
-document.getElementById('header-info').textContent = state.settings.name || 'Sistem manajemen tagihan internet warga';
+// Inject logo into header from splash logo (reuse base64)
+(function() {
+  const splashLogo = document.getElementById('splash-logo');
+  const headerLogo = document.getElementById('header-logo-img');
+  if (splashLogo && headerLogo) {
+    headerLogo.src = splashLogo.src;
+  }
+})();
+// Update header title with company name if set
+const companyName = state.settings.name && state.settings.name.trim();
+document.getElementById('header-info').textContent = companyName || 'Samurai.NET';
 // Auto-reactivate isolated customers whose isolatedUntil date has passed
 autoUpdateIsolationStatus();
 renderDashboard();
