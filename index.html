@@ -463,6 +463,7 @@ tbody tr:last-child td { border-bottom: none; }
     <button class="tab" onclick="showTab('paket', this)">📦 Paket</button>
     <button class="tab" onclick="showTab('pembayaran', this)">💰 Pembayaran</button>
     <button class="tab" onclick="showTab('tunggakan', this)">⚠️ Tunggakan</button>
+    <button class="tab" onclick="showTab('catatan', this)">📝 Catatan</button>
     <button class="tab" onclick="showTab('pengaturan', this)">⚙️ Pengaturan</button>
   </div>
 
@@ -916,6 +917,80 @@ tbody tr:last-child td { border-bottom: none; }
           <thead><tr><th>Pelanggan</th><th>Status</th><th>Lokasi</th><th>HP</th><th>Bulan Tertunggak</th><th>Total</th><th>Aksi</th></tr></thead>
           <tbody></tbody>
         </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- CATATAN -->
+  <div id="tab-catatan" class="tab-content" style="display:none;">
+    <div class="panel">
+      <div class="panel-header">
+        <h2>📝 Catatan</h2>
+        <button class="btn btn-primary btn-sm" onclick="openNoteModal()">+ Catatan Baru</button>
+      </div>
+      <div class="alert alert-info">
+        💡 Catatan ini bisa Anda pakai untuk reminder, info penting, ide, atau apa pun yang ingin Anda tulis. Setiap catatan bisa diberi <strong>tag</strong> untuk memudahkan pengelompokan.
+      </div>
+
+      <!-- Filter & Search -->
+      <div style="background:#fafaf9;border:1px solid #e7e5e4;border-radius:10px;padding:12px;margin-bottom:10px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;">
+          <div>
+            <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Cari Catatan</label>
+            <input type="text" id="search-note" placeholder="🔍 Cari teks / judul / tag" oninput="renderNotes()">
+          </div>
+          <div>
+            <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Filter Tag</label>
+            <select id="filter-note-tag" onchange="renderNotes()">
+              <option value="">Semua Tag</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Urutkan</label>
+            <select id="sort-note" onchange="renderNotes()">
+              <option value="updated-desc">Terbaru diubah</option>
+              <option value="created-desc">Terbaru dibuat</option>
+              <option value="created-asc">Terlama</option>
+              <option value="title-asc">Judul A-Z</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div id="notes-empty" style="display:none;" class="empty-state">
+        <h3>📝 Belum ada catatan</h3>
+        <p>Klik tombol "+ Catatan Baru" di atas untuk membuat catatan pertama.</p>
+      </div>
+
+      <div id="notes-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;"></div>
+    </div>
+  </div>
+
+  <!-- MODAL CATATAN -->
+  <div class="modal-bg" id="modal-note">
+    <div class="modal" style="max-width:600px;">
+      <div class="modal-header">
+        <h3 id="note-modal-title">Catatan Baru</h3>
+        <button class="modal-close" onclick="closeModal('modal-note')">×</button>
+      </div>
+      <input type="hidden" id="note-id">
+      <div class="form-group">
+        <label>Judul</label>
+        <input type="text" id="note-title" placeholder="Misal: Reminder bayar internet provider" maxlength="200">
+      </div>
+      <div class="form-group">
+        <label>Isi Catatan</label>
+        <textarea id="note-content" rows="8" placeholder="Tulis catatan Anda di sini..." style="width:100%;resize:vertical;font-family:inherit;font-size:14px;padding:10px;border:1px solid #d6d3d1;border-radius:6px;"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Tag</label>
+        <input type="text" id="note-tag" placeholder="Misal: Penagihan, Maintenance, Pribadi" list="note-tag-suggestions">
+        <datalist id="note-tag-suggestions"></datalist>
+        <small style="color:#78716c;">Kosongkan kalau tidak perlu. Anda bisa ketik tag baru atau pilih dari yang sudah ada.</small>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal('modal-note')">Batal</button>
+        <button class="btn btn-primary" onclick="saveNote()">Simpan</button>
       </div>
     </div>
   </div>
@@ -1925,6 +2000,7 @@ function migrate(s) {
   if (!s.payments) s.payments = [];
   if (!s.collectors) s.collectors = [];
   if (!s.deposits) s.deposits = [];
+  if (!s.notes) s.notes = [];
   if (!s.settings) s.settings = { name: '', address: '', admin: '', phone: '' };
   if (s.settings.startDate === undefined) s.settings.startDate = '';
   if (s.lastModified === undefined) s.lastModified = 0;
@@ -2016,6 +2092,7 @@ function showTab(name, btn) {
   if (name === 'paket') renderPackages();
   if (name === 'pembayaran') { renderPayments(); renderYearlySummary(); }
   if (name === 'tunggakan') renderArrears();
+  if (name === 'catatan') renderNotes();
   if (name === 'pengaturan') { loadSettings(); renderLocationsList(); }
 }
 
@@ -3381,6 +3458,201 @@ function resetArrearsFilters() {
   document.getElementById('filter-arrears-max').value = '';
   document.getElementById('sort-arrears').value = 'amount-desc';
   renderArrears();
+}
+
+// ===== NOTES (CATATAN) =====
+
+// Predefined colors for tags (consistent coloring based on tag name hash)
+function getTagColor(tag) {
+  if (!tag) return { bg: '#e7e5e4', fg: '#44403c' };
+  const colors = [
+    { bg: '#dbeafe', fg: '#1e40af' }, // blue
+    { bg: '#dcfce7', fg: '#166534' }, // green
+    { bg: '#fef3c7', fg: '#92400e' }, // amber
+    { bg: '#fce7f3', fg: '#9f1239' }, // pink
+    { bg: '#e0e7ff', fg: '#3730a3' }, // indigo
+    { bg: '#fed7aa', fg: '#9a3412' }, // orange
+    { bg: '#ddd6fe', fg: '#5b21b6' }, // purple
+    { bg: '#cffafe', fg: '#155e75' }  // cyan
+  ];
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) {
+    hash = ((hash << 5) - hash) + tag.charCodeAt(i);
+    hash |= 0;
+  }
+  return colors[Math.abs(hash) % colors.length];
+}
+
+function getAllNoteTags() {
+  const tags = new Set();
+  (state.notes || []).forEach(n => {
+    if (n.tag) tags.add(n.tag.trim());
+  });
+  return Array.from(tags).sort();
+}
+
+function renderNotes() {
+  if (!state.notes) state.notes = [];
+
+  // Populate filter tag dropdown
+  const tagSel = document.getElementById('filter-note-tag');
+  if (tagSel) {
+    const cur = tagSel.value;
+    const allTags = getAllNoteTags();
+    tagSel.innerHTML = '<option value="">Semua Tag</option>' +
+      '<option value="__none__">(Tanpa Tag)</option>' +
+      allTags.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+    tagSel.value = cur;
+  }
+
+  // Get filter values
+  const search = (document.getElementById('search-note').value || '').toLowerCase();
+  const filterTag = document.getElementById('filter-note-tag').value;
+  const sortBy = document.getElementById('sort-note').value || 'updated-desc';
+
+  // Filter notes
+  let notes = [...state.notes];
+  if (search) notes = notes.filter(n =>
+    (n.title || '').toLowerCase().includes(search) ||
+    (n.content || '').toLowerCase().includes(search) ||
+    (n.tag || '').toLowerCase().includes(search)
+  );
+  if (filterTag === '__none__') {
+    notes = notes.filter(n => !n.tag);
+  } else if (filterTag) {
+    notes = notes.filter(n => n.tag === filterTag);
+  }
+
+  // Sort
+  notes.sort((a, b) => {
+    if (sortBy === 'created-desc') return (b.createdAt || 0) - (a.createdAt || 0);
+    if (sortBy === 'created-asc') return (a.createdAt || 0) - (b.createdAt || 0);
+    if (sortBy === 'title-asc') return (a.title || '').localeCompare(b.title || '');
+    // default: updated-desc
+    return (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0);
+  });
+
+  const emptyEl = document.getElementById('notes-empty');
+  const gridEl = document.getElementById('notes-grid');
+
+  if (!notes.length) {
+    emptyEl.style.display = 'block';
+    if (state.notes.length > 0) {
+      // ada notes tapi filter membatasi
+      emptyEl.innerHTML = `<h3>Tidak ada hasil</h3><p>Tidak ada catatan sesuai filter. Coba ubah pencarian atau tag.</p>`;
+    } else {
+      emptyEl.innerHTML = `<h3>📝 Belum ada catatan</h3><p>Klik tombol "+ Catatan Baru" di atas untuk membuat catatan pertama.</p>`;
+    }
+    gridEl.innerHTML = '';
+    return;
+  }
+
+  emptyEl.style.display = 'none';
+  gridEl.innerHTML = notes.map(n => {
+    const tagColor = getTagColor(n.tag);
+    const tagBadge = n.tag
+      ? `<span style="display:inline-block;background:${tagColor.bg};color:${tagColor.fg};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">${escapeHtml(n.tag)}</span>`
+      : '';
+    const dateLabel = n.updatedAt && n.updatedAt !== n.createdAt
+      ? `Diubah ${formatDateTime(n.updatedAt)}`
+      : `Dibuat ${formatDateTime(n.createdAt)}`;
+    // Konversi konten ke HTML aman (baris baru jadi <br>)
+    const contentHtml = escapeHtml(n.content || '').replace(/\n/g, '<br>');
+    return `
+      <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:14px;box-shadow:0 2px 4px rgba(0,0,0,0.04);display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+          <strong style="font-size:14px;color:#44403c;flex:1;">${escapeHtml(n.title || '(Tanpa judul)')}</strong>
+          <div style="display:flex;gap:4px;flex-shrink:0;">
+            <button class="btn btn-sm" onclick="openNoteModal('${n.id}')" title="Edit">✏️</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteNote('${n.id}')" title="Hapus">🗑</button>
+          </div>
+        </div>
+        ${tagBadge ? `<div>${tagBadge}</div>` : ''}
+        <div style="font-size:13px;color:#57534e;line-height:1.5;word-wrap:break-word;white-space:normal;max-height:200px;overflow:auto;">${contentHtml || '<em style="color:#a8a29e;">(Catatan kosong)</em>'}</div>
+        <div style="font-size:11px;color:#a8a29e;border-top:1px solid #fef3c7;padding-top:6px;margin-top:4px;">${dateLabel}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function openNoteModal(noteId) {
+  const isEdit = !!noteId;
+  document.getElementById('note-modal-title').textContent = isEdit ? 'Edit Catatan' : 'Catatan Baru';
+  document.getElementById('note-id').value = noteId || '';
+
+  // Populate tag suggestions
+  const dataList = document.getElementById('note-tag-suggestions');
+  if (dataList) {
+    dataList.innerHTML = getAllNoteTags().map(t => `<option value="${escapeHtml(t)}">`).join('');
+  }
+
+  if (isEdit) {
+    const n = (state.notes || []).find(x => x.id === noteId);
+    if (!n) { alert('Catatan tidak ditemukan'); return; }
+    document.getElementById('note-title').value = n.title || '';
+    document.getElementById('note-content').value = n.content || '';
+    document.getElementById('note-tag').value = n.tag || '';
+  } else {
+    document.getElementById('note-title').value = '';
+    document.getElementById('note-content').value = '';
+    document.getElementById('note-tag').value = '';
+  }
+  document.getElementById('modal-note').classList.add('show');
+  setTimeout(() => document.getElementById('note-title').focus(), 100);
+}
+
+function saveNote() {
+  if (!state.notes) state.notes = [];
+  const id = document.getElementById('note-id').value;
+  const title = document.getElementById('note-title').value.trim();
+  const content = document.getElementById('note-content').value.trim();
+  const tag = document.getElementById('note-tag').value.trim();
+
+  if (!title && !content) {
+    alert('Judul atau isi catatan harus diisi');
+    return;
+  }
+
+  const now = Date.now();
+  if (id) {
+    const idx = state.notes.findIndex(n => n.id === id);
+    if (idx === -1) { alert('Catatan tidak ditemukan'); return; }
+    state.notes[idx] = {
+      ...state.notes[idx],
+      title, content, tag,
+      updatedAt: now
+    };
+  } else {
+    state.notes.push({
+      id: uid(),
+      title, content, tag,
+      createdAt: now,
+      updatedAt: now
+    });
+  }
+  saveState();
+  closeModal('modal-note');
+  renderNotes();
+}
+
+function deleteNote(noteId) {
+  const n = (state.notes || []).find(x => x.id === noteId);
+  if (!n) return;
+  if (!confirm(`Hapus catatan "${n.title || '(tanpa judul)'}"?\n\nTindakan ini tidak bisa di-undo.`)) return;
+  state.notes = state.notes.filter(x => x.id !== noteId);
+  saveState();
+  renderNotes();
+}
+
+function formatDateTime(ts) {
+  if (!ts) return '-';
+  const d = new Date(ts);
+  const day = String(d.getDate()).padStart(2, '0');
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const y = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${day}/${m}/${y} ${hh}:${mm}`;
 }
 
 function sendWA(customerId, total, count) {
