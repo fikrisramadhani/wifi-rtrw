@@ -290,6 +290,7 @@ tbody tr:last-child td { border-bottom: none; }
     font-size: 10px;
     page-break-inside: auto;
     width: 100%;
+    border-collapse: collapse;
   }
   body.printing .print-area thead {
     display: table-header-group;
@@ -300,6 +301,26 @@ tbody tr:last-child td { border-bottom: none; }
   body.printing .print-area tr {
     page-break-inside: avoid;
     page-break-after: auto;
+  }
+  /* PENTING: alignment vertikal untuk semua cell tabel saat cetak */
+  body.printing .print-area table th,
+  body.printing .print-area table td {
+    vertical-align: top !important;
+    padding: 4px 6px !important;
+    line-height: 1.3 !important;
+  }
+  /* Header cell: bold, text top, background abu */
+  body.printing .print-area table thead th {
+    vertical-align: middle !important;
+    font-weight: bold !important;
+    background: #e5e7eb !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /* Pastikan background warna lokasi tetap ada saat cetak */
+  body.printing .print-area * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   /* Hide everything outside the active modal */
@@ -4751,15 +4772,15 @@ function generatePrintBilling() {
       : fmtRp(sisaPeriodIni);
 
     rows += `<tr>
-      <td style="border:1px solid #999;padding:4px;text-align:center;">${runningNumber}</td>
-      <td style="border:1px solid #999;padding:4px;">${escapeHtml(c.name)}${isolatedNote}<br><small style="color:#666;">${escapeHtml(c.username || '')}</small></td>
-      ${showAddress ? `<td style="border:1px solid #999;padding:4px;">${escapeHtml(c.address || '-')}</td>` : ''}
-      ${showPhone ? `<td style="border:1px solid #999;padding:4px;">${escapeHtml(c.phone || '-')}</td>` : ''}
-      <td style="border:1px solid #999;padding:4px;">${escapeHtml(getPackageName(c.packageId))}</td>
-      <td style="border:1px solid #999;padding:4px;text-align:right;">${billedDisplay}</td>
-      <td style="border:1px solid #999;padding:4px;text-align:right;">${tunggakanSebelumnya > 0 ? `<strong style="color:#dc2626;">${fmtRp(tunggakanSebelumnya)}</strong>` : '-'}</td>
-      <td style="border:1px solid #999;padding:4px;text-align:right;"><strong>${fmtRp(total)}</strong></td>
-      <td style="border:1px solid #999;padding:4px;width:60px;height:30px;"></td>
+      <td style="border:1px solid #999;padding:4px;text-align:center;vertical-align:top;">${runningNumber}</td>
+      <td style="border:1px solid #999;padding:4px;vertical-align:top;">${escapeHtml(c.name)}${isolatedNote}<br><small style="color:#666;">${escapeHtml(c.username || '')}</small></td>
+      ${showAddress ? `<td style="border:1px solid #999;padding:4px;vertical-align:top;">${escapeHtml(c.address || '-')}</td>` : ''}
+      ${showPhone ? `<td style="border:1px solid #999;padding:4px;vertical-align:top;">${escapeHtml(c.phone || '-')}</td>` : ''}
+      <td style="border:1px solid #999;padding:4px;vertical-align:top;">${escapeHtml(getPackageName(c.packageId))}</td>
+      <td style="border:1px solid #999;padding:4px;text-align:right;vertical-align:top;">${billedDisplay}</td>
+      <td style="border:1px solid #999;padding:4px;text-align:right;vertical-align:top;">${tunggakanSebelumnya > 0 ? `<strong style="color:#dc2626;">${fmtRp(tunggakanSebelumnya)}</strong>` : '-'}</td>
+      <td style="border:1px solid #999;padding:4px;text-align:right;vertical-align:top;"><strong>${fmtRp(total)}</strong></td>
+      <td style="border:1px solid #999;padding:4px;width:60px;height:30px;vertical-align:top;"></td>
     </tr>`;
   });
 
@@ -4780,16 +4801,16 @@ function generatePrintBilling() {
       </div>
       <table style="width:100%;border-collapse:collapse;font-size:11px;">
         <thead>
-          <tr style="background:#f0f0f0;">
-            <th style="border:1px solid #999;padding:4px;">No</th>
-            <th style="border:1px solid #999;padding:4px;text-align:left;">Nama</th>
-            ${showAddress ? '<th style="border:1px solid #999;padding:4px;text-align:left;">Alamat</th>' : ''}
-            ${showPhone ? '<th style="border:1px solid #999;padding:4px;text-align:left;">HP</th>' : ''}
-            <th style="border:1px solid #999;padding:4px;text-align:left;">Paket</th>
-            <th style="border:1px solid #999;padding:4px;text-align:right;">Tagihan</th>
-            <th style="border:1px solid #999;padding:4px;text-align:right;">Tunggakan</th>
-            <th style="border:1px solid #999;padding:4px;text-align:right;">Total</th>
-            <th style="border:1px solid #999;padding:4px;">Bayar</th>
+          <tr style="background:#e5e7eb;">
+            <th style="border:1px solid #999;padding:6px 4px;vertical-align:middle;text-align:center;">No</th>
+            <th style="border:1px solid #999;padding:6px 4px;vertical-align:middle;text-align:left;">Nama</th>
+            ${showAddress ? '<th style="border:1px solid #999;padding:6px 4px;vertical-align:middle;text-align:left;">Alamat</th>' : ''}
+            ${showPhone ? '<th style="border:1px solid #999;padding:6px 4px;vertical-align:middle;text-align:left;">HP</th>' : ''}
+            <th style="border:1px solid #999;padding:6px 4px;vertical-align:middle;text-align:left;">Paket</th>
+            <th style="border:1px solid #999;padding:6px 4px;vertical-align:middle;text-align:right;">Tagihan</th>
+            <th style="border:1px solid #999;padding:6px 4px;vertical-align:middle;text-align:right;">Tunggakan</th>
+            <th style="border:1px solid #999;padding:6px 4px;vertical-align:middle;text-align:right;">Total</th>
+            <th style="border:1px solid #999;padding:6px 4px;vertical-align:middle;text-align:center;">Bayar</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
