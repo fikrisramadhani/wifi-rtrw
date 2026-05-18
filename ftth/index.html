@@ -774,6 +774,11 @@ input:focus, select:focus, textarea:focus {
         <button class="btn btn-sm btn-success" onclick="exportSingleExcel()" title="Export Excel">📊 Excel</button>
         <button class="btn btn-sm" onclick="printSingle()" title="Print">🖨️ Print</button>
       </div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-sm" onclick="backupAllProjects()" title="Backup semua project ke file JSON">⬇ Backup</button>
+        <button class="btn btn-sm" onclick="document.getElementById('restore-file-input').click()" title="Restore project dari file JSON">⬆ Restore</button>
+        <input type="file" id="restore-file-input" accept=".json" style="display:none" onchange="restoreProjectsFromFile(event)">
+      </div>
       <div class="mode-switch">
         <button class="mode-btn active" id="mode-btn-single" onclick="setMode('single')">⚡ Single Link</button>
         <button class="mode-btn" id="mode-btn-topo" onclick="setMode('topology')">🌳 Topology</button>
@@ -1545,6 +1550,118 @@ function loadTopoProjects() {
 function saveTopoProjects() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(topoProjects));
   if (activeTopoProjectId) localStorage.setItem(ACTIVE_KEY, activeTopoProjectId);
+}
+
+// ============================================================
+// BACKUP & RESTORE
+// ============================================================
+function backupAllProjects() {
+  if (!topoProjects.length) {
+    showToast('Belum ada project untuk di-backup', 'error');
+    return;
+  }
+  const backupData = {
+    app: 'Samurai FTTH Designer',
+    version: 1,
+    exportedAt: Date.now(),
+    exportedAtReadable: new Date().toLocaleString('id-ID'),
+    projectsCount: topoProjects.length,
+    activeProjectId: activeTopoProjectId,
+    projects: topoProjects
+  };
+  const json = JSON.stringify(backupData, null, 2);
+  const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const dateStr = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `Samurai_FTTH_Backup_${dateStr}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast(`✓ Backup ${topoProjects.length} project berhasil`, 'success');
+}
+
+function restoreProjectsFromFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  // Reset input so same file can be selected again
+  event.target.value = '';
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+
+      // Validate structure
+      if (!data.app || data.app !== 'Samurai FTTH Designer') {
+        showToast('File ini bukan backup Samurai FTTH Designer', 'error');
+        return;
+      }
+      if (!Array.isArray(data.projects)) {
+        showToast('Format file backup tidak valid', 'error');
+        return;
+      }
+
+      // Confirm dialog
+      const importCount = data.projects.length;
+      const existingCount = topoProjects.length;
+      const dateStr = data.exportedAtReadable || 'tanggal tidak diketahui';
+
+      const choice = confirm(
+        `Backup ditemukan:\n` +
+        `- Tanggal: ${dateStr}\n` +
+        `- Jumlah project di backup: ${importCount}\n` +
+        `- Project saat ini: ${existingCount}\n\n` +
+        `Pilih:\n` +
+        `OK = REPLACE (hapus semua project saat ini, ganti dengan backup)\n` +
+        `Cancel = MERGE (gabung backup dengan project saat ini)`
+      );
+
+      if (choice) {
+        // REPLACE mode
+        topoProjects = data.projects;
+        activeTopoProjectId = data.activeProjectId && topoProjects.find(p => p.id === data.activeProjectId)
+          ? data.activeProjectId
+          : (topoProjects.length ? topoProjects[0].id : null);
+        saveTopoProjects();
+        renderProjects();
+        renderActiveProject();
+        showToast(`✓ Restore: ${importCount} project (mode REPLACE)`, 'success');
+      } else {
+        // MERGE mode - tambahkan dengan ID baru kalau duplikat
+        let merged = 0, renamed = 0;
+        data.projects.forEach(p => {
+          const existing = topoProjects.find(x => x.id === p.id);
+          if (existing) {
+            // Conflict: assign new ID, append " (restored)" to name
+            const newP = JSON.parse(JSON.stringify(p));
+            newP.id = pid();
+            newP.name = p.name + ' (restored)';
+            newP.updatedAt = Date.now();
+            topoProjects.push(newP);
+            renamed++;
+          } else {
+            topoProjects.push(p);
+            merged++;
+          }
+        });
+        saveTopoProjects();
+        renderProjects();
+        renderActiveProject();
+        const msg = renamed > 0
+          ? `✓ Merge: ${merged} project + ${renamed} duplikat (rename)`
+          : `✓ Merge: ${merged} project ditambahkan`;
+        showToast(msg, 'success');
+      }
+    } catch (err) {
+      console.error('Restore error:', err);
+      showToast('Gagal membaca file backup: ' + err.message, 'error');
+    }
+  };
+  reader.onerror = function() {
+    showToast('Gagal membaca file', 'error');
+  };
+  reader.readAsText(file);
 }
 
 function getActiveTopoProject() {
