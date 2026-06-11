@@ -1514,6 +1514,35 @@ tbody tr:last-child td { border-bottom: none; }
   </div>
 </div>
 
+<!-- Modal Edit Last Payment -->
+<div class="modal-bg" id="modal-edit-payment">
+  <div class="modal" style="max-width:480px;">
+    <h3>✏️ Edit Pembayaran Terakhir</h3>
+    <div id="edit-payment-info" style="background:#fef3c7;border:1px solid #fde68a;color:#92400e;padding:10px 12px;border-radius:8px;margin-bottom:14px;font-size:13px;"></div>
+    <input type="hidden" id="edit-payment-id">
+    <div class="form-grid" style="grid-template-columns:1fr;">
+      <div class="form-group">
+        <label>Nominal Pembayaran (Rp)</label>
+        <input type="number" id="edit-payment-amount" min="0">
+      </div>
+      <div class="form-group">
+        <label>Metode Pembayaran</label>
+        <select id="edit-payment-method">
+          <option value="Tunai">Tunai</option>
+          <option value="Transfer">Transfer</option>
+          <option value="QRIS">QRIS</option>
+          <option value="E-wallet">E-wallet</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" onclick="deleteLastPayment()" style="margin-right:auto;">🗑 Hapus</button>
+      <button class="btn" onclick="closeModal('modal-edit-payment')">Batal</button>
+      <button class="btn btn-primary" onclick="saveEditPayment()">Simpan</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal Receipt -->
 <div class="modal-bg" id="modal-receipt">
   <div class="modal" style="max-width:430px;">
@@ -4466,10 +4495,14 @@ function renderFastInput() {
           ${paidInfo}
           <input type="number" class="fast-input-amount" id="fi-amt-${c.id}" placeholder="${row.arrears}" data-customer="${c.id}" data-period="${period}">
         </div>`;
+        const editBtn = rawPaidThisPeriod > 0
+          ? `<button class="btn btn-sm" onclick="editLastPayment('${c.id}','${period}')" style="flex:0 0 auto;padding:5px 6px;font-size:11px;background:#f59e0b;color:white;" title="Edit pembayaran terakhir">✏️</button>`
+          : '';
         actionCell = `<div style="display:flex;gap:3px;width:100%;flex-wrap:wrap;">
           <button class="btn btn-sm btn-primary" onclick="fastInputManualPay('${c.id}','${period}')" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;">Bayar</button>
           <button class="btn btn-sm btn-success" onclick="fastInputPay('${c.id}','${period}',${row.arrears})" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;" title="Bayar lunas semua tunggakan">Lunas</button>
           <button class="btn btn-sm" onclick="fastInputTransfer('${c.id}','${period}',${row.arrears})" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;background:#0891b2;color:white;" title="Transfer langsung ke admin">💳 TF</button>
+          ${editBtn}
         </div>`;
       }
     } else {
@@ -4484,7 +4517,10 @@ function renderFastInput() {
           ? `✓ Lunas (${fmtRp(me.paid)} dari ${fmtRp(rawPaidThisPeriod)})`
           : `✓ Lunas (${fmtRp(me.paid)})`;
         inputCell = `<div style="color:#16a34a;font-weight:600;">${lunasLabel}</div>`;
-        actionCell = `<div style="color:#16a34a;font-size:11px;">Sudah dibayar</div>`;
+        actionCell = `<div style="display:flex;gap:3px;width:100%;align-items:center;">
+          <span style="color:#16a34a;font-size:11px;flex:1;">Sudah dibayar</span>
+          <button class="btn btn-sm" onclick="editLastPayment('${c.id}','${period}')" style="padding:5px 8px;font-size:11px;background:#f59e0b;color:white;" title="Edit pembayaran terakhir">✏️ Edit</button>
+        </div>`;
       } else if (me.status === 'sebagian') {
         const paidLabel = showFromHint
           ? `Sudah bayar ${fmtRp(me.paid)} (dari ${fmtRp(rawPaidThisPeriod)})`
@@ -4497,6 +4533,7 @@ function renderFastInput() {
           <button class="btn btn-sm btn-primary" onclick="fastInputManualPay('${c.id}','${period}')" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;">Bayar</button>
           <button class="btn btn-sm btn-success" onclick="fastInputPay('${c.id}','${period}',${sisa})" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;" title="Bayar sisa">Lunas</button>
           <button class="btn btn-sm" onclick="fastInputTransfer('${c.id}','${period}',${sisa})" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;background:#0891b2;color:white;" title="Transfer langsung ke admin">💳 TF</button>
+          <button class="btn btn-sm" onclick="editLastPayment('${c.id}','${period}')" style="flex:0 0 auto;padding:5px 6px;font-size:11px;background:#f59e0b;color:white;" title="Edit pembayaran terakhir">✏️</button>
         </div>`;
       } else {
         // belum bayar
@@ -4698,11 +4735,101 @@ function refreshFastInputRow(customerId, period) {
   }
 }
 
+// ===================== EDIT LAST PAYMENT =====================
+function editLastPayment(customerId, period) {
+  // Cari pembayaran terakhir untuk pelanggan ini di periode ini
+  const payments = state.payments.filter(p =>
+    p.customerId === customerId && p.period === period
+  );
+  if (!payments.length) {
+    alert('Tidak ada pembayaran untuk diedit');
+    return;
+  }
+  // Sort by paidAt descending (paling baru di atas), kalau sama by id descending
+  payments.sort((a, b) => {
+    if (a.paidAt !== b.paidAt) return (b.paidAt || '').localeCompare(a.paidAt || '');
+    return b.id.localeCompare(a.id);
+  });
+  const latest = payments[0];
+
+  const c = state.customers.find(x => x.id === customerId);
+  if (!c) return;
+
+  // Populate modal
+  document.getElementById('edit-payment-id').value = latest.id;
+  document.getElementById('edit-payment-amount').value = latest.amount;
+
+  // Detect current method
+  let currentMethod = latest.method || 'Tunai';
+  if (latest.directTransfer && currentMethod === 'Tunai') currentMethod = 'Transfer';
+  document.getElementById('edit-payment-method').value = currentMethod;
+
+  // Info banner
+  const paidDate = latest.paidAt
+    ? new Date(latest.paidAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
+    : '-';
+  const transferLabel = latest.directTransfer ? ' (TF langsung ke admin)' : '';
+  document.getElementById('edit-payment-info').innerHTML =
+    `<strong>${escapeHtml(c.name)}</strong> · Periode <strong>${monthLabel(period)}</strong><br>
+     Pembayaran terakhir: <strong>${fmtRp(latest.amount)}</strong> · ${escapeHtml(latest.method || 'Tunai')}${transferLabel}<br>
+     Tanggal bayar: ${paidDate}` +
+    (payments.length > 1 ? `<br><em style="color:#a16207;">⚠️ Ada ${payments.length} pembayaran di periode ini. Yang akan diedit: yang paling baru.</em>` : '');
+
+  document.getElementById('modal-edit-payment').classList.add('show');
+  setTimeout(() => document.getElementById('edit-payment-amount').focus(), 100);
+}
+
+function saveEditPayment() {
+  const paymentId = document.getElementById('edit-payment-id').value;
+  const newAmount = parseInt(document.getElementById('edit-payment-amount').value);
+  const newMethod = document.getElementById('edit-payment-method').value;
+
+  if (!paymentId) { alert('Pembayaran tidak ditemukan'); return; }
+  if (!newAmount || newAmount <= 0) { alert('Nominal harus lebih dari 0'); return; }
+
+  const payment = state.payments.find(p => p.id === paymentId);
+  if (!payment) { alert('Pembayaran tidak ditemukan'); return; }
+
+  // Update payment
+  const oldAmount = payment.amount;
+  const oldMethod = payment.method;
+  payment.amount = newAmount;
+  payment.method = newMethod;
+  // Update directTransfer flag based on method
+  if (newMethod === 'Transfer' && !payment.directTransfer) {
+    // Was tunai, change to TF - keep as is unless user marks as direct transfer
+    // For now, keep directTransfer as-is to preserve setoran tukang accounting
+  }
+
+  saveState();
+  closeModal('modal-edit-payment');
+  renderFastInput();
+  updateFastInputSummary();
+  alert(`✅ Pembayaran diupdate:\nNominal: ${fmtRp(oldAmount)} → ${fmtRp(newAmount)}\nMetode: ${oldMethod} → ${newMethod}`);
+}
+
+function deleteLastPayment() {
+  const paymentId = document.getElementById('edit-payment-id').value;
+  if (!paymentId) return;
+  const payment = state.payments.find(p => p.id === paymentId);
+  if (!payment) return;
+
+  const c = state.customers.find(x => x.id === payment.customerId);
+  const cname = c ? c.name : 'pelanggan';
+
+  if (!confirm(`Hapus pembayaran ini?\n\nPelanggan: ${cname}\nNominal: ${fmtRp(payment.amount)}\nPeriode: ${monthLabel(payment.period)}\n\nTindakan ini tidak bisa di-undo.`)) {
+    return;
+  }
+
+  state.payments = state.payments.filter(p => p.id !== paymentId);
+  saveState();
+  closeModal('modal-edit-payment');
+  renderFastInput();
+  updateFastInputSummary();
+  alert(`✅ Pembayaran ${fmtRp(payment.amount)} dihapus`);
+}
+
 function showFastInputPaymentDetails() {
-  const locCode = document.getElementById('fi-location').value;
-  const period = document.getElementById('fi-period').value || curMonth();
-  const collectorId = document.getElementById('fi-collector').value;
-  if (!locCode) { alert('Pilih daerah dulu'); return; }
 
   // Determine which location codes to include
   let activeCodes = [];
