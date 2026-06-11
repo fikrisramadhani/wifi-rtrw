@@ -4263,19 +4263,17 @@ function renderFastInput() {
   }
 
   // === KUMPULKAN SEMUA PELANGGAN YANG PERLU DITAMPILKAN ===
-  // 1. Pelanggan aktif di daerah ini
+  // 1. Pelanggan aktif di daerah ini (semua, tidak peduli ada tagihan/tunggakan atau tidak)
   const activeCustomers = state.customers.filter(c =>
     !c.isFree && c.locationCode === locCode && c.status === 'aktif'
   );
 
-  // 2. Pelanggan diisolir DI DAERAH INI yang punya tunggakan
-  const isolatedWithArrears = state.customers.filter(c =>
+  // 2. SEMUA pelanggan diisolir di daerah ini (tidak hanya yang punya tunggakan)
+  const isolatedCustomers = state.customers.filter(c =>
     !c.isFree && c.locationCode === locCode && c.status === 'diisolir'
-  ).filter(c => calculateBalance(c.id, period).balance > 0);
+  );
 
   // Gabung semua: setiap pelanggan dapat metadata isolasi
-  // Catatan: pelanggan aktif yang periode-nya jatuh di isolation range sudah masuk dalam activeCustomers
-  // dan akan di-detect via isPeriodInIsolation()
   const allRows = [];
   activeCustomers.forEach(c => {
     const bal = calculateBalance(c.id, period);
@@ -4286,11 +4284,11 @@ function renderFastInput() {
       bal,
       me,
       isIsolated: false,
-      inIsolationPeriod: inIsolation, // aktif tapi periode jatuh di range isolasi → tidak ditagih
+      inIsolationPeriod: inIsolation,
       arrears: bal.balance - (me ? (me.billed - me.paid) : 0)
     });
   });
-  isolatedWithArrears.forEach(c => {
+  isolatedCustomers.forEach(c => {
     const bal = calculateBalance(c.id, period);
     allRows.push({
       customer: c,
@@ -4303,7 +4301,7 @@ function renderFastInput() {
   });
 
   if (!allRows.length) {
-    container.innerHTML = `<div class="empty-state"><h3>Tidak ada pelanggan di daerah ini</h3><p>Tidak ada pelanggan aktif maupun diisolir dengan tunggakan.</p></div>`;
+    container.innerHTML = `<div class="empty-state"><h3>Tidak ada pelanggan di daerah ini</h3><p>Belum ada pelanggan aktif atau diisolir terdaftar di daerah ini.</p></div>`;
     document.getElementById('fi-deposit-info').style.display = 'none';
     return;
   }
@@ -4351,16 +4349,20 @@ function renderFastInput() {
     // === KOLOM TAGIHAN/TUNGGAKAN ===
     let tagihanInfo;
     if (row.isIsolated) {
-      // Diisolir: tampilkan tunggakan saja
-      tagihanInfo = `<div><strong style="color:#dc2626;">${fmtRp(row.arrears)}</strong><br><small style="color:#a16207;">${isolatedNote}</small></div>`;
+      // Diisolir: tampilkan tunggakan atau dash kalau tidak ada
+      tagihanInfo = row.arrears > 0
+        ? `<div><strong style="color:#dc2626;">${fmtRp(row.arrears)}</strong><br><small style="color:#a16207;">${isolatedNote}</small></div>`
+        : `<div><span style="color:#a8a29e;font-size:16px;">—</span><br><small style="color:#a16207;">${isolatedNote}</small></div>`;
     } else if (!row.me) {
       // Aktif tapi tidak ditagih periode ini (di luar billing range)
       tagihanInfo = row.arrears > 0
         ? `<div><strong style="color:#dc2626;">${fmtRp(row.arrears)}</strong><br><small style="color:#78716c;">Tunggakan</small></div>`
-        : `<div style="color:#78716c;font-style:italic;font-size:12px;">Tidak ditagih</div>`;
+        : `<div><span style="color:#a8a29e;font-size:16px;">—</span><br><small style="color:#78716c;font-style:italic;font-size:11px;">Tidak ditagih</small></div>`;
     } else if (row.inIsolationPeriod) {
       // Aktif, periode dalam isolasi: tunggakan saja (periode ini tidak ditagih)
-      tagihanInfo = `<div><strong style="color:#dc2626;">${fmtRp(row.arrears)}</strong><br><small style="color:#a16207;">${isolatedNote}</small></div>`;
+      tagihanInfo = row.arrears > 0
+        ? `<div><strong style="color:#dc2626;">${fmtRp(row.arrears)}</strong><br><small style="color:#a16207;">${isolatedNote}</small></div>`
+        : `<div><span style="color:#a8a29e;font-size:16px;">—</span><br><small style="color:#a16207;">${isolatedNote}</small></div>`;
     } else {
       // Aktif normal: tagihan periode + tunggakan jika ada
       const me = row.me;
@@ -4376,8 +4378,8 @@ function renderFastInput() {
       // Tagihan tunggakan saja (untuk diisolir, periode-tdk-ditagih, atau aktif tanpa billing periode ini tapi punya tunggakan)
       if (row.arrears <= 0) {
         // Tidak ada tunggakan dan tidak ditagih
-        inputCell = `<div style="color:#78716c;font-style:italic;font-size:11px;">—</div>`;
-        actionCell = `<div style="color:#78716c;font-size:11px;">Tidak ada tagihan</div>`;
+        inputCell = `<div style="color:#a8a29e;font-size:18px;text-align:center;">—</div>`;
+        actionCell = `<div style="color:#a8a29e;font-size:18px;text-align:center;">—</div>`;
       } else {
         const showFromHint = rawPaidThisPeriod > 0;
         const paidInfo = showFromHint
