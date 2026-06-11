@@ -561,6 +561,12 @@ tbody tr:last-child td { border-bottom: none; }
       </div>
       <div class="form-grid">
         <div class="form-group">
+          <label>Filter Tukang</label>
+          <select id="fi-collector" onchange="onFiCollectorChange()">
+            <option value="">Semua Tukang</option>
+          </select>
+        </div>
+        <div class="form-group">
           <label>Pilih Daerah</label>
           <select id="fi-location" onchange="renderFastInput()"></select>
         </div>
@@ -4191,18 +4197,66 @@ function getCollectorForLocation(locCode) {
   return state.collectors.find(c => (c.locationCodes || []).includes(locCode));
 }
 
+// Helper: populate Input Cepat location dropdown based on current collector filter
+function populateFiLocationOptions() {
+  const colId = document.getElementById('fi-collector').value;
+  const sel = document.getElementById('fi-location');
+  let locations;
+  if (colId) {
+    // Filter by collector's location codes
+    const col = state.collectors.find(c => c.id === colId);
+    const codes = col ? (col.locationCodes || []) : [];
+    locations = state.locations.filter(l => codes.includes(l.code));
+    if (locations.length > 1) {
+      // Add "Semua Daerah Tukang" option at top
+      sel.innerHTML = '<option value="__all__">Semua Daerah Tukang Ini</option>' +
+        locations.map(l => `<option value="${l.code}">${escapeHtml(l.name)}</option>`).join('');
+    } else {
+      sel.innerHTML = locations.map(l => `<option value="${l.code}">${escapeHtml(l.name)}</option>`).join('');
+    }
+  } else {
+    // No collector filter — show all locations
+    sel.innerHTML = state.locations.map(l => `<option value="${l.code}">${escapeHtml(l.name)}</option>`).join('');
+  }
+}
+
+// Handler: when collector changes, update location dropdown & re-render
+function onFiCollectorChange() {
+  populateFiLocationOptions();
+  // Default: select "Semua Daerah Tukang Ini" if multiple, otherwise the single location
+  const sel = document.getElementById('fi-location');
+  if (sel.options.length > 0) sel.selectedIndex = 0;
+  sessionStorage.setItem('fi-last-collector', document.getElementById('fi-collector').value);
+  sessionStorage.setItem('fi-last-location', sel.value);
+  renderFastInput();
+}
+
 // ===================== INPUT CEPAT (FAST INPUT) =====================
 function initFastInput() {
   const sel = document.getElementById('fi-location');
-  // Preserve previously selected location across tab switches
+  const colSel = document.getElementById('fi-collector');
+  // Preserve previously selected values across tab switches
+  const previousCollector = colSel.value || sessionStorage.getItem('fi-last-collector') || '';
   const previousLocation = sel.value || sessionStorage.getItem('fi-last-location') || '';
   const previousPeriod = document.getElementById('fi-period').value || sessionStorage.getItem('fi-last-period') || '';
   const previousDate = document.getElementById('fi-date').value || sessionStorage.getItem('fi-last-date') || '';
   const previousMethod = document.getElementById('fi-method').value || sessionStorage.getItem('fi-last-method') || '';
 
-  sel.innerHTML = state.locations.map(l => `<option value="${l.code}">${escapeHtml(l.name)}</option>`).join('');
-  // Restore selection if location still exists
-  if (previousLocation && state.locations.some(l => l.code === previousLocation)) {
+  // Populate collector dropdown
+  colSel.innerHTML = '<option value="">Semua Tukang</option>' +
+    state.collectors.map(t => {
+      const locCount = (t.locationCodes || []).length;
+      return `<option value="${t.id}">${escapeHtml(t.name)}${locCount > 0 ? ` (${locCount} daerah)` : ''}</option>`;
+    }).join('');
+  if (previousCollector && state.collectors.some(t => t.id === previousCollector)) {
+    colSel.value = previousCollector;
+  }
+
+  // Populate location dropdown based on collector
+  populateFiLocationOptions();
+
+  // Restore selection if location still exists in current filter
+  if (previousLocation && Array.from(sel.options).some(o => o.value === previousLocation)) {
     sel.value = previousLocation;
   }
 
@@ -4223,6 +4277,9 @@ function initFastInput() {
   }
 
   // Save selections when changed
+  colSel.addEventListener('change', () => {
+    sessionStorage.setItem('fi-last-collector', colSel.value);
+  });
   sel.addEventListener('change', () => {
     sessionStorage.setItem('fi-last-location', sel.value);
   });
@@ -4248,9 +4305,20 @@ function initFastInput() {
 function renderFastInput() {
   const locCode = document.getElementById('fi-location').value;
   const period = document.getElementById('fi-period').value || curMonth();
+  const collectorId = document.getElementById('fi-collector').value;
   if (!locCode) return;
 
   const container = document.getElementById('fi-list');
+
+  // Determine which location codes to include
+  let activeCodes = [];
+  if (locCode === '__all__' && collectorId) {
+    // Show all locations of the selected collector
+    const col = state.collectors.find(c => c.id === collectorId);
+    activeCodes = col ? (col.locationCodes || []) : [];
+  } else {
+    activeCodes = [locCode];
+  }
 
   // Helper: cek apakah periode jatuh dalam range isolasi pelanggan
   function isPeriodInIsolation(c, p) {
@@ -4263,14 +4331,14 @@ function renderFastInput() {
   }
 
   // === KUMPULKAN SEMUA PELANGGAN YANG PERLU DITAMPILKAN ===
-  // 1. Pelanggan aktif di daerah ini (semua, tidak peduli ada tagihan/tunggakan atau tidak)
+  // 1. Pelanggan aktif di daerah yang difilter (semua, tidak peduli ada tagihan/tunggakan atau tidak)
   const activeCustomers = state.customers.filter(c =>
-    !c.isFree && c.locationCode === locCode && c.status === 'aktif'
+    !c.isFree && activeCodes.includes(c.locationCode) && c.status === 'aktif'
   );
 
-  // 2. SEMUA pelanggan diisolir di daerah ini (tidak hanya yang punya tunggakan)
+  // 2. SEMUA pelanggan diisolir di daerah yang difilter (tidak hanya yang punya tunggakan)
   const isolatedCustomers = state.customers.filter(c =>
-    !c.isFree && c.locationCode === locCode && c.status === 'diisolir'
+    !c.isFree && activeCodes.includes(c.locationCode) && c.status === 'diisolir'
   );
 
   // Gabung semua: setiap pelanggan dapat metadata isolasi
@@ -4306,8 +4374,17 @@ function renderFastInput() {
     return;
   }
 
-  // Sortir berdasarkan abjad nama
-  allRows.sort((a, b) => a.customer.name.localeCompare(b.customer.name));
+  // Sortir: kalau multi-location, sort by daerah dulu lalu nama. Kalau single, sort by nama saja.
+  if (activeCodes.length > 1) {
+    allRows.sort((a, b) => {
+      if (a.customer.locationCode !== b.customer.locationCode) {
+        return (a.customer.locationCode || '').localeCompare(b.customer.locationCode || '');
+      }
+      return a.customer.name.localeCompare(b.customer.name);
+    });
+  } else {
+    allRows.sort((a, b) => a.customer.name.localeCompare(b.customer.name));
+  }
 
   let html = `<div class="alert alert-info" style="font-size:12px;padding:8px 12px;margin-bottom:8px;">
     💡 <strong>Tunai:</strong> klik <strong>Lunas</strong> untuk bayar penuh, atau ketik nominal lalu klik <strong>Bayar</strong>.
@@ -4439,9 +4516,17 @@ function renderFastInput() {
       else if (row.me.status === 'sebagian') rowExtraClass = 'partial';
     }
 
+    // Location badge (kalau multi-location)
+    let locBadge = '';
+    if (activeCodes.length > 1) {
+      const loc = state.locations.find(l => l.code === c.locationCode);
+      const locName = loc ? loc.name : c.locationCode;
+      locBadge = `<span style="background:#e0e7ff;color:#3730a3;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;margin-left:4px;">${escapeHtml(locName)}</span>`;
+    }
+
     html += `<div class="fast-input-row ${rowExtraClass}" id="fi-row-${c.id}" style="grid-template-columns:30px 1fr 100px 130px 140px;${rowBg}">
       <div>${i+1}</div>
-      <div class="name" onclick="editCustomer('${c.id}')" style="cursor:pointer;" title="Klik untuk edit pelanggan"><strong style="text-decoration:underline;text-decoration-style:dotted;text-decoration-color:#1e40af;">${escapeHtml(c.name)}</strong>${badge}<small>${escapeHtml(c.username||'')}${c.phone ? ' · ' + escapeHtml(c.phone) : ''}</small></div>
+      <div class="name" onclick="editCustomer('${c.id}')" style="cursor:pointer;" title="Klik untuk edit pelanggan"><strong style="text-decoration:underline;text-decoration-style:dotted;text-decoration-color:#1e40af;">${escapeHtml(c.name)}</strong>${badge}${locBadge}<small>${escapeHtml(c.username||'')}${c.phone ? ' · ' + escapeHtml(c.phone) : ''}</small></div>
       ${tagihanInfo}
       <div>${inputCell}</div>
       <div>${actionCell}</div>
