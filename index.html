@@ -4250,104 +4250,9 @@ function renderFastInput() {
   const period = document.getElementById('fi-period').value || curMonth();
   if (!locCode) return;
 
-  const customers = state.customers.filter(c =>
-    !c.isFree && c.locationCode === locCode && c.status === 'aktif'
-  ).sort((a,b) => a.name.localeCompare(b.name));
-
   const container = document.getElementById('fi-list');
 
-  // Check isolated customers with arrears too — even if no active customers, isolated may need to pay
-  const _isolatedWithArrearsCheck = state.customers.filter(c =>
-    !c.isFree && c.locationCode === locCode && c.status === 'diisolir'
-  ).some(c => calculateBalance(c.id, period).balance > 0);
-
-  if (!customers.length && !_isolatedWithArrearsCheck) {
-    container.innerHTML = `<div class="empty-state"><h3>Tidak ada pelanggan di daerah ini</h3><p>Tidak ada pelanggan aktif maupun diisolir dengan tunggakan.</p></div>`;
-    document.getElementById('fi-deposit-info').style.display = 'none';
-    return;
-  }
-
-  let html = `<div class="alert alert-info" style="font-size:12px;padding:8px 12px;margin-bottom:8px;">
-    💡 <strong>Tunai:</strong> klik <strong>Lunas</strong> untuk bayar penuh, atau ketik nominal lalu klik <strong>Bayar</strong>.
-    <strong>Transfer:</strong> klik <strong>💳 TF</strong> (full), atau ketik nominal dulu lalu klik <strong>💳 TF</strong> (sebagian). Klik <strong>nama pelanggan</strong> untuk edit.
-  </div>`;
-  if (customers.length > 0) {
-    html += `<div style="border:1px solid #e7e5e4;border-radius:10px;overflow:hidden;">
-      <div class="fi-table-header" style="background:#fafaf9;padding:8px 10px;font-size:12px;font-weight:600;color:#44403c;display:grid;grid-template-columns:30px 1fr 100px 130px 140px;gap:8px;">
-        <div></div><div>Pelanggan</div><div>Tagihan</div><div>Bayar</div><div>Aksi</div>
-      </div>`;
-  }
-
-  customers.forEach((c, i) => {
-    const bal = calculateBalance(c.id, period);
-    const me = bal.months.find(m => m.period === period);
-    if (!me) {
-      html += `<div class="fast-input-row" style="grid-template-columns:30px 1fr 100px 130px 140px;"><div>${i+1}</div>
-        <div class="name"><strong>${escapeHtml(c.name)}</strong><small>${escapeHtml(c.username||'')}</small></div>
-        <div style="grid-column:span 3;color:#78716c;font-style:italic;">Tidak ditagih bulan ini</div></div>`;
-      return;
-    }
-
-    const sisa = me.billed - me.paid;
-    const rowClass = me.status === 'lunas' ? 'paid' : me.status === 'sebagian' ? 'partial' : '';
-    const tunggakan = bal.balance - sisa;
-    let tagihanInfo = `<div><strong>${fmtRp(me.billed)}</strong>${tunggakan > 0 ? `<br><small style="color:#dc2626;">+${fmtRp(tunggakan)} tunggak</small>` : ''}</div>`;
-
-    // Calculate raw payment for this period (before FIFO redistribution)
-    const rawPaidThisPeriod = state.payments
-      .filter(p => p.customerId === c.id && p.period === period)
-      .reduce((s, p) => s + p.amount, 0);
-    const showFromHint = (me.status === 'sebagian' || me.status === 'lunas') &&
-                         rawPaidThisPeriod > 0 && rawPaidThisPeriod !== me.paid;
-
-    let inputCell, actionCell;
-    if (me.status === 'lunas') {
-      const lunasLabel = showFromHint
-        ? `✓ Lunas (${fmtRp(me.paid)} dari ${fmtRp(rawPaidThisPeriod)})`
-        : `✓ Lunas (${fmtRp(me.paid)})`;
-      inputCell = `<div style="color:#16a34a;font-weight:600;">${lunasLabel}</div>`;
-      actionCell = `<div style="color:#16a34a;font-size:11px;">Sudah dibayar</div>`;
-    } else if (me.status === 'sebagian') {
-      const paidLabel = showFromHint
-        ? `Sudah bayar ${fmtRp(me.paid)} (dari ${fmtRp(rawPaidThisPeriod)})`
-        : `Sudah bayar ${fmtRp(me.paid)}`;
-      inputCell = `<div>
-        <div style="color:#16a34a;font-size:11px;font-weight:600;margin-bottom:3px;">${paidLabel}</div>
-        <input type="number" class="fast-input-amount" id="fi-amt-${c.id}" placeholder="${sisa}" data-customer="${c.id}" data-period="${period}" data-billed="${me.billed}" data-paid="${me.paid}">
-      </div>`;
-      actionCell = `<div style="display:flex;gap:3px;width:100%;flex-wrap:wrap;">
-        <button class="btn btn-sm btn-primary" onclick="fastInputManualPay('${c.id}','${period}')" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;">Bayar</button>
-        <button class="btn btn-sm btn-success" onclick="fastInputPay('${c.id}','${period}',${sisa})" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;">Lunas</button>
-        <button class="btn btn-sm" onclick="fastInputTransfer('${c.id}','${period}',${sisa})" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;background:#0891b2;color:white;" title="Transfer langsung ke admin (tidak masuk setoran tukang)">💳 TF</button>
-      </div>`;
-    } else {
-      inputCell = `<input type="number" class="fast-input-amount" id="fi-amt-${c.id}" placeholder="${sisa}" data-customer="${c.id}" data-period="${period}" data-billed="${me.billed}" data-paid="${me.paid}">`;
-      actionCell = `<div style="display:flex;gap:3px;width:100%;flex-wrap:wrap;">
-        <button class="btn btn-sm btn-primary" onclick="fastInputManualPay('${c.id}','${period}')" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;">Bayar</button>
-        <button class="btn btn-sm btn-success" onclick="fastInputPay('${c.id}','${period}',${sisa})" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;">Lunas</button>
-        <button class="btn btn-sm" onclick="fastInputTransfer('${c.id}','${period}',${sisa})" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;background:#0891b2;color:white;" title="Transfer langsung ke admin (tidak masuk setoran tukang)">💳 TF</button>
-      </div>`;
-    }
-
-    html += `<div class="fast-input-row ${rowClass}" id="fi-row-${c.id}" style="grid-template-columns:30px 1fr 100px 130px 140px;">
-      <div>${i+1}</div>
-      <div class="name" onclick="editCustomer('${c.id}')" style="cursor:pointer;" title="Klik untuk edit pelanggan"><strong style="text-decoration:underline;text-decoration-style:dotted;text-decoration-color:#1e40af;">${escapeHtml(c.name)}</strong><small>${escapeHtml(c.username||'')} ${c.phone ? '· ' + escapeHtml(c.phone) : ''}</small></div>
-      ${tagihanInfo}
-      ${inputCell ? `<div>${inputCell}</div>` : `<div></div>`}
-      <div>${actionCell}</div>
-    </div>`;
-  });
-
-  if (customers.length > 0) {
-    html += `</div>`;
-  }
-
-  // ===== ISOLATED CUSTOMERS WITH ARREARS =====
-  // Include 2 kasus:
-  // 1. Status saat ini 'diisolir' DAN punya tunggakan
-  // 2. Status saat ini 'aktif' TAPI periode yang dipilih jatuh dalam isolation range
-  //    (karena periode tersebut tidak ditagih, tapi pelanggan mungkin punya tunggakan
-  //     yang ingin dibayar di periode ini)
+  // Helper: cek apakah periode jatuh dalam range isolasi pelanggan
   function isPeriodInIsolation(c, p) {
     if (!c.isolatedFrom) return false;
     const isolFromYM = c.isolatedFrom.slice(0, 7);
@@ -4357,82 +4262,197 @@ function renderFastInput() {
     return p >= isolFromYM && p <= isolUntilYM;
   }
 
+  // === KUMPULKAN SEMUA PELANGGAN YANG PERLU DITAMPILKAN ===
+  // 1. Pelanggan aktif di daerah ini
+  const activeCustomers = state.customers.filter(c =>
+    !c.isFree && c.locationCode === locCode && c.status === 'aktif'
+  );
+
+  // 2. Pelanggan diisolir DI DAERAH INI yang punya tunggakan
   const isolatedWithArrears = state.customers.filter(c =>
-    !c.isFree && c.locationCode === locCode &&
-    (c.status === 'diisolir' || (c.status === 'aktif' && isPeriodInIsolation(c, period)))
-  ).map(c => {
+    !c.isFree && c.locationCode === locCode && c.status === 'diisolir'
+  ).filter(c => calculateBalance(c.id, period).balance > 0);
+
+  // Gabung semua: setiap pelanggan dapat metadata isolasi
+  // Catatan: pelanggan aktif yang periode-nya jatuh di isolation range sudah masuk dalam activeCustomers
+  // dan akan di-detect via isPeriodInIsolation()
+  const allRows = [];
+  activeCustomers.forEach(c => {
     const bal = calculateBalance(c.id, period);
-    return { customer: c, balance: bal.balance };
-  }).filter(x => x.balance > 0)
-    .sort((a, b) => b.balance - a.balance);
-
-  if (isolatedWithArrears.length > 0) {
-    html += `<div style="margin-top:14px;border:1px solid #fed7aa;border-radius:10px;overflow:hidden;background:#fffbeb;">
-      <div style="background:#fef3c7;padding:10px 12px;font-size:13px;font-weight:600;color:#92400e;border-bottom:1px solid #fcd34d;">
-        ⚠️ Pelanggan dengan Tunggakan (Periode Isolasi) (${isolatedWithArrears.length})
-        <div style="font-size:11px;font-weight:400;color:#a16207;margin-top:2px;">Pelanggan yang periode ini tidak ditagih (saat diisolir / pernah diisolir) tapi punya tunggakan. Catat pembayaran tunggakannya di sini.</div>
-      </div>
-      <div class="fi-table-header" style="background:#fef3c7;padding:8px 10px;font-size:12px;font-weight:600;color:#44403c;display:grid;grid-template-columns:30px 1fr 100px 130px 140px;gap:8px;border-bottom:1px solid #fcd34d;">
-        <div></div><div>Pelanggan</div><div>Tunggakan</div><div>Bayar</div><div>Aksi</div>
-      </div>`;
-
-    isolatedWithArrears.forEach((item, i) => {
-      const c = item.customer;
-      const arrears = item.balance;
-      const isolatedFromYM = (c.isolatedFrom || '').slice(0, 7);
-      const isolatedUntilYM = (c.isolatedUntil || '').slice(0, 7);
-      // Different label based on current status
-      let isolatedNote;
-      let badge;
-      if (c.status === 'diisolir') {
-        isolatedNote = isolatedFromYM ? `Sedang diisolir sejak ${monthLabel(isolatedFromYM)}` : 'Sedang diisolir';
-        badge = '<span style="background:#fde68a;color:#92400e;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;">DIISOLIR</span>';
-      } else {
-        // Status aktif tapi periode dipilih jatuh dalam isolation range
-        isolatedNote = isolatedFromYM && isolatedUntilYM
-          ? `Pernah diisolir ${monthLabel(isolatedFromYM)} - ${monthLabel(isolatedUntilYM)}`
-          : 'Pernah diisolir';
-        badge = '<span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;">AKTIF (periode tdk ditagih)</span>';
-      }
-
-      const rawPaidThisPeriod = state.payments
-        .filter(p => p.customerId === c.id && p.period === period)
-        .reduce((s, p) => s + p.amount, 0);
-      const showFromHint = rawPaidThisPeriod > 0;
-
-      const tagihanInfo = `<div><strong style="color:#dc2626;">${fmtRp(arrears)}</strong><br><small style="color:#a16207;">${isolatedNote}</small></div>`;
-
-      const paidInfo = showFromHint
-        ? `<div style="color:#16a34a;font-size:11px;font-weight:600;margin-bottom:3px;">Sudah bayar ${fmtRp(rawPaidThisPeriod)}</div>`
-        : '';
-
-      const inputCell = `<div>
-        ${paidInfo}
-        <input type="number" class="fast-input-amount" id="fi-amt-${c.id}" placeholder="${arrears}" data-customer="${c.id}" data-period="${period}">
-      </div>`;
-      const actionCell = `<div style="display:flex;gap:3px;width:100%;flex-wrap:wrap;">
-        <button class="btn btn-sm btn-primary" onclick="fastInputManualPay('${c.id}','${period}')" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;">Bayar</button>
-        <button class="btn btn-sm btn-success" onclick="fastInputPay('${c.id}','${period}',${arrears})" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;" title="Bayar lunas semua tunggakan">Lunas</button>
-        <button class="btn btn-sm" onclick="fastInputTransfer('${c.id}','${period}',${arrears})" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;background:#0891b2;color:white;" title="Transfer langsung ke admin">💳 TF</button>
-      </div>`;
-
-      html += `<div class="fast-input-row" id="fi-row-${c.id}" style="grid-template-columns:30px 1fr 100px 130px 140px;background:#fffbeb;">
-        <div>${i+1}</div>
-        <div class="name" onclick="editCustomer('${c.id}')" style="cursor:pointer;" title="Klik untuk edit pelanggan"><strong style="text-decoration:underline;text-decoration-style:dotted;text-decoration-color:#1e40af;">${escapeHtml(c.name)}</strong> ${badge}<small>${escapeHtml(c.username||'')} ${c.phone ? '· ' + escapeHtml(c.phone) : ''}</small></div>
-        ${tagihanInfo}
-        <div>${inputCell}</div>
-        <div>${actionCell}</div>
-      </div>`;
+    const me = bal.months.find(m => m.period === period);
+    const inIsolation = isPeriodInIsolation(c, period);
+    allRows.push({
+      customer: c,
+      bal,
+      me,
+      isIsolated: false,
+      inIsolationPeriod: inIsolation, // aktif tapi periode jatuh di range isolasi → tidak ditagih
+      arrears: bal.balance - (me ? (me.billed - me.paid) : 0)
     });
+  });
+  isolatedWithArrears.forEach(c => {
+    const bal = calculateBalance(c.id, period);
+    allRows.push({
+      customer: c,
+      bal,
+      me: null, // diisolir = tidak ditagih periode ini
+      isIsolated: true,
+      inIsolationPeriod: false,
+      arrears: bal.balance
+    });
+  });
 
-    html += `</div>`;
+  if (!allRows.length) {
+    container.innerHTML = `<div class="empty-state"><h3>Tidak ada pelanggan di daerah ini</h3><p>Tidak ada pelanggan aktif maupun diisolir dengan tunggakan.</p></div>`;
+    document.getElementById('fi-deposit-info').style.display = 'none';
+    return;
   }
+
+  // Sortir berdasarkan abjad nama
+  allRows.sort((a, b) => a.customer.name.localeCompare(b.customer.name));
+
+  let html = `<div class="alert alert-info" style="font-size:12px;padding:8px 12px;margin-bottom:8px;">
+    💡 <strong>Tunai:</strong> klik <strong>Lunas</strong> untuk bayar penuh, atau ketik nominal lalu klik <strong>Bayar</strong>.
+    <strong>Transfer:</strong> klik <strong>💳 TF</strong> (full), atau ketik nominal dulu lalu klik <strong>💳 TF</strong> (sebagian). Klik <strong>nama pelanggan</strong> untuk edit.
+  </div>`;
+
+  html += `<div style="border:1px solid #e7e5e4;border-radius:10px;overflow:hidden;">
+    <div class="fi-table-header" style="background:#fafaf9;padding:8px 10px;font-size:12px;font-weight:600;color:#44403c;display:grid;grid-template-columns:30px 1fr 100px 130px 140px;gap:8px;">
+      <div></div><div>Pelanggan</div><div>Tagihan/Tunggakan</div><div>Bayar</div><div>Aksi</div>
+    </div>`;
+
+  allRows.forEach((row, i) => {
+    const c = row.customer;
+
+    // Calculate raw payment for hint
+    const rawPaidThisPeriod = state.payments
+      .filter(p => p.customerId === c.id && p.period === period)
+      .reduce((s, p) => s + p.amount, 0);
+
+    // Badge & background color
+    let badge = '';
+    let rowBg = '';
+    let isolatedNote = '';
+    if (row.isIsolated) {
+      const isolFromYM = (c.isolatedFrom || '').slice(0, 7);
+      isolatedNote = isolFromYM ? `Sedang diisolir sejak ${monthLabel(isolFromYM)}` : 'Sedang diisolir';
+      badge = '<span style="background:#fde68a;color:#92400e;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;margin-left:4px;">DIISOLIR</span>';
+      rowBg = 'background:#fffbeb;';
+    } else if (row.inIsolationPeriod) {
+      const isolFromYM = (c.isolatedFrom || '').slice(0, 7);
+      const isolUntilYM = (c.isolatedUntil || '').slice(0, 7);
+      isolatedNote = isolFromYM && isolUntilYM
+        ? `Pernah diisolir ${monthLabel(isolFromYM)} - ${monthLabel(isolUntilYM)}`
+        : 'Pernah diisolir';
+      badge = '<span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;margin-left:4px;">AKTIF (periode tdk ditagih)</span>';
+      rowBg = 'background:#fefce8;';
+    }
+
+    // === KOLOM TAGIHAN/TUNGGAKAN ===
+    let tagihanInfo;
+    if (row.isIsolated) {
+      // Diisolir: tampilkan tunggakan saja
+      tagihanInfo = `<div><strong style="color:#dc2626;">${fmtRp(row.arrears)}</strong><br><small style="color:#a16207;">${isolatedNote}</small></div>`;
+    } else if (!row.me) {
+      // Aktif tapi tidak ditagih periode ini (di luar billing range)
+      tagihanInfo = row.arrears > 0
+        ? `<div><strong style="color:#dc2626;">${fmtRp(row.arrears)}</strong><br><small style="color:#78716c;">Tunggakan</small></div>`
+        : `<div style="color:#78716c;font-style:italic;font-size:12px;">Tidak ditagih</div>`;
+    } else if (row.inIsolationPeriod) {
+      // Aktif, periode dalam isolasi: tunggakan saja (periode ini tidak ditagih)
+      tagihanInfo = `<div><strong style="color:#dc2626;">${fmtRp(row.arrears)}</strong><br><small style="color:#a16207;">${isolatedNote}</small></div>`;
+    } else {
+      // Aktif normal: tagihan periode + tunggakan jika ada
+      const me = row.me;
+      const sisa = me.billed - me.paid;
+      const tunggakan = row.bal.balance - sisa;
+      tagihanInfo = `<div><strong>${fmtRp(me.billed)}</strong>${tunggakan > 0 ? `<br><small style="color:#dc2626;">+${fmtRp(tunggakan)} tunggak</small>` : ''}</div>`;
+    }
+
+    // === KOLOM INPUT & ACTION ===
+    let inputCell, actionCell;
+
+    if (row.isIsolated || row.inIsolationPeriod || !row.me) {
+      // Tagihan tunggakan saja (untuk diisolir, periode-tdk-ditagih, atau aktif tanpa billing periode ini tapi punya tunggakan)
+      if (row.arrears <= 0) {
+        // Tidak ada tunggakan dan tidak ditagih
+        inputCell = `<div style="color:#78716c;font-style:italic;font-size:11px;">—</div>`;
+        actionCell = `<div style="color:#78716c;font-size:11px;">Tidak ada tagihan</div>`;
+      } else {
+        const showFromHint = rawPaidThisPeriod > 0;
+        const paidInfo = showFromHint
+          ? `<div style="color:#16a34a;font-size:11px;font-weight:600;margin-bottom:3px;">Sudah bayar ${fmtRp(rawPaidThisPeriod)}</div>`
+          : '';
+        inputCell = `<div>
+          ${paidInfo}
+          <input type="number" class="fast-input-amount" id="fi-amt-${c.id}" placeholder="${row.arrears}" data-customer="${c.id}" data-period="${period}">
+        </div>`;
+        actionCell = `<div style="display:flex;gap:3px;width:100%;flex-wrap:wrap;">
+          <button class="btn btn-sm btn-primary" onclick="fastInputManualPay('${c.id}','${period}')" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;">Bayar</button>
+          <button class="btn btn-sm btn-success" onclick="fastInputPay('${c.id}','${period}',${row.arrears})" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;" title="Bayar lunas semua tunggakan">Lunas</button>
+          <button class="btn btn-sm" onclick="fastInputTransfer('${c.id}','${period}',${row.arrears})" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;background:#0891b2;color:white;" title="Transfer langsung ke admin">💳 TF</button>
+        </div>`;
+      }
+    } else {
+      // Pelanggan aktif normal — pakai logika yang sama seperti sebelumnya
+      const me = row.me;
+      const sisa = me.billed - me.paid;
+      const showFromHint = (me.status === 'sebagian' || me.status === 'lunas') &&
+                           rawPaidThisPeriod > 0 && rawPaidThisPeriod !== me.paid;
+
+      if (me.status === 'lunas') {
+        const lunasLabel = showFromHint
+          ? `✓ Lunas (${fmtRp(me.paid)} dari ${fmtRp(rawPaidThisPeriod)})`
+          : `✓ Lunas (${fmtRp(me.paid)})`;
+        inputCell = `<div style="color:#16a34a;font-weight:600;">${lunasLabel}</div>`;
+        actionCell = `<div style="color:#16a34a;font-size:11px;">Sudah dibayar</div>`;
+      } else if (me.status === 'sebagian') {
+        const paidLabel = showFromHint
+          ? `Sudah bayar ${fmtRp(me.paid)} (dari ${fmtRp(rawPaidThisPeriod)})`
+          : `Sudah bayar ${fmtRp(me.paid)}`;
+        inputCell = `<div>
+          <div style="color:#16a34a;font-size:11px;font-weight:600;margin-bottom:3px;">${paidLabel}</div>
+          <input type="number" class="fast-input-amount" id="fi-amt-${c.id}" placeholder="${sisa}" data-customer="${c.id}" data-period="${period}">
+        </div>`;
+        actionCell = `<div style="display:flex;gap:3px;width:100%;flex-wrap:wrap;">
+          <button class="btn btn-sm btn-primary" onclick="fastInputManualPay('${c.id}','${period}')" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;">Bayar</button>
+          <button class="btn btn-sm btn-success" onclick="fastInputPay('${c.id}','${period}',${sisa})" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;" title="Bayar sisa">Lunas</button>
+          <button class="btn btn-sm" onclick="fastInputTransfer('${c.id}','${period}',${sisa})" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;background:#0891b2;color:white;" title="Transfer langsung ke admin">💳 TF</button>
+        </div>`;
+      } else {
+        // belum bayar
+        inputCell = `<input type="number" class="fast-input-amount" id="fi-amt-${c.id}" placeholder="${me.billed}" data-customer="${c.id}" data-period="${period}">`;
+        actionCell = `<div style="display:flex;gap:3px;width:100%;flex-wrap:wrap;">
+          <button class="btn btn-sm btn-primary" onclick="fastInputManualPay('${c.id}','${period}')" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;">Bayar</button>
+          <button class="btn btn-sm btn-success" onclick="fastInputPay('${c.id}','${period}',${me.billed})" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;" title="Bayar lunas">Lunas</button>
+          <button class="btn btn-sm" onclick="fastInputTransfer('${c.id}','${period}',${me.billed})" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;background:#0891b2;color:white;" title="Transfer langsung ke admin">💳 TF</button>
+        </div>`;
+      }
+    }
+
+    // Row class & status indicators
+    let rowExtraClass = '';
+    if (row.me) {
+      if (row.me.status === 'lunas') rowExtraClass = 'paid';
+      else if (row.me.status === 'sebagian') rowExtraClass = 'partial';
+    }
+
+    html += `<div class="fast-input-row ${rowExtraClass}" id="fi-row-${c.id}" style="grid-template-columns:30px 1fr 100px 130px 140px;${rowBg}">
+      <div>${i+1}</div>
+      <div class="name" onclick="editCustomer('${c.id}')" style="cursor:pointer;" title="Klik untuk edit pelanggan"><strong style="text-decoration:underline;text-decoration-style:dotted;text-decoration-color:#1e40af;">${escapeHtml(c.name)}</strong>${badge}<small>${escapeHtml(c.username||'')}${c.phone ? ' · ' + escapeHtml(c.phone) : ''}</small></div>
+      ${tagihanInfo}
+      <div>${inputCell}</div>
+      <div>${actionCell}</div>
+    </div>`;
+  });
+
+  html += `</div>`;
 
   container.innerHTML = html;
 
-  // Add Enter key handlers for amount inputs (active + isolated)
-  const allCustomersForHandlers = customers.concat(isolatedWithArrears.map(x => x.customer));
-  allCustomersForHandlers.forEach(c => {
+  // Add Enter key handlers for amount inputs
+  allRows.forEach(row => {
+    const c = row.customer;
     const inp = document.getElementById('fi-amt-' + c.id);
     if (inp) {
       inp.addEventListener('keydown', e => {
@@ -4443,6 +4463,7 @@ function renderFastInput() {
       });
     }
   });
+
 
   document.getElementById('fi-deposit-info').style.display = 'block';
   updateFastInputSummary();
