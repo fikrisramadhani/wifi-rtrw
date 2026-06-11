@@ -4701,17 +4701,29 @@ function refreshFastInputRow(customerId, period) {
 function showFastInputPaymentDetails() {
   const locCode = document.getElementById('fi-location').value;
   const period = document.getElementById('fi-period').value || curMonth();
+  const collectorId = document.getElementById('fi-collector').value;
   if (!locCode) { alert('Pilih daerah dulu'); return; }
 
-  const loc = state.locations.find(l => l.code === locCode);
-  // Include all non-free customers in this location (active + isolated)
-  // We need to handle billable & non-billable separately
+  // Determine which location codes to include
+  let activeCodes = [];
+  let titleLabel = '';
+  if (locCode === '__all__' && collectorId) {
+    const col = state.collectors.find(c => c.id === collectorId);
+    activeCodes = col ? (col.locationCodes || []) : [];
+    titleLabel = col ? `Tukang ${col.name} (${activeCodes.length} daerah)` : '-';
+  } else {
+    activeCodes = [locCode];
+    const loc = state.locations.find(l => l.code === locCode);
+    titleLabel = loc ? loc.name : '-';
+  }
+
+  // Include all non-free customers in selected locations (active + isolated)
   const allLocCustomers = state.customers.filter(c =>
-    !c.isFree && c.locationCode === locCode && c.status !== 'nonaktif'
+    !c.isFree && activeCodes.includes(c.locationCode) && c.status !== 'nonaktif'
   ).sort((a, b) => a.name.localeCompare(b.name));
 
   document.getElementById('fi-details-title').textContent =
-    `Detail Periode ${monthLabel(period)} — ${loc ? loc.name : '-'}`;
+    `Detail Periode ${monthLabel(period)} — ${titleLabel}`;
 
   // Categorize:
   // - paid: pelanggan yang ada pembayaran untuk periode ini
@@ -4913,15 +4925,24 @@ function showFastInputPaymentDetails() {
 function updateFastInputSummary() {
   const locCode = document.getElementById('fi-location').value;
   const period = document.getElementById('fi-period').value || curMonth();
+  const collectorId = document.getElementById('fi-collector').value;
 
-  // Customers in this location (include isolated, exclude only nonaktif & free)
+  // Determine which location codes to include (same logic as renderFastInput)
+  let activeCodes = [];
+  if (locCode === '__all__' && collectorId) {
+    const col = state.collectors.find(c => c.id === collectorId);
+    activeCodes = col ? (col.locationCodes || []) : [];
+  } else {
+    activeCodes = [locCode];
+  }
+
+  // Customers in selected locations (include isolated, exclude only nonaktif & free)
   const customers = state.customers.filter(c =>
-    !c.isFree && c.locationCode === locCode && c.status !== 'nonaktif'
+    !c.isFree && activeCodes.includes(c.locationCode) && c.status !== 'nonaktif'
   );
   const customerIds = new Set(customers.map(c => c.id));
 
-  // ALL payments for this period & location (regardless of paid date)
-  // This shows total accumulated payments for the period
+  // ALL payments for this period & locations (regardless of paid date)
   const periodPayments = state.payments.filter(p =>
     p.period === period &&
     customerIds.has(p.customerId)
