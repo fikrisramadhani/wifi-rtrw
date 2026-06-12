@@ -571,8 +571,9 @@ tbody tr:last-child td { border-bottom: none; }
           <select id="fi-location" onchange="renderFastInput()"></select>
         </div>
         <div class="form-group">
-          <label>Periode Bulan</label>
+          <label>Periode Bulan <span id="fi-period-mode-hint" style="font-size:10px;color:#a16207;font-weight:normal;display:none;">(POSTPAID)</span></label>
           <input type="month" id="fi-period" onchange="renderFastInput()">
+          <small id="fi-period-usage-hint" style="color:#a16207;display:none;font-style:italic;"></small>
         </div>
         <div class="form-group">
           <label>Tanggal Bayar</label>
@@ -1110,6 +1111,18 @@ tbody tr:last-child td { border-bottom: none; }
         <label>📅 Tanggal Mulai Pencatatan</label>
         <input type="date" id="setting-start-date">
         <small style="color:#78716c;"><strong>Kalau diisi:</strong> SEMUA pelanggan akan ditagih mulai bulan ini, tanpa peduli tanggal pasang masing-masing. Cocok untuk RT/RW yang sudah lama jalan tapi baru mulai pakai aplikasi. <strong>Kalau dikosongkan:</strong> tagihan dihitung dari tanggal pasang masing-masing pelanggan.</small>
+      </div>
+      <div class="form-group" style="margin-bottom:10px;background:#fef3c7;border:1px solid #fde68a;padding:12px;border-radius:8px;">
+        <label style="color:#92400e;">💳 Mode Penagihan</label>
+        <select id="setting-billing-mode" style="margin-top:6px;">
+          <option value="prepaid">PREPAID — Tagihan bulan ini = pemakaian bulan ini (bayar di muka)</option>
+          <option value="postpaid">POSTPAID — Tagihan bulan ini = pemakaian bulan lalu (bayar setelah pakai)</option>
+        </select>
+        <small style="color:#92400e;display:block;margin-top:6px;">
+          <strong>PREPAID</strong>: contoh tagihan "Mei 2026" = untuk pemakaian Mei 2026.<br>
+          <strong>POSTPAID</strong>: contoh tagihan "Mei 2026" = untuk pemakaian April 2026 yang sudah lewat.<br>
+          ⚠️ Mengubah mode akan menggeser interpretasi tagihan. <strong>Backup dulu</strong> sebelum mengubah!
+        </small>
       </div>
       <button class="btn btn-primary" onclick="saveSettings()">💾 Simpan Pengaturan</button>
     </div>
@@ -2220,6 +2233,7 @@ function migrate(s) {
   if (!s.notes) s.notes = [];
   if (!s.settings) s.settings = { name: '', address: '', admin: '', phone: '' };
   if (s.settings.startDate === undefined) s.settings.startDate = '';
+  if (s.settings.billingMode === undefined) s.settings.billingMode = 'prepaid'; // 'prepaid' | 'postpaid'
   if (s.lastModified === undefined) s.lastModified = 0;
 
   // Migrate collectors: move commission from location to collector, support multiple locations
@@ -2289,6 +2303,71 @@ function monthLabel(ym) {
   const [y,m] = ym.split('-');
   const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
   return months[parseInt(m)-1] + ' ' + y;
+}
+
+// Helper untuk POSTPAID billing
+function addOneMonth(ym) {
+  if (!ym) return ym;
+  const [y, m] = ym.split('-').map(Number);
+  let newM = m + 1, newY = y;
+  if (newM > 12) { newM = 1; newY++; }
+  return `${newY}-${String(newM).padStart(2,'0')}`;
+}
+
+function subtractOneMonth(ym) {
+  if (!ym) return ym;
+  const [y, m] = ym.split('-').map(Number);
+  let newM = m - 1, newY = y;
+  if (newM < 1) { newM = 12; newY--; }
+  return `${newY}-${String(newM).padStart(2,'0')}`;
+}
+
+function getBillingMode() {
+  return (state.settings && state.settings.billingMode) || 'prepaid';
+}
+
+// Untuk postpaid: bill period P = tagihan untuk pemakaian (P - 1)
+// Return usage month untuk bill period
+function getUsageMonth(billPeriod) {
+  return getBillingMode() === 'postpaid' ? subtractOneMonth(billPeriod) : billPeriod;
+}
+
+// Untuk postpaid: bill period dari usage month
+function getBillPeriodFromUsage(usageMonth) {
+  return getBillingMode() === 'postpaid' ? addOneMonth(usageMonth) : usageMonth;
+}
+
+// Format bill period dengan label usage kalau postpaid
+// Misal: "Mei 2026 (utk pakai Apr 2026)"
+function billPeriodLabel(billPeriod) {
+  if (!billPeriod) return '-';
+  if (getBillingMode() === 'postpaid') {
+    return `${monthLabel(billPeriod)} (utk pakai ${monthLabel(subtractOneMonth(billPeriod))})`;
+  }
+  return monthLabel(billPeriod);
+}
+
+// Untuk postpaid: hitung jumlah hari aktif (tidak diisolir, sudah pasang) di sebuah usage month
+function getActiveDaysInMonth(c, usageMonth) {
+  if (!usageMonth) return 0;
+  const [year, month] = usageMonth.split('-').map(Number);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  let activeDays = 0;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    // Belum pasang? Tidak aktif
+    if (c.installedAt && dateStr < c.installedAt) continue;
+    // Sedang diisolir? Tidak aktif
+    if (c.isolatedFrom && dateStr >= c.isolatedFrom) {
+      if (c.isolatedUntil) {
+        if (dateStr <= c.isolatedUntil) continue;
+      } else if (c.status === 'diisolir') {
+        continue;
+      }
+    }
+    activeDays++;
+  }
+  return { activeDays, daysInMonth };
 }
 function todayStr() {
   const d = new Date();
@@ -4337,6 +4416,20 @@ function renderFastInput() {
   const collectorId = document.getElementById('fi-collector').value;
   if (!locCode) return;
 
+  // Show/hide POSTPAID hint
+  const modeHintEl = document.getElementById('fi-period-mode-hint');
+  const usageHintEl = document.getElementById('fi-period-usage-hint');
+  if (modeHintEl && usageHintEl) {
+    if (getBillingMode() === 'postpaid') {
+      modeHintEl.style.display = 'inline';
+      usageHintEl.style.display = 'block';
+      usageHintEl.textContent = `= untuk pemakaian ${monthLabel(subtractOneMonth(period))}`;
+    } else {
+      modeHintEl.style.display = 'none';
+      usageHintEl.style.display = 'none';
+    }
+  }
+
   const container = document.getElementById('fi-list');
 
   // Determine which location codes to include
@@ -5573,62 +5666,102 @@ function calculateBalance(customerId, asOfMonth) {
   if (!c) return { months: [], totalBilled: 0, totalPaid: 0, balance: 0, credit: 0, openingBalance: 0 };
   if (c.isFree) return { months: [], totalBilled: 0, totalPaid: 0, balance: 0, credit: 0, openingBalance: 0, isFree: true };
 
+  const billingMode = getBillingMode(); // 'prepaid' | 'postpaid'
   const endMonth = asOfMonth || curMonth();
   const installedDate = c.installedAt || todayStr();
   const installedYM = installedDate.slice(0,7);
   const systemStartYM = state.settings.startDate ? state.settings.startDate.slice(0,7) : '';
-  // Use the LATER of installedAt or system startDate.
-  // - Pelanggan lama (pasang sebelum startDate) → tagih dari startDate
-  // - Pelanggan baru (pasang setelah startDate) → tagih dari tgl pasang masing-masing
-  let billingStartYM = installedYM;
-  if (systemStartYM && systemStartYM > installedYM) billingStartYM = systemStartYM;
+
+  // === BILLING START YM ===
+  // Prepaid: first bill = month of installation (or systemStartYM if later)
+  // Postpaid: first bill = month AFTER installation (or systemStartYM if later)
+  let billingStartYM;
+  if (billingMode === 'postpaid') {
+    billingStartYM = addOneMonth(installedYM);
+    if (systemStartYM && systemStartYM > billingStartYM) billingStartYM = systemStartYM;
+  } else {
+    billingStartYM = installedYM;
+    if (systemStartYM && systemStartYM > installedYM) billingStartYM = systemStartYM;
+  }
 
   const allMonths = monthsBetween(billingStartYM, endMonth);
 
-  // Determine which months are billable (excluding isolation periods)
-  // ISOLATION PERIODE TETAP DIPAKAI walaupun status sudah Aktif lagi.
-  // Ini supaya bulan saat diisolir (lampau) tidak tiba-tiba ditagih saat pelanggan diaktifkan.
+  // === BILLABLE MONTHS FILTERING ===
   let billableMonths = allMonths;
   if (c.isolatedFrom) {
     const isolFromYM = c.isolatedFrom.slice(0,7);
-    // Kalau status masih diisolir & isolatedUntil kosong, anggap masih berlangsung
     const isolUntilYM = c.isolatedUntil
       ? c.isolatedUntil.slice(0,7)
       : (c.status === 'diisolir' ? '9999-12' : isolFromYM);
-    billableMonths = allMonths.filter(m => m < isolFromYM || m > isolUntilYM);
+
+    if (billingMode === 'postpaid') {
+      // In postpaid, exclude bill periods where USAGE MONTH (period - 1) is fully in isolation
+      // For partial isolation, the month is still billable (will be prorated below)
+      billableMonths = allMonths.filter(billPeriod => {
+        const usage = subtractOneMonth(billPeriod);
+        // Usage month fully in isolation = exclude
+        // Check: was customer isolated for ENTIRE usage month?
+        const [uy, um] = usage.split('-').map(Number);
+        const daysInUsage = new Date(uy, um, 0).getDate();
+        const r = getActiveDaysInMonth(c, usage);
+        return r.activeDays > 0; // ada hari aktif sama sekali = billable (prorated kalau partial)
+      });
+    } else {
+      // Prepaid: exclude months that fall within isolation range (current logic)
+      billableMonths = allMonths.filter(m => m < isolFromYM || m > isolUntilYM);
+    }
   }
 
   const price = getPackagePrice(c.packageId);
-
-  // Determine if first billable month should be prorated.
-  // Prorate ONLY when:
-  // - billingStartYM equals installedYM (customer installed in/after the billing start month)
-  // - AND installation day > 1 (didn't start on day 1)
-  // This means: pelanggan baru yang pasang di tengah bulan, kena prorated.
-  // Pelanggan lama (billingStartYM = systemStartYM) yang tgl pasangnya jauh sebelum, tidak prorated.
-  const installedDay = parseInt(installedDate.slice(8,10), 10);
-  const isProratedFirstMonth = (billingStartYM === installedYM) && (installedDay > 1);
 
   function roundToThousand(n) {
     return Math.round(n / 1000) * 1000;
   }
 
-  const months = billableMonths.map((m, idx) => {
+  // === PRORATE CALCULATION ===
+  const installedDay = parseInt(installedDate.slice(8,10), 10);
+
+  const months = billableMonths.map((billPeriod, idx) => {
     let billed = price;
-    // Apply prorated only for the very first billable month
-    if (idx === 0 && isProratedFirstMonth) {
-      // Hari yang ditagih: dari tanggal pasang sampai akhir bulan (anggap 30 hari)
-      const daysCharged = Math.max(1, 30 - installedDay + 1);
-      billed = roundToThousand(price * daysCharged / 30);
+    let isProrated = false;
+    let proratedDays = null;
+    let proratedTotal = null;
+
+    if (billingMode === 'postpaid') {
+      // Postpaid: bill amount based on active days in USAGE MONTH (= billPeriod - 1)
+      const usageMonth = subtractOneMonth(billPeriod);
+      const r = getActiveDaysInMonth(c, usageMonth);
+      if (r.activeDays === 0) {
+        billed = 0; // safety, shouldn't happen since we filtered above
+      } else if (r.activeDays < r.daysInMonth) {
+        billed = roundToThousand(price * r.activeDays / r.daysInMonth);
+        isProrated = true;
+        proratedDays = r.activeDays;
+        proratedTotal = r.daysInMonth;
+      }
+    } else {
+      // Prepaid: prorate only for first month of new customer (current logic)
+      const isProratedFirstMonth = (billingStartYM === installedYM) && (installedDay > 1);
+      if (idx === 0 && isProratedFirstMonth) {
+        const daysCharged = Math.max(1, 30 - installedDay + 1);
+        billed = roundToThousand(price * daysCharged / 30);
+        isProrated = true;
+        proratedDays = daysCharged;
+        proratedTotal = 30;
+      }
     }
+
     return {
-      period: m,
+      period: billPeriod,
       billed,
       paid: 0,
       status: 'belum',
       payments: [],
-      isProrated: idx === 0 && isProratedFirstMonth,
-      proratedDays: idx === 0 && isProratedFirstMonth ? Math.max(1, 30 - installedDay + 1) : null
+      isProrated,
+      proratedDays,
+      proratedTotal,
+      // Untuk postpaid: kasih info usage month untuk display
+      usageMonth: billingMode === 'postpaid' ? subtractOneMonth(billPeriod) : null
     };
   });
 
@@ -5798,18 +5931,55 @@ function loadSettings() {
   document.getElementById('setting-admin').value = state.settings.admin || '';
   document.getElementById('setting-phone').value = state.settings.phone || '';
   document.getElementById('setting-start-date').value = state.settings.startDate || '';
+  const bmEl = document.getElementById('setting-billing-mode');
+  if (bmEl) bmEl.value = state.settings.billingMode || 'prepaid';
 }
 function saveSettings() {
+  const oldMode = state.settings.billingMode || 'prepaid';
+  const newMode = document.getElementById('setting-billing-mode')
+    ? document.getElementById('setting-billing-mode').value
+    : oldMode;
+
+  // Kalau billing mode berubah, warning user
+  if (oldMode !== newMode) {
+    const confirmMsg = newMode === 'postpaid'
+      ? `⚠️ Anda akan mengubah Mode Penagihan dari PREPAID ke POSTPAID.\n\n` +
+        `Dampak:\n` +
+        `• Tagihan akan bergeser: tagihan bulan Mei = pemakaian bulan April\n` +
+        `• Pelanggan baru: bill pertama muncul 1 bulan setelah pasang\n` +
+        `• Diisolir tengah bulan: tagihan bulan berikutnya akan PRORATED\n` +
+        `• Riwayat pembayaran tetap utuh, tapi interpretasi periode berubah\n\n` +
+        `Pastikan Anda sudah BACKUP data lewat tombol Backup di header.\n\n` +
+        `Lanjut?`
+      : `⚠️ Anda akan mengubah Mode Penagihan dari POSTPAID ke PREPAID.\n\n` +
+        `Dampak:\n` +
+        `• Tagihan bulan Mei kembali = pemakaian Mei\n` +
+        `• Pelanggan baru: bill pertama muncul di bulan pasang\n\n` +
+        `Pastikan Anda sudah BACKUP data lewat tombol Backup di header.\n\n` +
+        `Lanjut?`;
+    if (!confirm(confirmMsg)) {
+      // Reset dropdown
+      document.getElementById('setting-billing-mode').value = oldMode;
+      return;
+    }
+  }
+
   state.settings = {
     name: document.getElementById('setting-name').value.trim(),
     address: document.getElementById('setting-address').value.trim(),
     admin: document.getElementById('setting-admin').value.trim(),
     phone: document.getElementById('setting-phone').value.trim(),
-    startDate: document.getElementById('setting-start-date').value
+    startDate: document.getElementById('setting-start-date').value,
+    billingMode: newMode
   };
   saveState();
   document.getElementById('header-info').textContent = state.settings.name || 'Sistem manajemen tagihan internet warga';
-  alert('Pengaturan disimpan ✓');
+
+  if (oldMode !== newMode) {
+    alert(`✓ Pengaturan disimpan.\n\nMode penagihan: ${newMode === 'postpaid' ? 'POSTPAID (bill bulan setelah pemakaian)' : 'PREPAID (bill = bulan pemakaian)'}\n\nRefresh aplikasi untuk lihat perubahan di semua halaman.`);
+  } else {
+    alert('Pengaturan disimpan ✓');
+  }
 }
 
 // ===================== EXPORT/IMPORT =====================
