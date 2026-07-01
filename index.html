@@ -463,10 +463,52 @@ tbody tr:last-child td { border-bottom: none; }
   .fast-input-row .btn-sm {
     padding: 10px 12px !important;
     font-size: 14px !important;
-    min-height: 38px;
+    min-height: 40px;
   }
   /* Hide table header on mobile (it doesn't fit) */
   .fi-table-header { display: none !important; }
+  /* Toast on mobile: full width */
+  #fi-undo-toast, #fi-undo-confirm-toast {
+    left: 12px !important;
+    right: 12px !important;
+    transform: none !important;
+    max-width: none !important;
+  }
+}
+
+/* Sticky table header on desktop */
+.fi-table-header {
+  position: sticky;
+  top: 60px; /* below search box */
+  z-index: 4;
+}
+
+/* Consistent Edit button style */
+.btn-edit-payment {
+  padding: 5px 8px !important;
+  font-size: 11px !important;
+  background: #f59e0b !important;
+  color: white !important;
+  min-width: 34px;
+  min-height: 30px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.btn-edit-payment:hover { background: #d97706 !important; }
+
+/* Toast animations */
+@keyframes slideUp {
+  from { transform: translateX(-50%) translateY(30px); opacity: 0; }
+  to { transform: translateX(-50%) translateY(0); opacity: 1; }
+}
+@keyframes slideDown {
+  from { transform: translateX(-50%) translateY(0); opacity: 1; }
+  to { transform: translateX(-50%) translateY(30px); opacity: 0; }
 }
 
 @media (max-width: 600px) {
@@ -556,8 +598,8 @@ tbody tr:last-child td { border-bottom: none; }
       <div class="panel-header">
         <h2>⚡ Input Pembayaran Cepat</h2>
       </div>
-      <div class="alert alert-info">
-        💡 Mode ini untuk input banyak pembayaran sekaligus. Pilih daerah & bulan, lalu klik "Lunas" untuk bayar penuh, atau ketik jumlah lain untuk bayar sebagian. Total terhitung otomatis.
+      <div class="alert alert-info" style="font-size:12px;">
+        💡 <strong>Cara cepat:</strong> klik <strong>Lunas</strong> = bayar penuh · <strong>💳 TF</strong> = transfer · <strong>✏️</strong> = edit pembayaran terakhir · <strong>klik nama</strong> = edit pelanggan
       </div>
       <div class="form-grid">
         <div class="form-group">
@@ -608,6 +650,16 @@ tbody tr:last-child td { border-bottom: none; }
           <div>
             <button class="btn btn-success" onclick="finalizeFastInput()">✓ Selesai & Buat Sesi Setoran</button>
           </div>
+        </div>
+      </div>
+
+      <div id="fi-search-wrap" style="display:none;margin-bottom:10px;position:sticky;top:0;z-index:5;background:white;padding:8px 0;">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <div style="position:relative;flex:1;min-width:200px;">
+            <input type="text" id="fi-search" placeholder="🔍 Cari nama pelanggan / username..." oninput="onFiSearch()" style="width:100%;padding:8px 30px 8px 12px;">
+            <button id="fi-search-clear" onclick="clearFiSearch()" style="display:none;position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:16px;cursor:pointer;color:#78716c;padding:4px 8px;">×</button>
+          </div>
+          <div id="fi-search-info" style="font-size:12px;color:#78716c;"></div>
         </div>
       </div>
 
@@ -4336,7 +4388,101 @@ function onFiCollectorChange() {
   if (sel.options.length > 0) sel.selectedIndex = 0;
   sessionStorage.setItem('fi-last-collector', document.getElementById('fi-collector').value);
   sessionStorage.setItem('fi-last-location', sel.value);
+  // Clear search when changing filter
+  const searchEl = document.getElementById('fi-search');
+  if (searchEl) searchEl.value = '';
   renderFastInput();
+}
+
+// Search handlers with debounce
+let fiSearchTimer = null;
+function onFiSearch() {
+  clearTimeout(fiSearchTimer);
+  fiSearchTimer = setTimeout(() => {
+    renderFastInput();
+  }, 200);
+}
+
+function clearFiSearch() {
+  document.getElementById('fi-search').value = '';
+  renderFastInput();
+}
+
+// ===================== TOAST UNDO (for payment safety net) =====================
+let fiUndoTimer = null;
+let fiUndoPaymentId = null;
+function showFiUndoToast(paymentId, message) {
+  fiUndoPaymentId = paymentId;
+  // Remove existing toast
+  const existing = document.getElementById('fi-undo-toast');
+  if (existing) existing.remove();
+
+  const toast = document.createElement('div');
+  toast.id = 'fi-undo-toast';
+  toast.style.cssText = `
+    position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+    background:#166534;color:white;padding:12px 18px;border-radius:10px;
+    box-shadow:0 8px 24px rgba(0,0,0,0.3);
+    z-index:2000;display:flex;align-items:center;gap:14px;
+    animation:slideUp 0.25s ease-out;font-size:13px;
+    max-width:90%;
+  `;
+  toast.innerHTML = `
+    <span>✓ ${escapeHtml(message)}</span>
+    <button onclick="undoLastFiPayment()" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:white;padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;">↶ UNDO</button>
+    <button onclick="dismissFiUndoToast()" style="background:none;border:none;color:white;cursor:pointer;font-size:18px;padding:0 4px;">×</button>
+  `;
+  document.body.appendChild(toast);
+
+  // Auto dismiss after 5 seconds
+  clearTimeout(fiUndoTimer);
+  fiUndoTimer = setTimeout(() => {
+    dismissFiUndoToast();
+  }, 5000);
+}
+
+function dismissFiUndoToast() {
+  clearTimeout(fiUndoTimer);
+  const toast = document.getElementById('fi-undo-toast');
+  if (toast) {
+    toast.style.animation = 'slideDown 0.2s ease-out';
+    setTimeout(() => toast.remove(), 200);
+  }
+  fiUndoPaymentId = null;
+}
+
+function undoLastFiPayment() {
+  if (!fiUndoPaymentId) return;
+  const payment = state.payments.find(p => p.id === fiUndoPaymentId);
+  if (!payment) {
+    dismissFiUndoToast();
+    return;
+  }
+  const c = state.customers.find(x => x.id === payment.customerId);
+  const cname = c ? c.name : 'pelanggan';
+  const amount = payment.amount;
+  // Remove payment
+  state.payments = state.payments.filter(p => p.id !== fiUndoPaymentId);
+  saveState();
+  dismissFiUndoToast();
+  renderFastInput();
+  updateFastInputSummary();
+  // Show undo confirmation toast
+  const toast = document.createElement('div');
+  toast.id = 'fi-undo-confirm-toast';
+  toast.style.cssText = `
+    position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+    background:#b45309;color:white;padding:12px 18px;border-radius:10px;
+    box-shadow:0 8px 24px rgba(0,0,0,0.3);
+    z-index:2000;font-size:13px;
+    animation:slideUp 0.25s ease-out;
+  `;
+  toast.innerHTML = `↶ Pembayaran ${cname} (${fmtRp(amount)}) dibatalkan`;
+  document.body.appendChild(toast);
+  setTimeout(() => {
+    toast.style.animation = 'slideDown 0.2s ease-out';
+    setTimeout(() => toast.remove(), 200);
+  }, 2500);
 }
 
 // ===================== INPUT CEPAT (FAST INPUT) =====================
@@ -4493,8 +4639,12 @@ function renderFastInput() {
   if (!allRows.length) {
     container.innerHTML = `<div class="empty-state"><h3>Tidak ada pelanggan di daerah ini</h3><p>Belum ada pelanggan aktif atau diisolir terdaftar di daerah ini.</p></div>`;
     document.getElementById('fi-deposit-info').style.display = 'none';
+    document.getElementById('fi-search-wrap').style.display = 'none';
     return;
   }
+
+  // Show search box
+  document.getElementById('fi-search-wrap').style.display = 'block';
 
   // Sortir: kalau multi-location, sort by daerah dulu lalu nama. Kalau single, sort by nama saja.
   if (activeCodes.length > 1) {
@@ -4508,17 +4658,42 @@ function renderFastInput() {
     allRows.sort((a, b) => a.customer.name.localeCompare(b.customer.name));
   }
 
-  let html = `<div class="alert alert-info" style="font-size:12px;padding:8px 12px;margin-bottom:8px;">
-    💡 <strong>Tunai:</strong> klik <strong>Lunas</strong> untuk bayar penuh, atau ketik nominal lalu klik <strong>Bayar</strong>.
-    <strong>Transfer:</strong> klik <strong>💳 TF</strong> (full), atau ketik nominal dulu lalu klik <strong>💳 TF</strong> (sebagian). Klik <strong>nama pelanggan</strong> untuk edit.
-  </div>`;
+  // Apply search filter
+  const searchQuery = (document.getElementById('fi-search').value || '').toLowerCase().trim();
+  const totalRows = allRows.length;
+  let filteredRows = allRows;
+  if (searchQuery) {
+    filteredRows = allRows.filter(r => {
+      const c = r.customer;
+      return (c.name || '').toLowerCase().includes(searchQuery) ||
+             (c.username || '').toLowerCase().includes(searchQuery) ||
+             (c.phone || '').toLowerCase().includes(searchQuery);
+    });
+  }
+
+  // Update search info
+  const searchInfoEl = document.getElementById('fi-search-info');
+  if (searchQuery) {
+    searchInfoEl.textContent = `Menampilkan ${filteredRows.length} dari ${totalRows} pelanggan`;
+    document.getElementById('fi-search-clear').style.display = 'block';
+  } else {
+    searchInfoEl.textContent = `Total ${totalRows} pelanggan`;
+    document.getElementById('fi-search-clear').style.display = 'none';
+  }
+
+  if (!filteredRows.length) {
+    container.innerHTML = `<div class="empty-state"><h3>Tidak ditemukan</h3><p>Tidak ada pelanggan yang cocok dengan "${escapeHtml(searchQuery)}"</p></div>`;
+    return;
+  }
+
+  let html = ``;
 
   html += `<div style="border:1px solid #e7e5e4;border-radius:10px;overflow:hidden;">
     <div class="fi-table-header" style="background:#fafaf9;padding:8px 10px;font-size:12px;font-weight:600;color:#44403c;display:grid;grid-template-columns:30px 1fr 100px 130px 140px;gap:8px;">
       <div></div><div>Pelanggan</div><div>Tagihan/Tunggakan</div><div>Bayar</div><div>Aksi</div>
     </div>`;
 
-  allRows.forEach((row, i) => {
+  filteredRows.forEach((row, i) => {
     const c = row.customer;
 
     // Calculate raw payment for hint
@@ -4589,7 +4764,7 @@ function renderFastInput() {
           <input type="number" class="fast-input-amount" id="fi-amt-${c.id}" placeholder="${row.arrears}" data-customer="${c.id}" data-period="${period}">
         </div>`;
         const editBtn = rawPaidThisPeriod > 0
-          ? `<button class="btn btn-sm" onclick="editLastPayment('${c.id}','${period}')" style="flex:0 0 auto;padding:5px 6px;font-size:11px;background:#f59e0b;color:white;" title="Edit pembayaran terakhir">✏️</button>`
+          ? `<button class="btn-edit-payment" onclick="editLastPayment('${c.id}','${period}')" title="Edit pembayaran terakhir">✏️</button>`
           : '';
         actionCell = `<div style="display:flex;gap:3px;width:100%;flex-wrap:wrap;">
           <button class="btn btn-sm btn-primary" onclick="fastInputManualPay('${c.id}','${period}')" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;">Bayar</button>
@@ -4610,9 +4785,9 @@ function renderFastInput() {
           ? `✓ Lunas (${fmtRp(me.paid)} dari ${fmtRp(rawPaidThisPeriod)})`
           : `✓ Lunas (${fmtRp(me.paid)})`;
         inputCell = `<div style="color:#16a34a;font-weight:600;">${lunasLabel}</div>`;
-        actionCell = `<div style="display:flex;gap:3px;width:100%;align-items:center;">
-          <span style="color:#16a34a;font-size:11px;flex:1;">Sudah dibayar</span>
-          <button class="btn btn-sm" onclick="editLastPayment('${c.id}','${period}')" style="padding:5px 8px;font-size:11px;background:#f59e0b;color:white;" title="Edit pembayaran terakhir">✏️ Edit</button>
+        actionCell = `<div style="display:flex;gap:3px;width:100%;align-items:center;justify-content:space-between;">
+          <span style="color:#16a34a;font-size:11px;">Sudah dibayar</span>
+          <button class="btn-edit-payment" onclick="editLastPayment('${c.id}','${period}')" title="Edit pembayaran terakhir">✏️</button>
         </div>`;
       } else if (me.status === 'sebagian') {
         const paidLabel = showFromHint
@@ -4626,7 +4801,7 @@ function renderFastInput() {
           <button class="btn btn-sm btn-primary" onclick="fastInputManualPay('${c.id}','${period}')" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;">Bayar</button>
           <button class="btn btn-sm btn-success" onclick="fastInputPay('${c.id}','${period}',${sisa})" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;" title="Bayar sisa">Lunas</button>
           <button class="btn btn-sm" onclick="fastInputTransfer('${c.id}','${period}',${sisa})" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;background:#0891b2;color:white;" title="Transfer langsung ke admin">💳 TF</button>
-          <button class="btn btn-sm" onclick="editLastPayment('${c.id}','${period}')" style="flex:0 0 auto;padding:5px 6px;font-size:11px;background:#f59e0b;color:white;" title="Edit pembayaran terakhir">✏️</button>
+          <button class="btn-edit-payment" onclick="editLastPayment('${c.id}','${period}')" title="Edit pembayaran terakhir">✏️</button>
         </div>`;
       } else {
         // belum bayar
@@ -4668,7 +4843,7 @@ function renderFastInput() {
   container.innerHTML = html;
 
   // Add Enter key handlers for amount inputs
-  allRows.forEach(row => {
+  filteredRows.forEach(row => {
     const c = row.customer;
     const inp = document.getElementById('fi-amt-' + c.id);
     if (inp) {
@@ -4715,6 +4890,9 @@ function fastInputPay(customerId, period, amount) {
   // This preserves other unsaved inputs the user is typing
   refreshFastInputRow(customerId, period);
   updateFastInputSummary();
+  // Show undo toast
+  const c = state.customers.find(x => x.id === customerId);
+  if (c) showFiUndoToast(payment.id, `${c.name}: ${fmtRp(amount)} (${method})`);
 }
 
 function fastInputTransfer(customerId, period, defaultAmount) {
@@ -4748,6 +4926,8 @@ function fastInputTransfer(customerId, period, defaultAmount) {
   saveState();
   refreshFastInputRow(customerId, period);
   updateFastInputSummary();
+  // Show undo toast
+  showFiUndoToast(payment.id, `${c.name}: ${fmtRp(amount)} (Transfer langsung)`);
 }
 
 function refreshFastInputRow(customerId, period) {
