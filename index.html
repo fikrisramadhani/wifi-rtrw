@@ -504,23 +504,28 @@ tbody tr:last-child td { border-bottom: none; }
 .fi-table-wrap .fi-table-header:first-child { border-radius: 10px 10px 0 0; }
 .fi-table-wrap .fast-input-row:last-child { border-radius: 0 0 10px 10px; }
 
-/* Consistent Edit button style */
+/* Consistent Edit button style - soft blue */
 .btn-edit-payment {
   padding: 5px 8px !important;
-  font-size: 11px !important;
-  background: #f59e0b !important;
-  color: white !important;
+  font-size: 12px !important;
+  background: rgba(59, 130, 246, 0.1) !important;
+  color: #1e40af !important;
   min-width: 34px;
   min-height: 30px;
-  border: none;
+  border: 1px solid rgba(59, 130, 246, 0.25);
   border-radius: 6px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
+  transition: all 0.15s ease;
 }
-.btn-edit-payment:hover { background: #d97706 !important; }
+.btn-edit-payment:hover {
+  background: rgba(59, 130, 246, 0.18) !important;
+  border-color: rgba(59, 130, 246, 0.4);
+}
+.btn-edit-payment:active { transform: scale(0.96); }
 
 /* Toast animations */
 @keyframes slideUp {
@@ -5020,7 +5025,10 @@ function refreshFastInputRow(customerId, period) {
       ? `✓ Lunas (${fmtRp(me.paid)} dari ${fmtRp(rawPaidThisPeriod)})`
       : `✓ Lunas (${fmtRp(me.paid)})`;
     cells[3].innerHTML = `<div style="color:#16a34a;font-weight:600;">${lunasLabel}</div>`;
-    cells[4].innerHTML = `<div style="color:#16a34a;font-size:11px;">Sudah dibayar</div>`;
+    cells[4].innerHTML = `<div style="display:flex;gap:3px;width:100%;align-items:center;justify-content:space-between;">
+      <span style="color:#16a34a;font-size:11px;">Sudah dibayar</span>
+      <button class="btn-edit-payment" onclick="editLastPayment('${c.id}','${period}')" title="Edit pembayaran terakhir">✏️</button>
+    </div>`;
   } else if (me.status === 'sebagian') {
     const paidLabel = showFromHint
       ? `Sudah bayar ${fmtRp(me.paid)} (dari ${fmtRp(rawPaidThisPeriod)})`
@@ -5033,6 +5041,7 @@ function refreshFastInputRow(customerId, period) {
       <button class="btn btn-sm btn-primary" onclick="fastInputManualPay('${c.id}','${period}')" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;">Bayar</button>
       <button class="btn btn-sm btn-success" onclick="fastInputPay('${c.id}','${period}',${sisa})" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;">Lunas</button>
       <button class="btn btn-sm" onclick="fastInputTransfer('${c.id}','${period}',${sisa})" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;background:#0891b2;color:white;" title="Transfer langsung ke admin">💳 TF</button>
+      <button class="btn-edit-payment" onclick="editLastPayment('${c.id}','${period}')" title="Edit pembayaran terakhir">✏️</button>
     </div>`;
     const inp = document.getElementById('fi-amt-' + c.id);
     if (inp) {
@@ -5044,6 +5053,7 @@ function refreshFastInputRow(customerId, period) {
       });
     }
   } else {
+    // Status 'belum' — no payment yet, no Edit button needed
     cells[3].innerHTML = `<input type="number" class="fast-input-amount" id="fi-amt-${c.id}" placeholder="${sisa}" data-customer="${c.id}" data-period="${period}" data-billed="${me.billed}" data-paid="${me.paid}">`;
     cells[4].innerHTML = `<div style="display:flex;gap:3px;width:100%;flex-wrap:wrap;">
       <button class="btn btn-sm btn-primary" onclick="fastInputManualPay('${c.id}','${period}')" style="flex:1;justify-content:center;padding:5px 2px;font-size:11px;min-width:42px;">Bayar</button>
