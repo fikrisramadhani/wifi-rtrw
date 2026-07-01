@@ -147,7 +147,7 @@ header p { font-size: 12px; opacity: 0.85; margin-top: 2px; }
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 12px;
   margin-bottom: 16px;
 }
@@ -155,16 +155,221 @@ header p { font-size: 12px; opacity: 0.85; margin-top: 2px; }
   background: white;
   border: 1px solid #e7e5e4;
   border-radius: 12px;
-  padding: 14px;
+  padding: 14px 16px;
+  position: relative;
+  transition: all 0.15s ease;
+  overflow: hidden;
 }
-.stat-label { font-size: 11px; color: #78716c; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
-.stat-value { font-size: 22px; font-weight: 600; }
+.stat-card.clickable {
+  cursor: pointer;
+}
+.stat-card.clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.06);
+  border-color: #d6d3d1;
+}
+.stat-card .stat-icon {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-size: 20px;
+  opacity: 0.3;
+  transition: opacity 0.15s;
+}
+.stat-card.clickable:hover .stat-icon {
+  opacity: 0.55;
+}
+.stat-label { font-size: 11px; color: #78716c; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500; }
+.stat-value { font-size: 24px; font-weight: 700; color: #1c1917; }
+.stat-subtitle { font-size: 11px; color: #78716c; margin-top: 4px; }
+.stat-trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 8px;
+  margin-top: 4px;
+}
+.stat-trend.up { background: rgba(34,197,94,0.1); color: #16a34a; }
+.stat-trend.down { background: rgba(239,68,68,0.1); color: #dc2626; }
+.stat-trend.up-bad { background: rgba(239,68,68,0.1); color: #dc2626; }
+.stat-trend.down-good { background: rgba(34,197,94,0.1); color: #16a34a; }
+.stat-trend.flat { background: rgba(120,113,108,0.1); color: #78716c; }
 .stat-card.blue { border-left: 4px solid #1e40af; }
 .stat-card.green { border-left: 4px solid #16a34a; }
 .stat-card.amber { border-left: 4px solid #d97706; }
 .stat-card.red { border-left: 4px solid #dc2626; }
 .stat-card.gray { border-left: 4px solid #78716c; }
 .stat-card.purple { border-left: 4px solid #7c3aed; }
+.stat-card.critical {
+  background: linear-gradient(135deg, #fef2f2 0%, #fff 100%);
+  border-color: #fecaca;
+}
+.stat-card.critical .stat-value { color: #dc2626; }
+.stat-card.pulse::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  border-radius: 12px;
+  border: 2px solid #dc2626;
+  opacity: 0;
+  animation: card-pulse 2s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes card-pulse {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 0.35; }
+}
+
+/* Dashboard Quick Actions Grid */
+.dashboard-quick-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.quick-action-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: white;
+  border: 1px solid #e7e5e4;
+  border-radius: 10px;
+  cursor: pointer;
+  text-decoration: none;
+  color: #1c1917;
+  transition: all 0.15s ease;
+}
+.quick-action-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  border-color: #1e40af;
+}
+.quick-action-card .qa-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%);
+  color: #1e40af;
+}
+.quick-action-card.green .qa-icon { background: linear-gradient(135deg, #dcfce7 0%, #86efac 100%); color: #16a34a; }
+.quick-action-card.amber .qa-icon { background: linear-gradient(135deg, #fef3c7 0%, #fcd34d 100%); color: #d97706; }
+.quick-action-card.purple .qa-icon { background: linear-gradient(135deg, #ede9fe 0%, #c4b5fd 100%); color: #7c3aed; }
+.quick-action-card.red .qa-icon { background: linear-gradient(135deg, #fee2e2 0%, #fca5a5 100%); color: #dc2626; }
+.quick-action-card .qa-content { flex: 1; min-width: 0; }
+.quick-action-card .qa-title { font-weight: 600; font-size: 14px; margin-bottom: 2px; }
+.quick-action-card .qa-desc { font-size: 11px; color: #78716c; }
+
+/* Dashboard Reminder Panel */
+.dashboard-reminder {
+  background: linear-gradient(135deg, #fef3c7 0%, #fef9e7 100%);
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.dashboard-reminder.info {
+  background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%);
+  border-color: #bfdbfe;
+}
+.dashboard-reminder.success {
+  background: linear-gradient(135deg, #dcfce7 0%, #f0fdf4 100%);
+  border-color: #86efac;
+}
+.dashboard-reminder .reminder-icon {
+  font-size: 22px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.dashboard-reminder .reminder-content {
+  flex: 1;
+  font-size: 13px;
+}
+.dashboard-reminder .reminder-title {
+  font-weight: 600;
+  color: #92400e;
+  margin-bottom: 2px;
+}
+.dashboard-reminder.info .reminder-title { color: #1e40af; }
+.dashboard-reminder.success .reminder-title { color: #16a34a; }
+.dashboard-reminder .reminder-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+/* Recent Activity Feed */
+.activity-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.activity-item {
+  display: flex;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  transition: background 0.1s;
+}
+.activity-item:hover { background: #fafaf9; }
+.activity-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.activity-icon.payment { background: #dcfce7; color: #16a34a; }
+.activity-icon.isolation { background: #fef3c7; color: #d97706; }
+.activity-icon.reactivate { background: #dbeafe; color: #1e40af; }
+.activity-icon.new-customer { background: #ede9fe; color: #7c3aed; }
+.activity-content { flex: 1; font-size: 13px; min-width: 0; }
+.activity-content .activity-title { color: #1c1917; }
+.activity-content .activity-time { font-size: 11px; color: #78716c; margin-top: 2px; }
+.activity-amount { font-weight: 600; color: #16a34a; }
+
+/* Trend chart */
+.trend-chart-container {
+  position: relative;
+  padding: 6px 0;
+}
+.trend-chart-container svg { width: 100%; height: auto; }
+
+/* Mobile compact */
+@media (max-width: 900px) {
+  #tab-dashboard > div[style*="grid-template-columns:2fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+@media (max-width: 640px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .stat-card { padding: 10px 12px; }
+  .stat-value { font-size: 18px; }
+  .stat-label { font-size: 10px; }
+  .stat-card .stat-icon { font-size: 16px; }
+  .dashboard-quick-actions { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .quick-action-card { padding: 10px 12px; gap: 8px; }
+  .quick-action-card .qa-icon { width: 36px; height: 36px; font-size: 18px; }
+  .quick-action-card .qa-title { font-size: 13px; }
+  .quick-action-card .qa-desc { font-size: 10px; }
+}
 
 .form-grid {
   display: grid;
@@ -922,14 +1127,80 @@ tbody tr:last-child td { border-bottom: none; }
 
   <!-- DASHBOARD -->
   <div id="tab-dashboard" class="tab-content">
+    <!-- Reminder & Alerts Panel -->
+    <div id="dashboard-reminders"></div>
+
+    <!-- Quick Actions -->
+    <div class="dashboard-quick-actions">
+      <div class="quick-action-card blue" onclick="showTabByName('input-cepat')">
+        <div class="qa-icon">⚡</div>
+        <div class="qa-content">
+          <div class="qa-title">Input Cepat</div>
+          <div class="qa-desc">Bayar banyak pelanggan sekaligus</div>
+        </div>
+      </div>
+      <div class="quick-action-card green" onclick="showTabByName('setoran')">
+        <div class="qa-icon">💼</div>
+        <div class="qa-content">
+          <div class="qa-title">Setoran Tukang</div>
+          <div class="qa-desc">Kelola setoran & rekonsiliasi</div>
+        </div>
+      </div>
+      <div class="quick-action-card amber" onclick="showTabByName('tunggakan')">
+        <div class="qa-icon">⚠️</div>
+        <div class="qa-content">
+          <div class="qa-title">Tunggakan</div>
+          <div class="qa-desc">Cek pelanggan yang menunggak</div>
+        </div>
+      </div>
+      <a href="ftth/" target="_blank" rel="noopener" class="quick-action-card purple" style="text-decoration:none;">
+        <div class="qa-icon">📡</div>
+        <div class="qa-content">
+          <div class="qa-title">FTTH Designer</div>
+          <div class="qa-desc">Kalkulator daya optik</div>
+        </div>
+      </a>
+    </div>
+
+    <!-- Stat Cards -->
     <div class="stats-grid" id="stats"></div>
 
-    <div class="panel">
-      <div class="panel-header">
-        <h2>📊 Status Pembayaran</h2>
-        <select id="dashboard-month" onchange="renderDashboardCharts()" style="max-width:160px;"></select>
+    <!-- Main Content: 2 columns on desktop, stack on mobile -->
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;">
+      <!-- Left: Charts -->
+      <div>
+        <div class="panel">
+          <div class="panel-header">
+            <h2 id="dashboard-charts-title">📊 Status Pembayaran</h2>
+            <select id="dashboard-month" onchange="renderDashboardCharts()" style="max-width:160px;"></select>
+          </div>
+          <div id="dashboard-charts-content"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <h2>📈 Trend Pendapatan (6 Bulan)</h2>
+          </div>
+          <div id="dashboard-trend-content"></div>
+        </div>
       </div>
-      <div id="dashboard-charts-content"></div>
+
+      <!-- Right: Activity & Top Performer -->
+      <div>
+        <div class="panel">
+          <div class="panel-header">
+            <h2>🕒 Aktivitas Terbaru</h2>
+          </div>
+          <div id="dashboard-activity-content" class="activity-feed"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <h2>🏆 Top Performer</h2>
+          </div>
+          <div id="dashboard-top-content"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -2742,27 +3013,458 @@ function renderDashboard() {
   const paidThisMonth = state.payments.filter(p => p.period === month).reduce((s,p) => s + p.amount, 0);
 
   let lunasCount = 0, sebagianCount = 0, belumCount = 0;
+  let belumTotal = 0, sebagianTotal = 0;
   paidActive.forEach(c => {
     const bal = calculateBalance(c.id, month);
     const me = bal.months.find(m => m.period === month);
     if (!me) return;
     if (me.status === 'lunas') lunasCount++;
-    else if (me.status === 'sebagian') sebagianCount++;
-    else belumCount++;
+    else if (me.status === 'sebagian') {
+      sebagianCount++;
+      sebagianTotal += (me.billed - me.paid);
+    } else {
+      belumCount++;
+      belumTotal += me.billed;
+    }
   });
 
+  // Calculate trend vs previous month
+  const prevMonth = subtractOneMonth(month);
+  const prevPaidThisMonth = state.payments.filter(p => p.period === prevMonth).reduce((s,p) => s + p.amount, 0);
+  const revenueTrend = prevPaidThisMonth > 0
+    ? Math.round(((paidThisMonth - prevPaidThisMonth) / prevPaidThisMonth) * 100)
+    : (paidThisMonth > 0 ? 100 : 0);
+
+  // Belum bayar trend vs prev month
+  let prevBelumCount = 0;
+  paidActive.forEach(c => {
+    const bal = calculateBalance(c.id, prevMonth);
+    const me = bal.months.find(m => m.period === prevMonth);
+    if (me && me.status === 'belum') prevBelumCount++;
+  });
+  const belumTrend = prevBelumCount > 0
+    ? Math.round(((belumCount - prevBelumCount) / prevBelumCount) * 100)
+    : (belumCount > 0 ? 100 : 0);
+
+  // Percentage lunas
+  const totalActive = paidActive.length;
+  const persenLunas = totalActive > 0 ? Math.round((lunasCount / totalActive) * 100) : 0;
+
+  // Helper to render trend badge
+  function trendBadge(trend, invertColors) {
+    if (trend === 0) return `<span class="stat-trend flat">→ 0%</span>`;
+    if (trend > 0) {
+      const cls = invertColors ? 'up-bad' : 'up';
+      return `<span class="stat-trend ${cls}">↑ ${trend}%</span>`;
+    }
+    const cls = invertColors ? 'down-good' : 'down';
+    return `<span class="stat-trend ${cls}">↓ ${Math.abs(trend)}%</span>`;
+  }
+
+  // Critical flags
+  const belumCritical = belumCount > (totalActive * 0.3); // > 30% belum bayar = critical
+  const belumPulse = belumCritical && belumCount >= 10;
+
   document.getElementById('stats').innerHTML = `
-    <div class="stat-card blue"><div class="stat-label">Pelanggan Aktif</div><div class="stat-value">${paidActive.length}</div></div>
-    <div class="stat-card amber"><div class="stat-label">Diisolir</div><div class="stat-value">${paidIsolated.length}</div></div>
-    <div class="stat-card purple"><div class="stat-label">Pelanggan Gratis</div><div class="stat-value">${free.length}</div></div>
-    <div class="stat-card green"><div class="stat-label">Lunas (${monthLabel(month)})</div><div class="stat-value">${lunasCount}</div></div>
-    <div class="stat-card amber"><div class="stat-label">Bayar Sebagian</div><div class="stat-value">${sebagianCount}</div></div>
-    <div class="stat-card red"><div class="stat-label">Belum Bayar</div><div class="stat-value">${belumCount}</div></div>
-    <div class="stat-card green"><div class="stat-label">Pendapatan ${monthLabel(month)}</div><div class="stat-value" style="font-size:16px;">${fmtRp(paidThisMonth)}</div></div>
-    <div class="stat-card blue"><div class="stat-label">Potensi Pendapatan</div><div class="stat-value" style="font-size:16px;">${fmtRp(expectedRevenue)}</div></div>
+    <div class="stat-card blue clickable" onclick="showTabByName('pelanggan')" title="Lihat semua pelanggan">
+      <span class="stat-icon">👥</span>
+      <div class="stat-label">Pelanggan Aktif</div>
+      <div class="stat-value">${paidActive.length}</div>
+      <div class="stat-subtitle">${free.length} gratis · ${paidIsolated.length} diisolir</div>
+    </div>
+    <div class="stat-card amber clickable" onclick="openIsolationManager()" title="Kelola pelanggan diisolir">
+      <span class="stat-icon">🔒</span>
+      <div class="stat-label">Diisolir</div>
+      <div class="stat-value">${paidIsolated.length}</div>
+      <div class="stat-subtitle">Klik untuk kelola</div>
+    </div>
+    <div class="stat-card green clickable" onclick="showTabByName('pembayaran')" title="Lihat riwayat pembayaran">
+      <span class="stat-icon">✅</span>
+      <div class="stat-label">Lunas ${monthLabel(month)}</div>
+      <div class="stat-value">${lunasCount}<span style="font-size:14px;color:#78716c;font-weight:500;"> / ${totalActive}</span></div>
+      <div class="stat-subtitle">${persenLunas}% sudah bayar</div>
+    </div>
+    <div class="stat-card amber clickable" onclick="showTabByName('input-cepat')" title="Input pembayaran">
+      <span class="stat-icon">⏳</span>
+      <div class="stat-label">Bayar Sebagian</div>
+      <div class="stat-value">${sebagianCount}</div>
+      <div class="stat-subtitle">Sisa: ${fmtRp(sebagianTotal)}</div>
+    </div>
+    <div class="stat-card red clickable ${belumCritical ? 'critical' : ''} ${belumPulse ? 'pulse' : ''}" onclick="showTabByName('input-cepat')" title="Input pembayaran">
+      <span class="stat-icon">❌</span>
+      <div class="stat-label">Belum Bayar</div>
+      <div class="stat-value">${belumCount}</div>
+      <div class="stat-subtitle">Nominal: ${fmtRp(belumTotal)} ${trendBadge(belumTrend, true)}</div>
+    </div>
+    <div class="stat-card green clickable" onclick="showTabByName('setoran')" title="Lihat setoran">
+      <span class="stat-icon">💰</span>
+      <div class="stat-label">Pendapatan ${monthLabel(month)}</div>
+      <div class="stat-value" style="font-size:18px;">${fmtRp(paidThisMonth)}</div>
+      <div class="stat-subtitle">${trendBadge(revenueTrend)} vs ${monthLabel(prevMonth)}</div>
+    </div>
+    <div class="stat-card blue" title="Total nominal jika semua bayar penuh">
+      <span class="stat-icon">🎯</span>
+      <div class="stat-label">Potensi Pendapatan</div>
+      <div class="stat-value" style="font-size:18px;">${fmtRp(expectedRevenue)}</div>
+      <div class="stat-subtitle">Per bulan (semua aktif)</div>
+    </div>
+    <div class="stat-card purple clickable" onclick="showTabByName('gratis')" title="Lihat pelanggan gratis">
+      <span class="stat-icon">🎁</span>
+      <div class="stat-label">Pelanggan Gratis</div>
+      <div class="stat-value">${free.length}</div>
+      <div class="stat-subtitle">Orang dalam</div>
+    </div>
   `;
 
   renderDashboardCharts();
+  renderDashboardReminders();
+  renderDashboardActivity();
+  renderDashboardTrend();
+  renderDashboardTopPerformer();
+}
+
+// Helper: switch tab by tab name (used by clickable stat cards)
+function showTabByName(name) {
+  const tabs = document.querySelectorAll('.tab');
+  for (const t of tabs) {
+    if (t.getAttribute('onclick') && t.getAttribute('onclick').includes(`'${name}'`)) {
+      showTab(name, t);
+      window.scrollTo({top: 0, behavior: 'smooth'});
+      return;
+    }
+  }
+}
+
+// ===== DASHBOARD REMINDERS & ALERTS =====
+function renderDashboardReminders() {
+  const container = document.getElementById('dashboard-reminders');
+  if (!container) return;
+
+  const reminders = [];
+
+  // 1. Isolated customers with no arrears (should reactivate)
+  const isolatedNoArrears = state.customers.filter(c => {
+    if (c.isFree || c.status !== 'diisolir') return false;
+    const bal = calculateBalance(c.id, curMonth());
+    return bal.balance <= 0;
+  });
+  if (isolatedNoArrears.length > 0) {
+    reminders.push({
+      type: 'warning',
+      icon: '🔓',
+      title: `${isolatedNoArrears.length} pelanggan diisolir siap diaktifkan`,
+      desc: 'Sudah tidak ada tunggakan. Pertimbangkan aktifkan kembali.',
+      action: `<button class="btn btn-sm" style="background:#16a34a;color:white;" onclick="openIsolationManager();switchIsolationTab('reminder');">Lihat & Aktifkan</button>`
+    });
+  }
+
+  // 2. Backup Drive status
+  const lastSync = gdriveLastSync || 0;
+  const daysSinceSync = lastSync ? Math.floor((Date.now() - lastSync) / (1000 * 60 * 60 * 24)) : -1;
+  if (!gdriveAccessToken) {
+    reminders.push({
+      type: 'info',
+      icon: '☁️',
+      title: 'Belum terhubung ke Google Drive',
+      desc: 'Aktifkan backup otomatis ke Drive untuk keamanan data.',
+      action: `<button class="btn btn-sm" onclick="handleGDriveClick()">Connect Drive</button>`
+    });
+  } else if (daysSinceSync > 3) {
+    reminders.push({
+      type: 'warning',
+      icon: '⚠️',
+      title: `Backup Drive terakhir ${daysSinceSync} hari yang lalu`,
+      desc: 'Sync data ke Drive supaya cadangan tetap up-to-date.',
+      action: `<button class="btn btn-sm" onclick="syncToGDrive(true)">Sync Sekarang</button>`
+    });
+  }
+
+  // 3. Pelanggan dengan tunggakan besar (> 2x paket)
+  let bigArrearsCount = 0;
+  state.customers.forEach(c => {
+    if (c.isFree || c.status !== 'aktif') return;
+    const bal = calculateBalance(c.id, curMonth());
+    const price = getPackagePrice(c.packageId);
+    if (bal.balance > price * 2) bigArrearsCount++;
+  });
+  if (bigArrearsCount > 0) {
+    reminders.push({
+      type: 'warning',
+      icon: '💰',
+      title: `${bigArrearsCount} pelanggan dengan tunggakan > 2 bulan`,
+      desc: 'Pertimbangkan follow up atau isolir.',
+      action: `<button class="btn btn-sm" onclick="showTabByName('tunggakan')">Lihat Tunggakan</button>`
+    });
+  }
+
+  // Render
+  if (reminders.length === 0) {
+    container.innerHTML = `
+      <div class="dashboard-reminder success">
+        <div class="reminder-icon">✨</div>
+        <div class="reminder-content">
+          <div class="reminder-title">Semua aman!</div>
+          <div>Tidak ada peringatan yang perlu ditindaklanjuti saat ini.</div>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = reminders.map(r => `
+    <div class="dashboard-reminder ${r.type === 'info' ? 'info' : ''}">
+      <div class="reminder-icon">${r.icon}</div>
+      <div class="reminder-content">
+        <div class="reminder-title">${escapeHtml(r.title)}</div>
+        <div>${escapeHtml(r.desc)}</div>
+        ${r.action ? `<div class="reminder-actions">${r.action}</div>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+// ===== DASHBOARD ACTIVITY FEED =====
+function renderDashboardActivity() {
+  const container = document.getElementById('dashboard-activity-content');
+  if (!container) return;
+
+  // Collect activities (payments & isolations) from state
+  const activities = [];
+
+  // Payments in last 14 days (sorted by paidAt desc, take 20)
+  const now = new Date();
+  const cutoff = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+  state.payments.forEach(p => {
+    if (!p.paidAt) return;
+    const paidDate = new Date(p.paidAt);
+    if (paidDate < cutoff) return;
+    const c = state.customers.find(x => x.id === p.customerId);
+    if (!c) return;
+    activities.push({
+      type: 'payment',
+      icon: '💰',
+      time: paidDate.getTime(),
+      title: `<strong>${escapeHtml(c.name)}</strong> bayar <span class="activity-amount">${fmtRp(p.amount)}</span> untuk ${monthLabel(p.period)}`,
+      timeStr: paidDate
+    });
+  });
+
+  // Isolation history (last 14 days)
+  state.customers.forEach(c => {
+    if (!c.isolationHistory) return;
+    c.isolationHistory.forEach(h => {
+      if (!h.addedAt) return;
+      const addedDate = new Date(h.addedAt);
+      if (addedDate < cutoff) return;
+      activities.push({
+        type: 'isolation',
+        icon: '🔒',
+        time: h.addedAt,
+        title: `<strong>${escapeHtml(c.name)}</strong> diisolir${h.reason ? ` <em style="color:#78716c;">(${escapeHtml(h.reason)})</em>` : ''}`,
+        timeStr: addedDate
+      });
+    });
+  });
+
+  // Sort by time desc
+  activities.sort((a, b) => b.time - a.time);
+
+  if (activities.length === 0) {
+    container.innerHTML = `<div style="text-align:center;color:#78716c;padding:20px;font-size:13px;">Belum ada aktivitas dalam 14 hari terakhir</div>`;
+    return;
+  }
+
+  // Take top 20
+  const top = activities.slice(0, 20);
+
+  function timeAgo(date) {
+    const diff = Math.floor((Date.now() - date.getTime()) / 1000);
+    if (diff < 60) return 'baru saja';
+    if (diff < 3600) return `${Math.floor(diff / 60)} menit lalu`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} jam lalu`;
+    if (diff < 604800) return `${Math.floor(diff / 86400)} hari lalu`;
+    return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+  }
+
+  container.innerHTML = top.map(a => `
+    <div class="activity-item">
+      <div class="activity-icon ${a.type}">${a.icon}</div>
+      <div class="activity-content">
+        <div class="activity-title">${a.title}</div>
+        <div class="activity-time">${timeAgo(a.timeStr)}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ===== DASHBOARD REVENUE TREND (6 months) =====
+function renderDashboardTrend() {
+  const container = document.getElementById('dashboard-trend-content');
+  if (!container) return;
+
+  const now = new Date();
+  const months = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const total = state.payments.filter(p => p.period === ym).reduce((s, p) => s + p.amount, 0);
+    months.push({ ym, total, label: monthLabel(ym).split(' ')[0] });
+  }
+
+  const maxTotal = Math.max(1, ...months.map(m => m.total));
+  const totalAll = months.reduce((s, m) => s + m.total, 0);
+  const avgMonth = Math.round(totalAll / 6);
+
+  // Build SVG line chart
+  const width = 500, height = 200;
+  const paddingX = 40, paddingY = 30;
+  const chartW = width - paddingX * 2;
+  const chartH = height - paddingY * 2;
+
+  const points = months.map((m, i) => {
+    const x = paddingX + (chartW / (months.length - 1)) * i;
+    const y = height - paddingY - (m.total / maxTotal) * chartH;
+    return { x, y, ...m };
+  });
+
+  const path = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+  const areaPath = path + ` L ${points[points.length - 1].x} ${height - paddingY} L ${points[0].x} ${height - paddingY} Z`;
+
+  // Y-axis labels (2 gridlines: 50%, 100%)
+  const gridLines = [0, 0.5, 1].map(pct => {
+    const y = height - paddingY - pct * chartH;
+    const val = Math.round(pct * maxTotal);
+    return `
+      <line x1="${paddingX}" y1="${y}" x2="${width - paddingX / 2}" y2="${y}" stroke="#f1f5f9" stroke-width="1" stroke-dasharray="2,3"/>
+      <text x="${paddingX - 6}" y="${y + 3}" text-anchor="end" font-size="9" fill="#a8a29e">${val >= 1000000 ? (val/1000000).toFixed(1)+'jt' : val >= 1000 ? Math.round(val/1000)+'rb' : val}</text>
+    `;
+  }).join('');
+
+  const xLabels = points.map(p => `
+    <text x="${p.x}" y="${height - 8}" text-anchor="middle" font-size="10" fill="#78716c">${p.label}</text>
+  `).join('');
+
+  const dots = points.map(p => `
+    <circle cx="${p.x}" cy="${p.y}" r="4" fill="#16a34a" stroke="white" stroke-width="2"/>
+    <title>${p.label}: ${fmtRp(p.total)}</title>
+  `).join('');
+
+  // Last month value on top
+  const lastPoint = points[points.length - 1];
+  const lastLabel = `<text x="${lastPoint.x}" y="${lastPoint.y - 10}" text-anchor="middle" font-size="11" font-weight="600" fill="#16a34a">${lastPoint.total >= 1000000 ? (lastPoint.total/1000000).toFixed(1)+'jt' : lastPoint.total >= 1000 ? Math.round(lastPoint.total/1000)+'rb' : lastPoint.total}</text>`;
+
+  container.innerHTML = `
+    <div class="trend-chart-container">
+      <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <linearGradient id="areaGrad" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stop-color="#16a34a" stop-opacity="0.3"/>
+            <stop offset="100%" stop-color="#16a34a" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        ${gridLines}
+        <path d="${areaPath}" fill="url(#areaGrad)"/>
+        <path d="${path}" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        ${dots}
+        ${lastLabel}
+        ${xLabels}
+      </svg>
+      <div style="display:flex;justify-content:space-around;flex-wrap:wrap;gap:10px;margin-top:10px;padding-top:10px;border-top:1px solid #f1f5f9;font-size:12px;">
+        <div><strong style="color:#16a34a;">${fmtRp(totalAll)}</strong><br><small style="color:#78716c;">Total 6 bulan</small></div>
+        <div><strong style="color:#16a34a;">${fmtRp(avgMonth)}</strong><br><small style="color:#78716c;">Rata-rata/bulan</small></div>
+        <div><strong style="color:#16a34a;">${fmtRp(lastPoint.total)}</strong><br><small style="color:#78716c;">${lastPoint.label} (terbaru)</small></div>
+      </div>
+    </div>
+  `;
+}
+
+// ===== DASHBOARD TOP PERFORMER =====
+function renderDashboardTopPerformer() {
+  const container = document.getElementById('dashboard-top-content');
+  if (!container) return;
+
+  const month = document.getElementById('dashboard-month').value || curMonth();
+
+  // Top daerah by revenue this month
+  const perLocation = {};
+  state.locations.forEach(l => {
+    perLocation[l.code] = { name: l.name, paid: 0, lunasCount: 0, totalCount: 0 };
+  });
+  state.customers.forEach(c => {
+    if (c.isFree || c.status !== 'aktif') return;
+    const data = perLocation[c.locationCode];
+    if (!data) return;
+    const bal = calculateBalance(c.id, month);
+    const me = bal.months.find(m => m.period === month);
+    if (!me) return;
+    data.paid += me.paid;
+    data.totalCount++;
+    if (me.status === 'lunas') data.lunasCount++;
+  });
+
+  const locArr = Object.values(perLocation).filter(d => d.totalCount > 0);
+  locArr.sort((a, b) => b.paid - a.paid);
+
+  // Top tukang by setoran (paid from customers they handle)
+  const perCollector = {};
+  state.collectors.forEach(t => {
+    perCollector[t.id] = { name: t.name, paid: 0, locCount: (t.locationCodes || []).length };
+  });
+  state.customers.forEach(c => {
+    if (c.isFree) return;
+    const collector = state.collectors.find(t => (t.locationCodes || []).includes(c.locationCode));
+    if (!collector) return;
+    const data = perCollector[collector.id];
+    if (!data) return;
+    const bal = calculateBalance(c.id, month);
+    const me = bal.months.find(m => m.period === month);
+    if (!me) return;
+    data.paid += me.paid;
+  });
+
+  const collectorArr = Object.values(perCollector).filter(d => d.paid > 0);
+  collectorArr.sort((a, b) => b.paid - a.paid);
+
+  const topDaerah = locArr[0];
+  const topTukang = collectorArr[0];
+
+  let html = '';
+  if (topDaerah) {
+    html += `
+      <div style="padding:12px;background:linear-gradient(135deg,#f0fdf4 0%,#ffffff 100%);border-radius:8px;border:1px solid #bbf7d0;margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:start;">
+          <div>
+            <div style="font-size:10px;color:#78716c;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">🏆 Top Daerah</div>
+            <div style="font-size:16px;font-weight:700;color:#16a34a;margin-top:2px;">${escapeHtml(topDaerah.name)}</div>
+            <div style="font-size:11px;color:#78716c;margin-top:2px;">${topDaerah.lunasCount}/${topDaerah.totalCount} lunas</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:15px;font-weight:700;color:#16a34a;">${fmtRp(topDaerah.paid)}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  if (topTukang) {
+    html += `
+      <div style="padding:12px;background:linear-gradient(135deg,#eff6ff 0%,#ffffff 100%);border-radius:8px;border:1px solid #bfdbfe;">
+        <div style="display:flex;justify-content:space-between;align-items:start;">
+          <div>
+            <div style="font-size:10px;color:#78716c;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">🏆 Top Tukang</div>
+            <div style="font-size:16px;font-weight:700;color:#1e40af;margin-top:2px;">${escapeHtml(topTukang.name)}</div>
+            <div style="font-size:11px;color:#78716c;margin-top:2px;">Pegang ${topTukang.locCount} daerah</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:15px;font-weight:700;color:#1e40af;">${fmtRp(topTukang.paid)}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  if (!topDaerah && !topTukang) {
+    html = `<div style="text-align:center;color:#78716c;padding:20px;font-size:13px;">Belum ada data untuk bulan ini</div>`;
+  }
+  container.innerHTML = html;
 }
 
 function renderDashboardCharts() {
@@ -2785,13 +3487,13 @@ function renderDashboardCharts() {
   });
   const totalActive = lunasCount + sebagianCount + belumCount;
 
-  // SVG donut
+  // SVG donut - with clickable segments
   function donutSVG() {
     if (totalActive === 0) return '<div style="text-align:center;color:#78716c;padding:40px;">Tidak ada data</div>';
     const segments = [
-      { value: lunasCount, color: '#16a34a', label: 'Lunas' },
-      { value: sebagianCount, color: '#d97706', label: 'Sebagian' },
-      { value: belumCount, color: '#dc2626', label: 'Belum' }
+      { value: lunasCount, color: '#16a34a', label: 'Lunas', action: "showTabByName('pembayaran')" },
+      { value: sebagianCount, color: '#d97706', label: 'Sebagian', action: "showTabByName('input-cepat')" },
+      { value: belumCount, color: '#dc2626', label: 'Belum Bayar', action: "showTabByName('input-cepat')" }
     ].filter(s => s.value > 0);
 
     const cx = 100, cy = 100, r = 70, strokeWidth = 28;
@@ -2801,14 +3503,15 @@ function renderDashboardCharts() {
       const angle = (s.value / totalActive) * Math.PI * 2;
       if (s.value === totalActive) {
         // Single full circle
-        arcs += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${s.color}" stroke-width="${strokeWidth}"/>`;
+        arcs += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${s.color}" stroke-width="${strokeWidth}" style="cursor:pointer;" onclick="${s.action}"><title>${s.label}: ${s.value} (100%)</title></circle>`;
       } else {
         const x1 = cx + r * Math.cos(cumulativeAngle);
         const y1 = cy + r * Math.sin(cumulativeAngle);
         const x2 = cx + r * Math.cos(cumulativeAngle + angle);
         const y2 = cy + r * Math.sin(cumulativeAngle + angle);
         const largeArc = angle > Math.PI ? 1 : 0;
-        arcs += `<path d="M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}" fill="none" stroke="${s.color}" stroke-width="${strokeWidth}" stroke-linecap="butt"/>`;
+        const pct = Math.round((s.value / totalActive) * 100);
+        arcs += `<path d="M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}" fill="none" stroke="${s.color}" stroke-width="${strokeWidth}" stroke-linecap="butt" style="cursor:pointer;transition:stroke-width 0.2s;" onmouseover="this.setAttribute('stroke-width', '32')" onmouseout="this.setAttribute('stroke-width', '${strokeWidth}')" onclick="${s.action}"><title>${s.label}: ${s.value} (${pct}%)</title></path>`;
       }
       cumulativeAngle += angle;
     });
@@ -2824,10 +3527,10 @@ function renderDashboardCharts() {
 
   const donutLegend = `
     <div style="display:flex;flex-direction:column;gap:6px;font-size:13px;">
-      <div style="display:flex;align-items:center;gap:6px;"><span style="display:inline-block;width:14px;height:14px;background:#16a34a;border-radius:3px;"></span> Lunas: <strong>${lunasCount}</strong> ${totalActive ? '(' + Math.round(lunasCount/totalActive*100) + '%)' : ''}</div>
-      <div style="display:flex;align-items:center;gap:6px;"><span style="display:inline-block;width:14px;height:14px;background:#d97706;border-radius:3px;"></span> Sebagian: <strong>${sebagianCount}</strong> ${totalActive ? '(' + Math.round(sebagianCount/totalActive*100) + '%)' : ''}</div>
-      <div style="display:flex;align-items:center;gap:6px;"><span style="display:inline-block;width:14px;height:14px;background:#dc2626;border-radius:3px;"></span> Belum: <strong>${belumCount}</strong> ${totalActive ? '(' + Math.round(belumCount/totalActive*100) + '%)' : ''}</div>
-      <div style="border-top:1px solid #e7e5e4;margin-top:4px;padding-top:4px;"><strong>Total:</strong> ${totalActive} pelanggan aktif</div>
+      <div style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:4px 6px;border-radius:6px;transition:background 0.1s;" onclick="showTabByName('pembayaran')" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background=''"><span style="display:inline-block;width:14px;height:14px;background:#16a34a;border-radius:3px;"></span> Lunas: <strong>${lunasCount}</strong> ${totalActive ? '(' + Math.round(lunasCount/totalActive*100) + '%)' : ''}</div>
+      <div style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:4px 6px;border-radius:6px;transition:background 0.1s;" onclick="showTabByName('input-cepat')" onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background=''"><span style="display:inline-block;width:14px;height:14px;background:#d97706;border-radius:3px;"></span> Sebagian: <strong>${sebagianCount}</strong> ${totalActive ? '(' + Math.round(sebagianCount/totalActive*100) + '%)' : ''}</div>
+      <div style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:4px 6px;border-radius:6px;transition:background 0.1s;" onclick="showTabByName('input-cepat')" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background=''"><span style="display:inline-block;width:14px;height:14px;background:#dc2626;border-radius:3px;"></span> Belum: <strong>${belumCount}</strong> ${totalActive ? '(' + Math.round(belumCount/totalActive*100) + '%)' : ''}</div>
+      <div style="border-top:1px solid #e7e5e4;margin-top:4px;padding-top:6px;font-size:11px;color:#78716c;"><strong>${totalActive}</strong> pelanggan aktif · <em>klik untuk detail</em></div>
     </div>
   `;
 
@@ -2850,26 +3553,48 @@ function renderDashboardCharts() {
   });
 
   const locArr = Object.values(perLocation).filter(d => d.totalCount > 0);
-  const maxExpected = Math.max(1, ...locArr.map(d => d.expected));
+  // Sort descending by paid (top performer first)
+  locArr.sort((a, b) => b.paid - a.paid);
 
   let barRows = '';
   if (locArr.length === 0) {
     barRows = '<div style="text-align:center;color:#78716c;padding:20px;">Belum ada pelanggan aktif</div>';
   } else {
-    locArr.forEach(d => {
+    locArr.forEach((d, idx) => {
       const paidPct = d.expected > 0 ? Math.min(100, (d.paid / d.expected) * 100) : 0;
-      const widthPct = (d.expected / maxExpected) * 100;
-      const lunasPctOfPaid = d.lunasCount;
+      const lunasCount = d.lunasCount;
+      // Rank badge (top 3 with medal, rest with number)
+      let rankBadge;
+      if (idx === 0) rankBadge = '🥇';
+      else if (idx === 1) rankBadge = '🥈';
+      else if (idx === 2) rankBadge = '🥉';
+      else rankBadge = `<span style="display:inline-block;width:18px;text-align:center;font-size:11px;color:#a8a29e;">${idx+1}</span>`;
+
+      // Progress color based on completion
+      let progressColor;
+      if (paidPct >= 90) progressColor = 'linear-gradient(90deg,#16a34a,#22c55e)';
+      else if (paidPct >= 60) progressColor = 'linear-gradient(90deg,#0891b2,#06b6d4)';
+      else if (paidPct >= 30) progressColor = 'linear-gradient(90deg,#d97706,#f59e0b)';
+      else progressColor = 'linear-gradient(90deg,#dc2626,#ef4444)';
+
       barRows += `
-        <div style="margin-bottom:12px;">
-          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
-            <strong>${escapeHtml(d.name)}</strong>
-            <span style="color:#78716c;">${lunasPctOfPaid}/${d.totalCount} lunas · ${fmtRp(d.paid)} dari ${fmtRp(d.expected)}</span>
+        <div style="margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:4px;gap:8px;">
+            <div style="display:flex;align-items:center;gap:6px;min-width:0;">
+              <span style="font-size:14px;">${rankBadge}</span>
+              <strong style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(d.name)}</strong>
+              <span style="color:#78716c;font-size:11px;flex-shrink:0;">(${lunasCount}/${d.totalCount})</span>
+            </div>
+            <div style="text-align:right;flex-shrink:0;font-size:11px;">
+              <strong style="color:#16a34a;">${fmtRp(d.paid)}</strong>
+              <span style="color:#78716c;"> / ${fmtRp(d.expected)}</span>
+            </div>
           </div>
-          <div style="height:24px;background:#f5f5f4;border-radius:4px;overflow:hidden;position:relative;width:${widthPct}%;min-width:100px;">
-            <div style="height:100%;width:${paidPct}%;background:linear-gradient(90deg,#16a34a,#22c55e);border-radius:4px;display:flex;align-items:center;padding:0 8px;color:white;font-size:11px;font-weight:600;">
+          <div style="height:22px;background:#f5f5f4;border-radius:4px;overflow:hidden;position:relative;">
+            <div style="height:100%;width:${paidPct}%;background:${progressColor};border-radius:4px;display:flex;align-items:center;padding:0 8px;color:white;font-size:11px;font-weight:600;transition:width 0.4s;">
               ${paidPct > 15 ? Math.round(paidPct) + '%' : ''}
             </div>
+            ${paidPct <= 15 && paidPct > 0 ? `<span style="position:absolute;left:${paidPct + 2}%;top:50%;transform:translateY(-50%);font-size:10px;color:#78716c;font-weight:600;">${Math.round(paidPct)}%</span>` : ''}
           </div>
         </div>
       `;
@@ -2887,27 +3612,59 @@ function renderDashboardCharts() {
     }
   });
 
+  // Update the main panel title dynamically to include month
+  const titleEl = document.getElementById('dashboard-charts-title');
+  if (titleEl) titleEl.textContent = `📊 Status Pembayaran ${monthLabel(month)}`;
+
+  // Breakdown tunggakan per daerah (top 3)
+  const arrearsByLoc = {};
+  state.customers.filter(c => !c.isFree && c.status !== 'nonaktif').forEach(c => {
+    const bal = calculateBalance(c.id);
+    if (bal.balance > 0) {
+      if (!arrearsByLoc[c.locationCode]) {
+        const loc = state.locations.find(l => l.code === c.locationCode);
+        arrearsByLoc[c.locationCode] = { name: loc ? loc.name : c.locationCode, total: 0, count: 0 };
+      }
+      arrearsByLoc[c.locationCode].total += bal.balance;
+      arrearsByLoc[c.locationCode].count++;
+    }
+  });
+  const topArrears = Object.values(arrearsByLoc).sort((a, b) => b.total - a.total).slice(0, 3);
+
   container.innerHTML = `
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;">
       <div>
-        <h3 style="margin:0 0 10px;font-size:14px;color:#44403c;">Status ${monthLabel(month)}</h3>
+        <h3 style="margin:0 0 10px;font-size:13px;color:#78716c;text-transform:uppercase;letter-spacing:0.5px;">Status Pembayaran Bulan Ini</h3>
         <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;">
           ${donutSVG()}
           ${donutLegend}
         </div>
       </div>
       <div>
-        <h3 style="margin:0 0 10px;font-size:14px;color:#44403c;">Pendapatan per Daerah</h3>
+        <h3 style="margin:0 0 10px;font-size:13px;color:#78716c;text-transform:uppercase;letter-spacing:0.5px;">Pendapatan per Daerah</h3>
         ${barRows}
       </div>
     </div>
-    <div style="margin-top:18px;padding:12px;background:${totalArrears > 0 ? '#fef2f2' : '#f0fdf4'};border:1px solid ${totalArrears > 0 ? '#fecaca' : '#bbf7d0'};border-radius:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
-      <div>
-        <div style="font-size:12px;color:#78716c;">Total Tunggakan Akumulasi</div>
-        <div style="font-size:22px;font-weight:700;color:${totalArrears > 0 ? '#dc2626' : '#16a34a'};">${fmtRp(totalArrears)}</div>
-        ${totalArrears > 0 ? `<div style="font-size:11px;color:#78716c;">${arrearsCount} pelanggan punya tunggakan</div>` : '<div style="font-size:11px;color:#16a34a;">🎉 Semua pelanggan tidak ada tunggakan</div>'}
+    <div style="margin-top:18px;padding:14px;background:${totalArrears > 0 ? '#fef2f2' : '#f0fdf4'};border:1px solid ${totalArrears > 0 ? '#fecaca' : '#bbf7d0'};border-radius:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
+        <div>
+          <div style="font-size:12px;color:#78716c;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Total Tunggakan Akumulasi</div>
+          <div style="font-size:24px;font-weight:700;color:${totalArrears > 0 ? '#dc2626' : '#16a34a'};margin-top:2px;">${fmtRp(totalArrears)}</div>
+          ${totalArrears > 0 ? `<div style="font-size:11px;color:#78716c;">${arrearsCount} pelanggan punya tunggakan</div>` : '<div style="font-size:11px;color:#16a34a;">🎉 Semua pelanggan tidak ada tunggakan</div>'}
+        </div>
+        ${totalArrears > 0 ? `<button class="btn btn-sm btn-warning" onclick="showTabByName('tunggakan')">Lihat Detail →</button>` : ''}
       </div>
-      ${totalArrears > 0 ? `<button class="btn btn-sm btn-warning" onclick="(function(){const tabs=document.querySelectorAll('.tab');tabs.forEach(t=>{if(t.textContent.includes('Tunggakan'))showTab('tunggakan',t);});})()">Lihat Detail Tunggakan →</button>` : ''}
+      ${topArrears.length > 0 ? `
+        <div style="margin-top:12px;padding-top:12px;border-top:1px dashed #fecaca;">
+          <div style="font-size:11px;color:#78716c;margin-bottom:6px;font-weight:600;">Daerah dengan tunggakan terbesar:</div>
+          ${topArrears.map((a, i) => `
+            <div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;">
+              <span>${i+1}. <strong>${escapeHtml(a.name)}</strong> <span style="color:#78716c;">(${a.count} pelanggan)</span></span>
+              <span style="color:#dc2626;font-weight:600;">${fmtRp(a.total)}</span>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
     </div>
   `;
 }
