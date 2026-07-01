@@ -785,6 +785,7 @@ tbody tr:last-child td { border-bottom: none; }
       <div class="panel-header">
         <h2>Daftar Pelanggan Berbayar</h2>
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="btn" onclick="openIsolationManager()" title="Kelola pelanggan diisolir">🔒 Manajer Isolir</button>
           <button class="btn btn-warning" onclick="openMikrotikImportModal()">📥 Import dari MikroTik</button>
           <button class="btn btn-success" onclick="openBulkImportModal()">📋 Import Excel</button>
           <button class="btn btn-primary" onclick="openCustomerModal()">+ Tambah</button>
@@ -1279,6 +1280,60 @@ tbody tr:last-child td { border-bottom: none; }
 </div>
 
 <!-- Modal Pelanggan -->
+<!-- Modal Isolation Manager -->
+<div class="modal-bg" id="modal-isolation-manager">
+  <div class="modal large" style="max-width:900px;">
+    <h3>🔒 Manajer Isolasi Pelanggan</h3>
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;border-bottom:1px solid #e7e5e4;padding-bottom:10px;">
+      <button class="btn btn-sm" onclick="switchIsolationTab('active')" id="iso-tab-active">🔴 Sedang Diisolir</button>
+      <button class="btn btn-sm" onclick="switchIsolationTab('reminder')" id="iso-tab-reminder">⚠️ Lunas tapi Belum Diaktifkan</button>
+      <button class="btn btn-sm" onclick="switchIsolationTab('history')" id="iso-tab-history">📋 Riwayat</button>
+    </div>
+    <div id="isolation-manager-content" style="max-height:500px;overflow-y:auto;"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-isolation-manager')">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Quick Isolate -->
+<div class="modal-bg" id="modal-quick-isolate">
+  <div class="modal" style="max-width:480px;">
+    <h3>🔒 Isolir Pelanggan</h3>
+    <input type="hidden" id="quick-isolate-customer-id">
+    <div style="font-size:14px;font-weight:600;color:#44403c;margin-bottom:10px;">
+      Pelanggan: <span id="quick-isolate-customer-name" style="color:#1e40af;"></span>
+    </div>
+    <div id="quick-isolate-info" style="display:none;font-size:13px;padding:8px 12px;background:#fef3c7;border:1px solid #fde68a;border-radius:6px;color:#92400e;margin-bottom:12px;"></div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Tgl Mulai Isolir</label>
+        <input type="date" id="quick-isolate-from">
+      </div>
+      <div class="form-group">
+        <label>Tgl Aktif Kembali <small style="color:#78716c;font-weight:normal;">(opsional)</small></label>
+        <input type="date" id="quick-isolate-until">
+      </div>
+    </div>
+    <div class="form-group" style="margin-top:10px;">
+      <label>Alasan Isolir <small style="color:#78716c;font-weight:normal;">(opsional)</small></label>
+      <select id="quick-isolate-reason-preset" onchange="onQuickIsolateReasonPreset()" style="margin-bottom:6px;">
+        <option value="">— Pilih alasan cepat —</option>
+        <option value="Tunggakan pembayaran">💰 Tunggakan pembayaran</option>
+        <option value="Permintaan pelanggan (cuti)">📅 Permintaan pelanggan (cuti)</option>
+        <option value="Kendala teknis / perbaikan">🔧 Kendala teknis / perbaikan</option>
+        <option value="Pindah domisili">📍 Pindah domisili</option>
+        <option value="Lain-lain">📝 Lain-lain</option>
+      </select>
+      <input type="text" id="quick-isolate-reason" placeholder="Atau ketik alasan sendiri...">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-quick-isolate')">Batal</button>
+      <button class="btn btn-warning" onclick="saveQuickIsolate()">🔒 Isolir Sekarang</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg" id="modal-customer">
   <div class="modal">
     <h3 id="modal-customer-title">Tambah Pelanggan</h3>
@@ -1334,19 +1389,33 @@ tbody tr:last-child td { border-bottom: none; }
       </select>
     </div>
     <div id="isolation-fields" style="display:none;">
-      <div class="alert alert-warning">⚠️ Saat diisolir, tagihan TIDAK bertambah. <strong>Tgl Aktif Kembali</strong>: kalau diisi & tanggal sudah lewat, status otomatis berubah ke Aktif (auto-detect saat aplikasi dibuka).</div>
+      <div class="alert alert-warning" style="font-size:12px;">⚠️ Saat diisolir, tagihan TIDAK bertambah untuk pemakaian saat diisolir. <strong>Tgl Aktif Kembali</strong> kalau diisi: kalau tanggalnya sudah lewat, status otomatis berubah ke Aktif.</div>
+      <div id="isolation-duration-info" style="display:none;font-size:12px;padding:8px 12px;background:#fef3c7;border:1px solid #fde68a;border-radius:6px;color:#92400e;margin-bottom:10px;font-weight:600;"></div>
       <div class="form-grid">
         <div class="form-group">
           <label>Tgl Mulai Isolir</label>
-          <input type="date" id="customer-isolated-from">
+          <input type="date" id="customer-isolated-from" onchange="updateIsolationDurationInfo()">
           <small style="color:#78716c;">Kapan pelanggan mulai diisolir</small>
         </div>
         <div class="form-group">
-          <label>Tgl Aktif Kembali</label>
-          <input type="date" id="customer-isolated-until">
-          <small style="color:#78716c;">Kapan pelanggan aktif kembali. Kosongkan kalau belum tahu.</small>
+          <label>Tgl Aktif Kembali <small style="color:#78716c;font-weight:normal;">(opsional)</small></label>
+          <input type="date" id="customer-isolated-until" onchange="updateIsolationDurationInfo()">
+          <small style="color:#78716c;">Kosongkan kalau belum tahu</small>
         </div>
       </div>
+      <div class="form-group" style="margin-top:10px;">
+        <label>Alasan Isolir <small style="color:#78716c;font-weight:normal;">(opsional)</small></label>
+        <select id="customer-isolation-reason-preset" onchange="onIsolationReasonPreset()" style="margin-bottom:6px;">
+          <option value="">— Pilih alasan cepat —</option>
+          <option value="Tunggakan pembayaran">💰 Tunggakan pembayaran</option>
+          <option value="Permintaan pelanggan (cuti)">📅 Permintaan pelanggan (cuti)</option>
+          <option value="Kendala teknis / perbaikan">🔧 Kendala teknis / perbaikan</option>
+          <option value="Pindah domisili">📍 Pindah domisili</option>
+          <option value="Lain-lain">📝 Lain-lain</option>
+        </select>
+        <input type="text" id="customer-isolation-reason" placeholder="Atau ketik alasan sendiri...">
+      </div>
+      <div id="isolation-history-info" style="display:none;margin-top:8px;font-size:11px;color:#78716c;font-style:italic;"></div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('modal-customer')">Batal</button>
@@ -2336,6 +2405,18 @@ function migrate(s) {
   // Add openingBalance to legacy customers
   s.customers.forEach(c => {
     if (c.openingBalance === undefined) c.openingBalance = 0;
+    // ISOLATION IMPROVEMENTS
+    if (c.isolationReason === undefined) c.isolationReason = '';
+    if (!c.isolationHistory) c.isolationHistory = [];
+    // Migrate existing isolatedFrom/Until to history if not already there
+    if (c.isolatedFrom && c.isolationHistory.length === 0) {
+      c.isolationHistory.push({
+        from: c.isolatedFrom,
+        until: c.isolatedUntil || '',
+        reason: c.isolationReason || '',
+        addedAt: Date.now()
+      });
+    }
   });
   return s;
 }
@@ -2766,20 +2847,367 @@ function renderCustomers() {
       <td>${escapeHtml(getLocationName(c.locationCode))}</td>
       <td>${escapeHtml(c.phone || '-')}</td>
       <td>${escapeHtml(getPackageName(c.packageId))}<br><small style="color:#78716c;">${fmtRp(getPackagePrice(c.packageId))}</small></td>
-      <td>${statusBadge(c.status)}</td>
+      <td>${statusBadge(c.status, c)}</td>
       <td style="white-space:nowrap;">
-        <button class="btn btn-sm" onclick="showCustomerDetail('${c.id}')">📋</button>
-        <button class="btn btn-sm" onclick="editCustomer('${c.id}')">✏</button>
-        <button class="btn btn-sm btn-danger" onclick="deleteCustomer('${c.id}')">🗑</button>
+        <button class="btn btn-sm" onclick="showCustomerDetail('${c.id}')" title="Detail">📋</button>
+        <button class="btn btn-sm" onclick="editCustomer('${c.id}')" title="Edit">✏</button>
+        ${c.status === 'aktif' ? `<button class="btn btn-sm" onclick="quickIsolate('${c.id}')" title="Isolir cepat" style="background:#f59e0b;color:white;">🔒</button>` : ''}
+        ${c.status === 'diisolir' ? `<button class="btn btn-sm" onclick="quickReactivate('${c.id}')" title="Aktifkan kembali" style="background:#16a34a;color:white;">🔓</button>` : ''}
+        <button class="btn btn-sm btn-danger" onclick="deleteCustomer('${c.id}')" title="Hapus">🗑</button>
       </td>
     </tr>`).join('');
 }
 
-function statusBadge(status) {
+function statusBadge(status, customer) {
   if (status === 'aktif') return '<span class="badge badge-success">Aktif</span>';
-  if (status === 'diisolir') return '<span class="badge badge-warning">Diisolir</span>';
+  if (status === 'diisolir') {
+    // Show duration
+    let extra = '';
+    if (customer && customer.isolatedFrom) {
+      const fromDate = new Date(customer.isolatedFrom);
+      const today = new Date(todayStr());
+      const days = Math.floor((today - fromDate) / (1000 * 60 * 60 * 24));
+      if (days >= 0) {
+        extra = `<br><small style="color:#92400e;font-size:10px;">${days} hari</small>`;
+      }
+    }
+    return `<span class="badge badge-warning">Diisolir</span>${extra}`;
+  }
   if (status === 'nonaktif') return '<span class="badge badge-gray">Nonaktif</span>';
   return '-';
+}
+
+// ===================== QUICK ISOLATE / REACTIVATE =====================
+function quickIsolate(customerId) {
+  const c = state.customers.find(x => x.id === customerId);
+  if (!c) return;
+  if (c.status === 'diisolir') { alert('Pelanggan sudah diisolir'); return; }
+  // Open quick modal
+  document.getElementById('quick-isolate-customer-id').value = customerId;
+  document.getElementById('quick-isolate-customer-name').textContent = c.name;
+  document.getElementById('quick-isolate-from').value = todayStr();
+  document.getElementById('quick-isolate-until').value = '';
+  document.getElementById('quick-isolate-reason').value = '';
+  document.getElementById('quick-isolate-reason-preset').value = '';
+  // Show tunggakan info
+  const bal = calculateBalance(customerId, curMonth());
+  const tunggakan = bal.balance || 0;
+  const info = document.getElementById('quick-isolate-info');
+  if (tunggakan > 0) {
+    info.innerHTML = `💰 Tunggakan saat ini: <strong>${fmtRp(tunggakan)}</strong>`;
+    info.style.display = 'block';
+  } else {
+    info.style.display = 'none';
+  }
+  document.getElementById('modal-quick-isolate').classList.add('show');
+}
+
+function onQuickIsolateReasonPreset() {
+  const preset = document.getElementById('quick-isolate-reason-preset').value;
+  if (preset && preset !== 'Lain-lain') {
+    document.getElementById('quick-isolate-reason').value = preset;
+  } else if (preset === 'Lain-lain') {
+    document.getElementById('quick-isolate-reason').value = '';
+    document.getElementById('quick-isolate-reason').focus();
+  }
+}
+
+function saveQuickIsolate() {
+  const customerId = document.getElementById('quick-isolate-customer-id').value;
+  const from = document.getElementById('quick-isolate-from').value;
+  const until = document.getElementById('quick-isolate-until').value;
+  const reason = document.getElementById('quick-isolate-reason').value.trim();
+  const c = state.customers.find(x => x.id === customerId);
+  if (!c) return;
+  if (!from) { alert('Tgl Mulai Isolir wajib diisi'); return; }
+  if (until && until < from) {
+    alert('⚠️ Tgl Aktif Kembali tidak boleh lebih awal dari Tgl Mulai Isolir');
+    return;
+  }
+
+  // Update customer
+  c.status = 'diisolir';
+  c.isolatedFrom = from;
+  c.isolatedUntil = until;
+  c.isolationReason = reason;
+  if (!c.isolationHistory) c.isolationHistory = [];
+  c.isolationHistory.push({
+    from, until: until || '', reason, addedAt: Date.now()
+  });
+
+  saveState();
+  closeModal('modal-quick-isolate');
+  renderCustomers();
+  // Refresh Input Cepat if open
+  const fastInputTab = document.getElementById('tab-input-cepat');
+  if (fastInputTab && fastInputTab.style.display !== 'none') renderFastInput();
+
+  // Toast notification
+  showToast(`🔒 ${c.name} berhasil diisolir`, 'success');
+}
+
+// ===================== ISOLATION MANAGER =====================
+let isolationManagerTab = 'active';
+let isolationSelectedIds = new Set();
+
+function openIsolationManager() {
+  isolationSelectedIds.clear();
+  document.getElementById('modal-isolation-manager').classList.add('show');
+  switchIsolationTab('active');
+}
+
+function switchIsolationTab(tab) {
+  isolationManagerTab = tab;
+  isolationSelectedIds.clear();
+  // Update tab styles
+  ['active', 'reminder', 'history'].forEach(t => {
+    const btn = document.getElementById('iso-tab-' + t);
+    if (btn) {
+      if (t === tab) {
+        btn.classList.add('btn-primary');
+        btn.style.background = '#1e40af';
+        btn.style.color = 'white';
+      } else {
+        btn.classList.remove('btn-primary');
+        btn.style.background = '';
+        btn.style.color = '';
+      }
+    }
+  });
+  renderIsolationManager();
+}
+
+function renderIsolationManager() {
+  const contentEl = document.getElementById('isolation-manager-content');
+  const today = todayStr();
+
+  if (isolationManagerTab === 'active') {
+    // Semua pelanggan diisolir
+    const list = state.customers.filter(c => c.status === 'diisolir' && !c.isFree)
+      .sort((a, b) => (a.isolatedFrom || '').localeCompare(b.isolatedFrom || ''));
+    if (!list.length) {
+      contentEl.innerHTML = `<div class="empty-state"><h3>Tidak ada pelanggan diisolir</h3><p>Semua pelanggan berbayar dalam status aktif atau nonaktif.</p></div>`;
+      return;
+    }
+    let html = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+        <div style="font-size:13px;color:#78716c;">Total: <strong>${list.length}</strong> pelanggan diisolir</div>
+        <div id="iso-bulk-actions" style="display:none;gap:6px;">
+          <button class="btn btn-sm" onclick="bulkReactivate()" style="background:#16a34a;color:white;">🔓 Aktifkan Terpilih</button>
+        </div>
+      </div>
+      <table style="width:100%;font-size:13px;">
+        <thead><tr style="background:#fafaf9;">
+          <th style="padding:8px;width:30px;"><input type="checkbox" onchange="toggleIsoSelectAll(this)" title="Pilih semua"></th>
+          <th style="padding:8px;text-align:left;">Nama</th>
+          <th style="padding:8px;text-align:left;">Daerah</th>
+          <th style="padding:8px;text-align:center;">Sejak</th>
+          <th style="padding:8px;text-align:center;">Durasi</th>
+          <th style="padding:8px;text-align:left;">Alasan</th>
+          <th style="padding:8px;">Aksi</th>
+        </tr></thead>
+        <tbody>
+    `;
+    list.forEach(c => {
+      const fromDate = new Date(c.isolatedFrom);
+      const days = c.isolatedFrom ? Math.floor((new Date(today) - fromDate) / (1000 * 60 * 60 * 24)) : 0;
+      const loc = state.locations.find(l => l.code === c.locationCode);
+      html += `<tr style="border-bottom:1px solid #f5f5f4;">
+        <td style="padding:8px;text-align:center;"><input type="checkbox" class="iso-cb" data-id="${c.id}" onchange="toggleIsoSelection('${c.id}', this)"></td>
+        <td style="padding:8px;"><strong>${escapeHtml(c.name)}</strong><br><small style="color:#78716c;">${escapeHtml(c.username || '-')}</small></td>
+        <td style="padding:8px;">${escapeHtml(loc ? loc.name : '-')}</td>
+        <td style="padding:8px;text-align:center;font-size:12px;">${c.isolatedFrom ? formatDate(c.isolatedFrom) : '-'}</td>
+        <td style="padding:8px;text-align:center;font-size:12px;color:#92400e;font-weight:600;">${days} hari</td>
+        <td style="padding:8px;font-size:12px;">${escapeHtml(c.isolationReason || '-')}</td>
+        <td style="padding:8px;white-space:nowrap;">
+          <button class="btn btn-sm" onclick="quickReactivate('${c.id}');closeModal('modal-isolation-manager');openIsolationManager();" style="background:#16a34a;color:white;font-size:11px;padding:4px 8px;">🔓 Aktifkan</button>
+          <button class="btn btn-sm" onclick="editCustomer('${c.id}');closeModal('modal-isolation-manager');" style="font-size:11px;padding:4px 8px;">✏️ Edit</button>
+        </td>
+      </tr>`;
+    });
+    html += `</tbody></table>`;
+    contentEl.innerHTML = html;
+  } else if (isolationManagerTab === 'reminder') {
+    // Pelanggan diisolir yang tunggakan sudah lunas
+    const isolatedList = state.customers.filter(c => c.status === 'diisolir' && !c.isFree);
+    const list = isolatedList.filter(c => {
+      const bal = calculateBalance(c.id, curMonth());
+      return bal.balance <= 0;
+    });
+    if (!list.length) {
+      contentEl.innerHTML = `<div class="empty-state" style="color:#78716c;"><h3>Tidak ada reminder</h3><p>Semua pelanggan diisolir masih punya tunggakan.</p></div>`;
+      return;
+    }
+    let html = `
+      <div class="alert alert-info" style="font-size:12px;margin-bottom:12px;">
+        💡 <strong>${list.length} pelanggan</strong> diisolir yang sudah tidak punya tunggakan. Pertimbangkan untuk aktifkan kembali.
+      </div>
+      <table style="width:100%;font-size:13px;">
+        <thead><tr style="background:#fafaf9;">
+          <th style="padding:8px;text-align:left;">Nama</th>
+          <th style="padding:8px;text-align:left;">Daerah</th>
+          <th style="padding:8px;text-align:center;">Diisolir Sejak</th>
+          <th style="padding:8px;">Aksi</th>
+        </tr></thead>
+        <tbody>
+    `;
+    list.forEach(c => {
+      const loc = state.locations.find(l => l.code === c.locationCode);
+      html += `<tr style="border-bottom:1px solid #f5f5f4;">
+        <td style="padding:8px;"><strong>${escapeHtml(c.name)}</strong></td>
+        <td style="padding:8px;">${escapeHtml(loc ? loc.name : '-')}</td>
+        <td style="padding:8px;text-align:center;font-size:12px;">${c.isolatedFrom ? formatDate(c.isolatedFrom) : '-'}</td>
+        <td style="padding:8px;white-space:nowrap;">
+          <button class="btn btn-sm" onclick="quickReactivate('${c.id}');closeModal('modal-isolation-manager');openIsolationManager();" style="background:#16a34a;color:white;font-size:11px;padding:4px 10px;">🔓 Aktifkan Sekarang</button>
+        </td>
+      </tr>`;
+    });
+    html += `</tbody></table>`;
+    contentEl.innerHTML = html;
+  } else if (isolationManagerTab === 'history') {
+    // Riwayat semua isolasi
+    const allHistory = [];
+    state.customers.forEach(c => {
+      if (c.isolationHistory && c.isolationHistory.length > 0) {
+        c.isolationHistory.forEach(h => {
+          allHistory.push({ customer: c, ...h });
+        });
+      }
+    });
+    allHistory.sort((a, b) => (b.from || '').localeCompare(a.from || ''));
+    if (!allHistory.length) {
+      contentEl.innerHTML = `<div class="empty-state"><h3>Belum ada riwayat</h3><p>Riwayat isolasi akan tercatat setiap kali pelanggan diisolir.</p></div>`;
+      return;
+    }
+    let html = `
+      <div style="font-size:13px;color:#78716c;margin-bottom:10px;">Total: <strong>${allHistory.length}</strong> riwayat isolasi</div>
+      <table style="width:100%;font-size:13px;">
+        <thead><tr style="background:#fafaf9;">
+          <th style="padding:8px;text-align:left;">Nama</th>
+          <th style="padding:8px;text-align:center;">Mulai</th>
+          <th style="padding:8px;text-align:center;">Aktif Kembali</th>
+          <th style="padding:8px;text-align:center;">Durasi</th>
+          <th style="padding:8px;text-align:left;">Alasan</th>
+        </tr></thead>
+        <tbody>
+    `;
+    allHistory.slice(0, 100).forEach(h => {
+      const c = h.customer;
+      let durasi = '-';
+      if (h.from) {
+        if (h.until) {
+          const days = Math.floor((new Date(h.until) - new Date(h.from)) / (1000 * 60 * 60 * 24)) + 1;
+          durasi = days + ' hari';
+        } else if (c.status === 'diisolir') {
+          const days = Math.floor((new Date(today) - new Date(h.from)) / (1000 * 60 * 60 * 24));
+          durasi = days + ' hari (aktif)';
+        }
+      }
+      html += `<tr style="border-bottom:1px solid #f5f5f4;">
+        <td style="padding:8px;"><strong>${escapeHtml(c.name)}</strong></td>
+        <td style="padding:8px;text-align:center;font-size:12px;">${h.from ? formatDate(h.from) : '-'}</td>
+        <td style="padding:8px;text-align:center;font-size:12px;">${h.until ? formatDate(h.until) : (c.status === 'diisolir' ? '<em>belum</em>' : '-')}</td>
+        <td style="padding:8px;text-align:center;font-size:12px;">${durasi}</td>
+        <td style="padding:8px;font-size:12px;">${escapeHtml(h.reason || '-')}</td>
+      </tr>`;
+    });
+    html += `</tbody></table>`;
+    if (allHistory.length > 100) {
+      html += `<div style="text-align:center;font-size:11px;color:#78716c;margin-top:8px;">Menampilkan 100 riwayat terbaru dari ${allHistory.length}</div>`;
+    }
+    contentEl.innerHTML = html;
+  }
+}
+
+function toggleIsoSelectAll(cb) {
+  const checkboxes = document.querySelectorAll('.iso-cb');
+  checkboxes.forEach(x => {
+    x.checked = cb.checked;
+    if (cb.checked) isolationSelectedIds.add(x.dataset.id);
+    else isolationSelectedIds.delete(x.dataset.id);
+  });
+  updateIsoBulkActions();
+}
+
+function toggleIsoSelection(id, cb) {
+  if (cb.checked) isolationSelectedIds.add(id);
+  else isolationSelectedIds.delete(id);
+  updateIsoBulkActions();
+}
+
+function updateIsoBulkActions() {
+  const actionsEl = document.getElementById('iso-bulk-actions');
+  if (actionsEl) {
+    actionsEl.style.display = isolationSelectedIds.size > 0 ? 'flex' : 'none';
+  }
+}
+
+function bulkReactivate() {
+  if (isolationSelectedIds.size === 0) return;
+  if (!confirm(`Aktifkan ${isolationSelectedIds.size} pelanggan terpilih?`)) return;
+  const today = todayStr();
+  let count = 0;
+  isolationSelectedIds.forEach(id => {
+    const c = state.customers.find(x => x.id === id);
+    if (c && c.status === 'diisolir') {
+      c.isolatedUntil = today;
+      c.status = 'aktif';
+      if (c.isolationHistory && c.isolationHistory.length > 0) {
+        c.isolationHistory[c.isolationHistory.length - 1].until = today;
+      }
+      count++;
+    }
+  });
+  saveState();
+  isolationSelectedIds.clear();
+  renderIsolationManager();
+  renderCustomers();
+  const fastInputTab = document.getElementById('tab-input-cepat');
+  if (fastInputTab && fastInputTab.style.display !== 'none') renderFastInput();
+  showToast(`🔓 ${count} pelanggan aktif kembali`, 'success');
+}
+
+function quickReactivate(customerId) {
+  const c = state.customers.find(x => x.id === customerId);
+  if (!c) return;
+  if (c.status !== 'diisolir') { alert('Pelanggan tidak sedang diisolir'); return; }
+  if (!confirm(
+    `✅ AKTIFKAN KEMBALI\n\n` +
+    `Pelanggan: ${c.name}\n` +
+    `Diisolir sejak: ${c.isolatedFrom ? formatDate(c.isolatedFrom) : '-'}\n\n` +
+    `Layanan akan dianggap AKTIF kembali mulai hari ini.\nLanjut?`
+  )) return;
+
+  // Set isolatedUntil to today so history preserved
+  c.isolatedUntil = todayStr();
+  c.status = 'aktif';
+  // Update history
+  if (c.isolationHistory && c.isolationHistory.length > 0) {
+    c.isolationHistory[c.isolationHistory.length - 1].until = c.isolatedUntil;
+  }
+  saveState();
+  renderCustomers();
+  const fastInputTab = document.getElementById('tab-input-cepat');
+  if (fastInputTab && fastInputTab.style.display !== 'none') renderFastInput();
+  showToast(`🔓 ${c.name} berhasil diaktifkan kembali`, 'success');
+}
+
+// Simple toast helper for use in this module
+function showToast(message, type) {
+  const bg = type === 'error' ? '#dc2626' : type === 'success' ? '#16a34a' : '#0891b2';
+  const toast = document.createElement('div');
+  toast.style.cssText = `
+    position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+    background:${bg};color:white;padding:12px 20px;border-radius:10px;
+    box-shadow:0 8px 24px rgba(0,0,0,0.25);z-index:2000;font-size:13px;
+    animation:slideUp 0.25s ease-out;font-weight:500;
+  `;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  setTimeout(() => {
+    toast.style.animation = 'slideDown 0.2s ease-out';
+    setTimeout(() => toast.remove(), 200);
+  }, 2500);
 }
 
 function renderFreeCustomers() {
@@ -2816,6 +3244,12 @@ function openCustomerModal(isFree) {
   document.getElementById('customer-opening-balance').value = '0';
   document.getElementById('customer-status').value = 'aktif';
   document.getElementById('customer-is-free').checked = !!isFree;
+  document.getElementById('customer-isolated-from').value = '';
+  document.getElementById('customer-isolated-until').value = '';
+  document.getElementById('customer-isolation-reason').value = '';
+  document.getElementById('customer-isolation-reason-preset').value = '';
+  document.getElementById('isolation-history-info').style.display = 'none';
+  document.getElementById('isolation-duration-info').style.display = 'none';
   document.getElementById('isolation-fields').style.display = 'none';
   refreshPackageSelect('customer-package');
   refreshLocationDropdown('customer-location', '', true);
@@ -2837,6 +3271,17 @@ function editCustomer(id) {
   document.getElementById('customer-is-free').checked = !!c.isFree;
   document.getElementById('customer-isolated-from').value = c.isolatedFrom || '';
   document.getElementById('customer-isolated-until').value = c.isolatedUntil || '';
+  document.getElementById('customer-isolation-reason').value = c.isolationReason || '';
+  document.getElementById('customer-isolation-reason-preset').value = '';
+  // Show history if any
+  const historyEl = document.getElementById('isolation-history-info');
+  if (c.isolationHistory && c.isolationHistory.length > 1) {
+    const prev = c.isolationHistory.slice(0, -1); // exclude latest (current)
+    historyEl.innerHTML = `📋 Riwayat isolasi sebelumnya: ${prev.length} kali (terakhir: ${formatDate(prev[prev.length-1].from)})`;
+    historyEl.style.display = 'block';
+  } else {
+    historyEl.style.display = 'none';
+  }
   refreshPackageSelect('customer-package', c.packageId);
   refreshLocationDropdown('customer-location', c.locationCode, true);
   onStatusChange();
@@ -2849,6 +3294,50 @@ function onStatusChange() {
   if (s === 'diisolir' && !document.getElementById('customer-isolated-from').value) {
     document.getElementById('customer-isolated-from').value = todayStr();
   }
+  updateIsolationDurationInfo();
+}
+
+function onIsolationReasonPreset() {
+  const preset = document.getElementById('customer-isolation-reason-preset').value;
+  if (preset && preset !== 'Lain-lain') {
+    document.getElementById('customer-isolation-reason').value = preset;
+  } else if (preset === 'Lain-lain') {
+    document.getElementById('customer-isolation-reason').value = '';
+    document.getElementById('customer-isolation-reason').focus();
+  }
+}
+
+function updateIsolationDurationInfo() {
+  const from = document.getElementById('customer-isolated-from').value;
+  const until = document.getElementById('customer-isolated-until').value;
+  const infoEl = document.getElementById('isolation-duration-info');
+  if (!from) { infoEl.style.display = 'none'; return; }
+
+  const fromDate = new Date(from);
+  const today = new Date(todayStr());
+  const daysFromStart = Math.floor((today - fromDate) / (1000 * 60 * 60 * 24));
+
+  let msg = '';
+  if (until) {
+    const untilDate = new Date(until);
+    const totalDays = Math.floor((untilDate - fromDate) / (1000 * 60 * 60 * 24)) + 1;
+    const remainingDays = Math.floor((untilDate - today) / (1000 * 60 * 60 * 24));
+    if (remainingDays < 0) {
+      msg = `⏰ Isolasi ${totalDays} hari (${formatDate(from)} - ${formatDate(until)}). Tanggal aktif kembali sudah lewat ${Math.abs(remainingDays)} hari yang lalu.`;
+    } else if (remainingDays === 0) {
+      msg = `⏰ Isolasi ${totalDays} hari (${formatDate(from)} - ${formatDate(until)}). Aktif kembali <strong>HARI INI</strong>.`;
+    } else {
+      msg = `⏰ Isolasi ${totalDays} hari total (${formatDate(from)} - ${formatDate(until)}). Aktif kembali dalam <strong>${remainingDays} hari</strong>.`;
+    }
+  } else {
+    if (daysFromStart >= 0) {
+      msg = `⏰ Diisolir sejak ${formatDate(from)} (sudah <strong>${daysFromStart} hari</strong>). Tgl Aktif Kembali belum ditentukan.`;
+    } else {
+      msg = `⏰ Isolasi terjadwal mulai ${formatDate(from)} (dalam ${Math.abs(daysFromStart)} hari).`;
+    }
+  }
+  infoEl.innerHTML = msg;
+  infoEl.style.display = 'block';
 }
 
 function saveCustomer() {
@@ -2882,6 +3371,56 @@ function saveCustomer() {
     }
   }
 
+  // Get existing customer to preserve history & compare status changes
+  const existingCustomer = id ? state.customers.find(c => c.id === id) : null;
+  let isolationHistory = (existingCustomer && existingCustomer.isolationHistory) || [];
+  const isFree = document.getElementById('customer-is-free').checked;
+  const isolationReason = document.getElementById('customer-isolation-reason').value.trim();
+
+  // KONFIRMASI DAMPAK SEBELUM ISOLIR
+  // Kalau berubah status dari aktif ke diisolir, tampilkan info dampak
+  if (existingCustomer && existingCustomer.status !== 'diisolir' && status === 'diisolir' && !isFree) {
+    const bal = calculateBalance(id, curMonth());
+    const tunggakan = bal.balance || 0;
+    const impactMsg =
+      `⚠️ KONFIRMASI ISOLIR PELANGGAN\n\n` +
+      `Nama: ${name}\n` +
+      `Tgl Mulai Isolir: ${formatDate(isolatedFrom)}\n` +
+      (isolatedUntil ? `Tgl Aktif Kembali: ${formatDate(isolatedUntil)}\n` : `Tgl Aktif Kembali: (belum ditentukan)\n`) +
+      (isolationReason ? `Alasan: ${isolationReason}\n` : ``) +
+      (tunggakan > 0 ? `\n💰 Tunggakan saat ini: ${fmtRp(tunggakan)}\n` : ``) +
+      `\nDampak:\n` +
+      `• Layanan akan dianggap MATI mulai ${formatDate(isolatedFrom)}\n` +
+      `• Tagihan periode isolasi TIDAK bertambah\n` +
+      `• Pelanggan tetap bisa dilihat di Input Cepat dengan badge DIISOLIR\n` +
+      `\nLanjut isolir?`;
+    if (!confirm(impactMsg)) {
+      return;
+    }
+  }
+
+  // If status is now diisolir & wasn't before (or dates changed), record in history
+  if (status === 'diisolir' && isolatedFrom) {
+    const wasNotDiisolir = !existingCustomer || existingCustomer.status !== 'diisolir';
+    const datesChanged = existingCustomer && (existingCustomer.isolatedFrom !== isolatedFrom || existingCustomer.isolatedUntil !== isolatedUntil);
+    if (wasNotDiisolir || (datesChanged && isolationHistory.length === 0)) {
+      isolationHistory = [...isolationHistory, {
+        from: isolatedFrom,
+        until: isolatedUntil || '',
+        reason: isolationReason || '',
+        addedAt: Date.now()
+      }];
+    } else if (datesChanged && isolationHistory.length > 0) {
+      // Update latest entry
+      isolationHistory[isolationHistory.length - 1] = {
+        ...isolationHistory[isolationHistory.length - 1],
+        from: isolatedFrom,
+        until: isolatedUntil || '',
+        reason: isolationReason || ''
+      };
+    }
+  }
+
   const data = {
     id: id || uid(),
     username: document.getElementById('customer-username').value.trim(),
@@ -2893,9 +3432,11 @@ function saveCustomer() {
     installedAt: document.getElementById('customer-installed').value,
     openingBalance: parseInt(document.getElementById('customer-opening-balance').value) || 0,
     status,
-    isFree: document.getElementById('customer-is-free').checked,
+    isFree,
     isolatedFrom,
-    isolatedUntil
+    isolatedUntil,
+    isolationReason,
+    isolationHistory
   };
   if (id) {
     const idx = state.customers.findIndex(c => c.id === id);
@@ -4075,7 +4616,7 @@ function showCustomerDetail(customerId) {
     <div><strong>Username:</strong> <code>${escapeHtml(c.username || '-')}</code></div>
     <div><strong>Lokasi:</strong> ${escapeHtml(getLocationName(c.locationCode))}</div>
     <div><strong>Paket:</strong> ${escapeHtml(getPackageName(c.packageId))} (${fmtRp(getPackagePrice(c.packageId))}/bulan)</div>
-    <div><strong>Status:</strong> ${statusBadge(c.status)}</div>
+    <div><strong>Status:</strong> ${statusBadge(c.status, c)}</div>
     <div><strong>HP:</strong> ${escapeHtml(c.phone || '-')}</div>
     <div><strong>Pasang sejak:</strong> ${formatDate(c.installedAt)}</div>
     ${(c.openingBalance || 0) !== 0 ? `<div><strong>Saldo Awal:</strong> ${(c.openingBalance > 0 ? '<span style="color:#dc2626;">+' : '<span style="color:#16a34a;">') + fmtRp(Math.abs(c.openingBalance)) + (c.openingBalance > 0 ? ' (tunggakan awal)' : ' (kredit awal)') + '</span>'}</div>` : ''}
@@ -4865,9 +5406,17 @@ function renderFastInput() {
       locBadge = `<span style="background:#e0e7ff;color:#3730a3;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;margin-left:4px;">${escapeHtml(locName)}</span>`;
     }
 
+    // Quick action button (isolate/reactivate) - small icon next to name
+    let quickActionBtn = '';
+    if (c.status === 'aktif') {
+      quickActionBtn = `<button onclick="event.stopPropagation();quickIsolate('${c.id}')" title="Isolir cepat" style="background:none;border:none;cursor:pointer;padding:2px 4px;margin-left:4px;font-size:14px;opacity:0.5;transition:opacity 0.15s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5">🔒</button>`;
+    } else if (c.status === 'diisolir') {
+      quickActionBtn = `<button onclick="event.stopPropagation();quickReactivate('${c.id}')" title="Aktifkan kembali" style="background:none;border:none;cursor:pointer;padding:2px 4px;margin-left:4px;font-size:14px;opacity:0.5;transition:opacity 0.15s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5">🔓</button>`;
+    }
+
     html += `<div class="fast-input-row ${rowExtraClass}" id="fi-row-${c.id}" style="grid-template-columns:30px 1fr 100px 130px 140px;${rowBg}">
       <div>${i+1}</div>
-      <div class="name" onclick="editCustomer('${c.id}')" style="cursor:pointer;" title="Klik untuk edit pelanggan"><strong style="text-decoration:underline;text-decoration-style:dotted;text-decoration-color:#1e40af;">${escapeHtml(c.name)}</strong>${badge}${locBadge}<small>${escapeHtml(c.username||'')}${c.phone ? ' · ' + escapeHtml(c.phone) : ''}</small></div>
+      <div class="name" style="cursor:pointer;" title="Klik nama untuk edit pelanggan"><strong onclick="editCustomer('${c.id}')" style="text-decoration:underline;text-decoration-style:dotted;text-decoration-color:#1e40af;">${escapeHtml(c.name)}</strong>${quickActionBtn}${badge}${locBadge}<small>${escapeHtml(c.username||'')}${c.phone ? ' · ' + escapeHtml(c.phone) : ''}</small></div>
       ${tagihanInfo}
       <div>${inputCell}</div>
       <div>${actionCell}</div>
@@ -4952,6 +5501,31 @@ function fastInputPay(customerId, period, amount) {
   // Show undo toast
   const c = state.customers.find(x => x.id === customerId);
   if (c) showFiUndoToast(payment.id, `${c.name}: ${fmtRp(amount)} (${method})`);
+
+  // If customer diisolir and bill is now clear, offer to reactivate
+  if (c && c.status === 'diisolir') {
+    const bal = calculateBalance(customerId, curMonth());
+    if (bal.balance <= 0) {
+      // Wait a bit for the row refresh, then show prompt
+      setTimeout(() => {
+        if (confirm(
+          `✅ TUNGGAKAN LUNAS\n\n` +
+          `Pelanggan: ${c.name}\n` +
+          `Semua tunggakan sudah terbayar.\n\n` +
+          `Aktifkan kembali pelanggan ini sekarang?`
+        )) {
+          c.isolatedUntil = todayStr();
+          c.status = 'aktif';
+          if (c.isolationHistory && c.isolationHistory.length > 0) {
+            c.isolationHistory[c.isolationHistory.length - 1].until = c.isolatedUntil;
+          }
+          saveState();
+          renderFastInput();
+          showToast(`🔓 ${c.name} aktif kembali`, 'success');
+        }
+      }, 300);
+    }
+  }
 }
 
 function fastInputTransfer(customerId, period, defaultAmount) {
