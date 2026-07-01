@@ -287,6 +287,36 @@ tbody tr:last-child td { border-bottom: none; }
 .modal h3 { font-size: 17px; margin-bottom: 14px; }
 .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; flex-wrap: wrap; }
 
+/* Mobile modal - full width, minimum padding */
+@media (max-width: 640px) {
+  .modal-bg { padding: 8px !important; align-items: flex-end !important; }
+  .modal {
+    padding: 16px !important;
+    max-height: 95vh !important;
+    border-radius: 12px 12px 0 0 !important;
+    max-width: 100% !important;
+  }
+  .modal h3 { font-size: 16px; margin-bottom: 12px; }
+  .modal-actions {
+    position: sticky;
+    bottom: -16px;
+    background: white;
+    padding: 12px 0 4px 0;
+    margin-top: 12px;
+    border-top: 1px solid #f5f5f4;
+    justify-content: space-between;
+  }
+  .modal-actions .btn { flex: 1; min-height: 44px; }
+  .modal input[type="text"],
+  .modal input[type="number"],
+  .modal input[type="date"],
+  .modal input[type="month"],
+  .modal select,
+  .modal textarea {
+    font-size: 16px !important; /* prevent iOS zoom */
+  }
+}
+
 .receipt {
   background: white;
   padding: 24px;
@@ -416,15 +446,112 @@ tbody tr:last-child td { border-bottom: none; }
   padding: 8px 10px;
   border-bottom: 1px solid #f5f5f4;
   font-size: 13px;
+  border-left: 3px solid transparent;
+  transition: background 0.1s;
 }
-.fast-input-row.paid { background: #f0fdf4; }
-.fast-input-row.partial { background: #fff7ed; }
+/* Status via border-left strip (konsisten, background putih untuk semua) */
+.fast-input-row.paid { border-left-color: #22c55e; background: #fbfdfb; }
+.fast-input-row.partial { border-left-color: #f97316; background: #fefaf6; }
+.fast-input-row.isolated { border-left-color: #eab308; background: #fefef8; }
+.fast-input-row.in-isolation-period { border-left-color: #3b82f6; background: #fafbfe; }
 .fast-input-row:hover { background: #fafaf9; }
-.fast-input-row.paid:hover { background: #dcfce7; }
-.fast-input-row.partial:hover { background: #ffedd5; }
+.fast-input-row.paid:hover { background: #f0fdf4; }
+.fast-input-row.partial:hover { background: #fff7ed; }
+.fast-input-row.isolated:hover { background: #fefce8; }
+.fast-input-row.in-isolation-period:hover { background: #eff6ff; }
 .fast-input-amount { padding: 5px 8px; font-size: 13px; }
 .fast-input-row .name strong { font-size: 13px; }
 .fast-input-row .name small { color: #78716c; font-size: 11px; display: block; }
+
+/* Progress bar in summary */
+.fi-progress-bar {
+  height: 6px;
+  background: #f1f5f9;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 8px;
+  position: relative;
+}
+.fi-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #22c55e 0%, #16a34a 100%);
+  border-radius: 3px;
+  transition: width 0.4s ease-out;
+}
+
+/* Floating action button (Selesai) */
+.fi-fab-selesai {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 50;
+  background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+  color: white;
+  border: none;
+  padding: 14px 22px;
+  border-radius: 30px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(30,64,175,0.35), 0 2px 6px rgba(0,0,0,0.1);
+  display: none;
+  gap: 8px;
+  align-items: center;
+  transition: all 0.2s;
+}
+.fi-fab-selesai:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(30,64,175,0.45), 0 3px 8px rgba(0,0,0,0.15);
+}
+.fi-fab-selesai.visible { display: inline-flex; }
+
+/* Badge POSTPAID lebih menonjol */
+#fi-period-mode-hint {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white !important;
+  padding: 2px 8px !important;
+  border-radius: 10px !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 4px rgba(217,119,6,0.3);
+  display: inline-block;
+  margin-left: 6px;
+}
+
+/* Batch actions bar */
+.fi-batch-bar {
+  display: none;
+  background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+  color: white;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  box-shadow: 0 4px 12px rgba(30,64,175,0.2);
+}
+.fi-batch-bar.visible { display: flex; }
+.fi-batch-bar button {
+  background: rgba(255,255,255,0.2);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.3);
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+.fi-batch-bar button:hover { background: rgba(255,255,255,0.3); }
+
+.fi-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #1e40af;
+}
+
 .deposit-summary {
   position: sticky;
   top: 0;
@@ -623,9 +750,17 @@ tbody tr:last-child td { border-bottom: none; }
     <div class="panel">
       <div class="panel-header">
         <h2>⚡ Input Pembayaran Cepat</h2>
+        <button class="btn btn-sm" onclick="toggleFiHelp()" title="Bantuan" style="background:rgba(59,130,246,0.1);color:#1e40af;border:1px solid rgba(59,130,246,0.3);">💡 Bantuan</button>
       </div>
-      <div class="alert alert-info" style="font-size:12px;">
-        💡 <strong>Cara cepat:</strong> klik <strong>Lunas</strong> = bayar penuh · <strong>💳 TF</strong> = transfer · <strong>✏️</strong> = edit pembayaran terakhir · <strong>klik nama</strong> = edit pelanggan
+      <div id="fi-help-panel" class="alert alert-info" style="display:none;font-size:12px;">
+        <strong>Cara pakai:</strong><br>
+        • <strong>Bayar</strong> = ketik nominal lalu klik Bayar (bayar sebagian)<br>
+        • <strong>Lunas</strong> = bayar penuh sesuai tagihan<br>
+        • <strong>💳 TF</strong> = pembayaran transfer langsung ke admin<br>
+        • <strong>✏️</strong> = edit pembayaran terakhir<br>
+        • <strong>🔒/🔓</strong> = isolir / aktifkan pelanggan<br>
+        • <strong>Klik nama</strong> = edit data pelanggan<br>
+        <em style="color:#78716c;">Klik "Bantuan" lagi untuk sembunyikan</em>
       </div>
       <div class="form-grid">
         <div class="form-group">
@@ -666,17 +801,30 @@ tbody tr:last-child td { border-bottom: none; }
             <div id="fi-transfer-breakdown" style="display:none;margin-top:2px;"></div>
           </div>
           <div>
-            <div style="font-size:12px;color:#78716c;">Pelanggan dibayar</div>
+            <div style="font-size:12px;color:#78716c;">Sudah Bayar</div>
             <div id="fi-count" style="font-size:22px;font-weight:600;">0 / 0</div>
           </div>
           <div>
-            <div style="font-size:12px;color:#78716c;">Sisa belum input</div>
+            <div style="font-size:12px;color:#78716c;">Total Tunggakan Belum Terbayar</div>
             <div id="fi-remaining" style="font-size:18px;font-weight:600;color:#dc2626;">Rp 0</div>
           </div>
           <div>
             <button class="btn btn-success" onclick="finalizeFastInput()">✓ Selesai & Buat Sesi Setoran</button>
           </div>
         </div>
+        <!-- Progress bar -->
+        <div class="fi-progress-bar" title="Progress pembayaran">
+          <div id="fi-progress-fill" class="fi-progress-bar-fill" style="width:0%;"></div>
+        </div>
+        <div id="fi-progress-label" style="font-size:11px;color:#78716c;margin-top:4px;text-align:center;">0% selesai</div>
+      </div>
+
+      <!-- Batch Actions Bar -->
+      <div id="fi-batch-bar" class="fi-batch-bar">
+        <span id="fi-batch-count" style="font-weight:600;">0 dipilih</span>
+        <div style="flex:1;"></div>
+        <button onclick="batchPayLunas()" title="Bayar lunas semua yang dipilih">💰 Lunas Semua</button>
+        <button onclick="batchClearSelection()" title="Batal pilih">✕ Batal</button>
       </div>
 
       <div id="fi-search-wrap" style="display:none;">
@@ -690,6 +838,12 @@ tbody tr:last-child td { border-bottom: none; }
       </div>
 
       <div id="fi-list"></div>
+
+      <!-- Floating Action Button (Selesai) -->
+      <button id="fi-fab-selesai" class="fi-fab-selesai" onclick="finalizeFastInput()" title="Selesai & Buat Sesi Setoran">
+        <span style="font-size:18px;">✓</span>
+        <span>Selesai & Setoran</span>
+      </button>
     </div>
   </div>
 
@@ -4947,6 +5101,122 @@ function populateFiLocationOptions() {
   }
 }
 
+// ===================== BATCH ACTIONS =====================
+const fiBatchSelected = new Set();
+
+function onFiRowCheckboxChange(cb) {
+  const id = cb.dataset.id;
+  if (cb.checked) fiBatchSelected.add(id);
+  else fiBatchSelected.delete(id);
+  updateFiBatchBar();
+}
+
+function toggleFiSelectAll(cb) {
+  const checkboxes = document.querySelectorAll('.fi-row-cb');
+  checkboxes.forEach(x => {
+    x.checked = cb.checked;
+    if (cb.checked) fiBatchSelected.add(x.dataset.id);
+    else fiBatchSelected.delete(x.dataset.id);
+  });
+  updateFiBatchBar();
+}
+
+function updateFiBatchBar() {
+  const bar = document.getElementById('fi-batch-bar');
+  const countEl = document.getElementById('fi-batch-count');
+  const selectAll = document.getElementById('fi-batch-select-all');
+  if (fiBatchSelected.size > 0) {
+    bar.classList.add('visible');
+    countEl.textContent = `${fiBatchSelected.size} dipilih`;
+  } else {
+    bar.classList.remove('visible');
+    if (selectAll) selectAll.checked = false;
+  }
+}
+
+function batchClearSelection() {
+  fiBatchSelected.clear();
+  document.querySelectorAll('.fi-row-cb').forEach(x => x.checked = false);
+  const selectAll = document.getElementById('fi-batch-select-all');
+  if (selectAll) selectAll.checked = false;
+  updateFiBatchBar();
+}
+
+function batchPayLunas() {
+  if (fiBatchSelected.size === 0) return;
+  const period = document.getElementById('fi-period').value || curMonth();
+  const paidAt = document.getElementById('fi-date').value || todayStr();
+  const method = document.getElementById('fi-method').value || 'Tunai';
+
+  // Collect items with amount to pay
+  const items = [];
+  fiBatchSelected.forEach(id => {
+    const c = state.customers.find(x => x.id === id);
+    if (!c) return;
+    const bal = calculateBalance(id, period);
+    const me = bal.months.find(m => m.period === period);
+    let amount = 0;
+    if (me) {
+      amount = me.billed - me.paid; // remaining bill for this period
+      // Also include any tunggakan (arrears)
+      const tunggakan = bal.balance - amount;
+      if (tunggakan > 0) amount += tunggakan;
+    } else {
+      // No bill this period, but has arrears
+      amount = bal.balance || 0;
+    }
+    if (amount > 0) {
+      items.push({ id, name: c.name, amount });
+    }
+  });
+
+  if (!items.length) {
+    alert('Tidak ada tagihan yang perlu dibayar dari pilihan');
+    return;
+  }
+
+  const total = items.reduce((s, i) => s + i.amount, 0);
+  if (!confirm(
+    `💰 BAYAR LUNAS BATCH\n\n` +
+    `${items.length} pelanggan akan dibayar lunas:\n` +
+    items.slice(0, 5).map(i => `• ${i.name}: ${fmtRp(i.amount)}`).join('\n') +
+    (items.length > 5 ? `\n...dan ${items.length - 5} lainnya` : '') +
+    `\n\nTotal: ${fmtRp(total)}\nMetode: ${method}\nTanggal: ${paidAt}\n\nLanjut?`
+  )) return;
+
+  const batchId = uid();
+  window.currentFastInputBatch = batchId;
+  let count = 0;
+  items.forEach(item => {
+    state.payments.push({
+      id: uid(),
+      customerId: item.id,
+      period,
+      amount: item.amount,
+      paidAt,
+      method,
+      note: 'Batch pembayaran',
+      fastInput: true,
+      fastInputBatch: batchId
+    });
+    count++;
+  });
+  saveState();
+  fiBatchSelected.clear();
+  renderFastInput();
+  updateFastInputSummary();
+  showToast(`💰 ${count} pelanggan lunas (${fmtRp(total)})`, 'success');
+}
+
+// ===================== TOGGLE HELP =====================
+function toggleFiHelp() {
+  const panel = document.getElementById('fi-help-panel');
+  if (!panel) return;
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  // Save preference
+  try { sessionStorage.setItem('fi-help-open', panel.style.display); } catch(e) {}
+}
+
 // Handler: when collector changes, update location dropdown & re-render
 function onFiCollectorChange() {
   populateFiLocationOptions();
@@ -5267,7 +5537,7 @@ function renderFastInput() {
 
   html += `<div class="fi-table-wrap">
     <div class="fi-table-header" style="background:#fafaf9;padding:8px 10px;font-size:12px;font-weight:600;color:#44403c;display:grid;grid-template-columns:30px 1fr 100px 130px 140px;gap:8px;">
-      <div></div><div>Pelanggan</div><div>Tagihan/Tunggakan</div><div>Bayar</div><div>Aksi</div>
+      <div style="text-align:center;"><input type="checkbox" id="fi-batch-select-all" class="fi-checkbox" onchange="toggleFiSelectAll(this)" title="Pilih semua yang bisa dibayar"></div><div>Pelanggan</div><div>Tagihan/Tunggakan</div><div>Bayar</div><div>Aksi</div>
     </div>`;
 
   filteredRows.forEach((row, i) => {
@@ -5391,9 +5661,13 @@ function renderFastInput() {
       }
     }
 
-    // Row class & status indicators
+    // Row class & status indicators (border-left strip cascade priority)
     let rowExtraClass = '';
-    if (row.me) {
+    if (row.isIsolated) {
+      rowExtraClass = 'isolated';
+    } else if (row.inIsolationPeriod) {
+      rowExtraClass = 'in-isolation-period';
+    } else if (row.me) {
       if (row.me.status === 'lunas') rowExtraClass = 'paid';
       else if (row.me.status === 'sebagian') rowExtraClass = 'partial';
     }
@@ -5414,8 +5688,17 @@ function renderFastInput() {
       quickActionBtn = `<button onclick="event.stopPropagation();quickReactivate('${c.id}')" title="Aktifkan kembali" style="background:none;border:none;cursor:pointer;padding:2px 4px;margin-left:4px;font-size:14px;opacity:0.5;transition:opacity 0.15s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5">🔓</button>`;
     }
 
-    html += `<div class="fast-input-row ${rowExtraClass}" id="fi-row-${c.id}" style="grid-template-columns:30px 1fr 100px 130px 140px;${rowBg}">
-      <div>${i+1}</div>
+    // Show checkbox only for customers that CAN pay (not lunas already, has bill or arrears)
+    const canBatchSelect = row.me && row.me.status !== 'lunas' ||
+                           (!row.me && row.arrears > 0) ||
+                           (row.isIsolated && row.arrears > 0) ||
+                           (row.inIsolationPeriod && row.arrears > 0);
+    const checkboxCell = canBatchSelect
+      ? `<input type="checkbox" class="fi-checkbox fi-row-cb" data-id="${c.id}" data-period="${period}" onchange="onFiRowCheckboxChange(this)" style="cursor:pointer;">`
+      : `<span style="color:#a8a29e;font-size:11px;">${i+1}</span>`;
+
+    html += `<div class="fast-input-row ${rowExtraClass}" id="fi-row-${c.id}" style="grid-template-columns:30px 1fr 100px 130px 140px;">
+      <div>${checkboxCell}</div>
       <div class="name" style="cursor:pointer;" title="Klik nama untuk edit pelanggan"><strong onclick="editCustomer('${c.id}')" style="text-decoration:underline;text-decoration-style:dotted;text-decoration-color:#1e40af;">${escapeHtml(c.name)}</strong>${quickActionBtn}${badge}${locBadge}<small>${escapeHtml(c.username||'')}${c.phone ? ' · ' + escapeHtml(c.phone) : ''}</small></div>
       ${tagihanInfo}
       <div>${inputCell}</div>
@@ -5436,6 +5719,17 @@ function renderFastInput() {
         if (e.key === 'Enter') {
           e.preventDefault();
           fastInputManualPay(c.id, e.target.dataset.period);
+          // Auto-focus next input field
+          setTimeout(() => focusNextFiInput(c.id), 100);
+        }
+        // Arrow Down / Up: navigate to next/prev input
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          focusNextFiInput(c.id);
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          focusPrevFiInput(c.id);
         }
       });
     }
@@ -5446,6 +5740,26 @@ function renderFastInput() {
   updateFastInputSummary();
   // Update sticky offsets dynamically (deposit summary height, search wrap height)
   updateFiStickyOffsets();
+}
+
+// Keyboard nav: focus next/prev input in Input Cepat
+function focusNextFiInput(currentCustomerId) {
+  const inputs = Array.from(document.querySelectorAll('.fast-input-amount'));
+  const currentIdx = inputs.findIndex(inp => inp.dataset.customer === currentCustomerId);
+  const next = inputs[currentIdx + 1] || inputs[0];
+  if (next) {
+    next.focus();
+    next.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+}
+function focusPrevFiInput(currentCustomerId) {
+  const inputs = Array.from(document.querySelectorAll('.fast-input-amount'));
+  const currentIdx = inputs.findIndex(inp => inp.dataset.customer === currentCustomerId);
+  const prev = inputs[currentIdx - 1] || inputs[inputs.length - 1];
+  if (prev) {
+    prev.focus();
+    prev.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
 }
 
 function updateFiStickyOffsets() {
@@ -6006,6 +6320,28 @@ function updateFastInputSummary() {
   document.getElementById('fi-total').textContent = fmtRp(totalInput);
   document.getElementById('fi-count').textContent = `${lunasCount} / ${activeCustomers.length}`;
   document.getElementById('fi-remaining').textContent = fmtRp(stillUnpaid);
+
+  // Update progress bar
+  const progressPct = activeCustomers.length > 0
+    ? Math.round((lunasCount / activeCustomers.length) * 100)
+    : 0;
+  const progressFillEl = document.getElementById('fi-progress-fill');
+  const progressLabelEl = document.getElementById('fi-progress-label');
+  if (progressFillEl) progressFillEl.style.width = progressPct + '%';
+  if (progressLabelEl) {
+    let label = `${progressPct}% selesai`;
+    if (progressPct === 100) label = '🎉 100% selesai — semua pelanggan aktif sudah bayar!';
+    else if (progressPct >= 75) label = `${progressPct}% selesai — tinggal ${activeCustomers.length - lunasCount} lagi`;
+    progressLabelEl.textContent = label;
+  }
+
+  // Show FAB "Selesai" if there are payments today (untuk pindah ke setoran)
+  const fabEl = document.getElementById('fi-fab-selesai');
+  if (fabEl) {
+    // Show FAB when there is any payment in current session
+    const anyPaid = totalInput > 0;
+    fabEl.classList.toggle('visible', anyPaid);
+  }
 
   // Show transfer breakdown if any transfers exist
   const breakdownEl = document.getElementById('fi-transfer-breakdown');
