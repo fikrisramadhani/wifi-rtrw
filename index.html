@@ -476,12 +476,33 @@ tbody tr:last-child td { border-bottom: none; }
   }
 }
 
-/* Sticky table header on desktop */
+/* Sticky search box */
+#fi-search-wrap {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: white;
+  padding: 8px 0;
+  margin-bottom: 6px;
+  border-bottom: 1px solid #f5f5f4;
+}
+
+/* Sticky table header - must be BELOW search box */
 .fi-table-header {
   position: sticky;
-  top: 60px; /* below search box */
-  z-index: 4;
+  top: 58px; /* height of search box (~ input 36 + padding 16 + border 1 + margin 6) */
+  z-index: 15;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.04);
 }
+
+/* Table wrapper - MUST NOT have overflow:hidden or sticky won't work */
+.fi-table-wrap {
+  border: 1px solid #e7e5e4;
+  border-radius: 10px;
+  overflow: visible; /* required for sticky */
+}
+.fi-table-wrap .fi-table-header:first-child { border-radius: 10px 10px 0 0; }
+.fi-table-wrap .fast-input-row:last-child { border-radius: 0 0 10px 10px; }
 
 /* Consistent Edit button style */
 .btn-edit-payment {
@@ -653,7 +674,7 @@ tbody tr:last-child td { border-bottom: none; }
         </div>
       </div>
 
-      <div id="fi-search-wrap" style="display:none;margin-bottom:10px;position:sticky;top:0;z-index:5;background:white;padding:8px 0;">
+      <div id="fi-search-wrap" style="display:none;">
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <div style="position:relative;flex:1;min-width:200px;">
             <input type="text" id="fi-search" placeholder="🔍 Cari nama pelanggan / username..." oninput="onFiSearch()" style="width:100%;padding:8px 30px 8px 12px;">
@@ -4688,7 +4709,7 @@ function renderFastInput() {
 
   let html = ``;
 
-  html += `<div style="border:1px solid #e7e5e4;border-radius:10px;overflow:hidden;">
+  html += `<div class="fi-table-wrap">
     <div class="fi-table-header" style="background:#fafaf9;padding:8px 10px;font-size:12px;font-weight:600;color:#44403c;display:grid;grid-template-columns:30px 1fr 100px 130px 140px;gap:8px;">
       <div></div><div>Pelanggan</div><div>Tagihan/Tunggakan</div><div>Bayar</div><div>Aksi</div>
     </div>`;
