@@ -429,7 +429,7 @@ tbody tr:last-child td { border-bottom: none; }
   position: sticky;
   top: 0;
   background: white;
-  z-index: 5;
+  z-index: 30;
   padding: 12px;
   border: 2px solid #1e40af;
   border-radius: 10px;
@@ -476,10 +476,10 @@ tbody tr:last-child td { border-bottom: none; }
   }
 }
 
-/* Sticky search box */
+/* Sticky search box - positioned below deposit summary */
 #fi-search-wrap {
   position: sticky;
-  top: 0;
+  top: var(--fi-summary-height, 0px);
   z-index: 20;
   background: white;
   padding: 8px 0;
@@ -487,10 +487,10 @@ tbody tr:last-child td { border-bottom: none; }
   border-bottom: 1px solid #f5f5f4;
 }
 
-/* Sticky table header - must be BELOW search box */
+/* Sticky table header - positioned below search box */
 .fi-table-header {
   position: sticky;
-  top: 58px; /* height of search box (~ input 36 + padding 16 + border 1 + margin 6) */
+  top: calc(var(--fi-summary-height, 0px) + var(--fi-search-height, 58px));
   z-index: 15;
   box-shadow: 0 2px 4px rgba(0,0,0,0.04);
 }
@@ -4574,6 +4574,16 @@ function initFastInput() {
   sessionStorage.setItem('fi-last-date', document.getElementById('fi-date').value);
   sessionStorage.setItem('fi-last-method', document.getElementById('fi-method').value);
 
+  // Update sticky offsets on window resize
+  if (!window._fiStickyListener) {
+    window._fiStickyListener = true;
+    let resizeTimer = null;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(updateFiStickyOffsets, 150);
+    });
+  }
+
   renderFastInput();
 }
 
@@ -4880,6 +4890,29 @@ function renderFastInput() {
 
   document.getElementById('fi-deposit-info').style.display = 'block';
   updateFastInputSummary();
+  // Update sticky offsets dynamically (deposit summary height, search wrap height)
+  updateFiStickyOffsets();
+}
+
+function updateFiStickyOffsets() {
+  // Deposit summary is sticky at top:0 in the panel
+  // Search wrap sticks below deposit summary
+  // Table header sticks below search wrap
+  const depositEl = document.getElementById('fi-deposit-info');
+  const searchEl = document.getElementById('fi-search-wrap');
+  const container = document.querySelector('#tab-input-cepat .panel') || document.body;
+
+  // Wait for layout
+  requestAnimationFrame(() => {
+    const depositH = depositEl && depositEl.style.display !== 'none'
+      ? depositEl.offsetHeight
+      : 0;
+    const searchH = searchEl && searchEl.style.display !== 'none'
+      ? searchEl.offsetHeight
+      : 0;
+    container.style.setProperty('--fi-summary-height', depositH + 'px');
+    container.style.setProperty('--fi-search-height', searchH + 'px');
+  });
 }
 
 function fastInputManualPay(customerId, period) {
@@ -5400,6 +5433,9 @@ function updateFastInputSummary() {
       breakdownEl.style.display = 'none';
     }
   }
+
+  // Height might change (transfer breakdown), recalc sticky offsets
+  if (typeof updateFiStickyOffsets === 'function') updateFiStickyOffsets();
 }
 
 function finalizeFastInput() {
