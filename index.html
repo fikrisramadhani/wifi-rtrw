@@ -101,6 +101,58 @@ header::before {
   border-color: rgba(255,255,255,0.35) !important;
   transform: translateY(-1px);
 }
+.header-actions .btn-primary-header {
+  background: rgba(59, 130, 246, 0.35) !important;
+  border-color: rgba(147, 197, 253, 0.5) !important;
+}
+.header-actions .btn-primary-header:hover {
+  background: rgba(59, 130, 246, 0.55) !important;
+  border-color: rgba(147, 197, 253, 0.7) !important;
+}
+
+/* Header Brand Mode Badge */
+.header-mode-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+.header-mode-badge.postpaid {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  box-shadow: 0 2px 4px rgba(217,119,6,0.3);
+}
+.header-mode-badge.prepaid {
+  background: rgba(34,197,94,0.25);
+  color: #86efac;
+  border: 1px solid rgba(134,239,172,0.3);
+}
+
+/* Sync Status Enhancement */
+#sync-status {
+  display: none;
+  align-items: center;
+  gap: 6px;
+}
+#sync-status.pending .sync-icon {
+  animation: spin 1.5s linear infinite;
+  display: inline-block;
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes menuFade {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.header-more-menu.show, .tab-more-menu.show {
+  animation: menuFade 0.15s ease-out;
+}
 header h1 { font-size: 22px; font-weight: 700; }
 header p { font-size: 12px; opacity: 0.85; margin-top: 2px; }
 .tabs {
@@ -112,6 +164,8 @@ header p { font-size: 12px; opacity: 0.85; margin-top: 2px; }
   margin-bottom: 16px;
   overflow-x: auto;
   border: 1px solid #e7e5e4;
+  position: relative;
+  align-items: center;
 }
 .tab {
   padding: 10px 14px;
@@ -124,9 +178,115 @@ header p { font-size: 12px; opacity: 0.85; margin-top: 2px; }
   color: #57534e;
   white-space: nowrap;
   transition: all 0.15s;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 .tab:hover { background: #f5f5f4; }
 .tab.active { background: #1e40af; color: white; }
+
+/* Tab badge for notifications */
+.tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: #dc2626;
+  color: white;
+  border-radius: 9px;
+  font-size: 10px;
+  font-weight: 700;
+  margin-left: 2px;
+  line-height: 1;
+}
+.tab.active .tab-badge {
+  background: rgba(255,255,255,0.25);
+  color: white;
+}
+.tab-badge.warning { background: #d97706; }
+.tab-badge.info { background: #0891b2; }
+
+/* Tab divider (between groups) */
+.tab-divider {
+  width: 1px;
+  height: 24px;
+  background: #e7e5e4;
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+/* Tab overflow dropdown */
+.tab-more-wrap { position: relative; }
+.tab-more-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: white;
+  border: 1px solid #e7e5e4;
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.15);
+  min-width: 220px;
+  z-index: 100;
+  padding: 6px;
+}
+.tab-more-menu.show { display: block; }
+.tab-more-menu .tab {
+  width: 100%;
+  justify-content: flex-start;
+  padding: 10px 12px;
+}
+.tab-more-menu .tab.active { background: #1e40af; }
+
+/* Header actions - overflow menu */
+.header-more-wrap { position: relative; }
+.header-more-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: white;
+  border: 1px solid #e7e5e4;
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.2);
+  min-width: 200px;
+  z-index: 100;
+  padding: 6px;
+}
+.header-more-menu.show { display: block; }
+.header-more-menu .header-more-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #1c1917;
+  font-size: 13px;
+  text-decoration: none;
+  transition: background 0.1s;
+}
+.header-more-menu .header-more-item:hover {
+  background: #f5f5f4;
+}
+.header-more-menu hr {
+  border: none;
+  border-top: 1px solid #e7e5e4;
+  margin: 6px 0;
+}
+
+/* Header actions primary button (FTTH) */
+.header-actions .btn-primary-glass {
+  background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%) !important;
+  border: 1px solid rgba(255,255,255,0.3) !important;
+  box-shadow: 0 4px 12px rgba(124,58,237,0.35);
+}
+.header-actions .btn-primary-glass:hover {
+  background: linear-gradient(135deg, #6d28d9 0%, #9333ea 100%) !important;
+}
 
 .panel {
   background: white;
@@ -869,14 +1029,106 @@ tbody tr:last-child td { border-bottom: none; }
   to { transform: translateX(-50%) translateY(30px); opacity: 0; }
 }
 
+@media (max-width: 900px) {
+  /* Hide button labels, show icon only on tablets */
+  .header-actions .btn-label-desktop { display: none; }
+  .header-actions .btn {
+    padding: 8px 12px;
+    min-width: 40px;
+    justify-content: center;
+  }
+}
+
 @media (max-width: 600px) {
-  header { padding: 14px 16px; }
-  .header-logo { width: 40px; height: 40px; }
-  .header-text h1 { font-size: 16px; }
-  .header-text p { font-size: 11px; }
-  .header-actions .btn { padding: 6px 10px; font-size: 12px; }
+  header {
+    padding: 12px 14px;
+    gap: 10px;
+  }
+  .header-logo { width: 38px; height: 38px; padding: 3px; }
+  .header-text h1 { font-size: 15px; }
+  .header-text p { font-size: 10px; }
+  .header-actions {
+    gap: 6px;
+    margin-left: auto;
+  }
+  .header-actions .btn {
+    padding: 6px 10px;
+    font-size: 13px;
+    min-width: 36px;
+    min-height: 36px;
+  }
+  #sync-status {
+    font-size: 10px !important;
+    padding: 4px 8px !important;
+  }
+  #sync-status .sync-label {
+    display: none;
+  }
+  .header-menu-dropdown {
+    min-width: 180px;
+    right: -8px;
+  }
+  .header-mode-badge {
+    font-size: 9px;
+    padding: 1px 6px;
+    margin-left: 4px;
+  }
   .stat-value { font-size: 20px; }
   .panel { padding: 14px; }
+
+  /* Tabs mobile: kompak dengan overflow menu */
+  .tabs-wrap {
+    padding: 4px;
+    gap: 2px;
+    margin-bottom: 14px;
+  }
+  .tab {
+    padding: 8px 10px;
+    font-size: 12px;
+    position: relative;
+  }
+  /* Icon only for inactive tabs on mobile */
+  .tab .tab-label {
+    display: none;
+  }
+  .tab.active .tab-label {
+    display: inline;
+    margin-left: 4px;
+  }
+  .tab-badge {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    min-width: 14px;
+    height: 14px;
+    font-size: 9px;
+    padding: 0 3px;
+  }
+  .tabs-more-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+  .tabs-more-dropdown {
+    right: 0;
+    min-width: 180px;
+  }
+}
+
+/* Extra small screens - hide FTTH label */
+@media (max-width: 480px) {
+  .header-actions .btn-ftth .btn-label {
+    display: none;
+  }
+  .header-actions .btn-ftth {
+    padding: 6px 10px !important;
+  }
+  #btn-gdrive .btn-label {
+    display: none;
+  }
+  #btn-gdrive {
+    padding: 6px 10px !important;
+    min-width: 36px !important;
+  }
 }
 </style>
 </head>
@@ -921,33 +1173,65 @@ tbody tr:last-child td { border-bottom: none; }
         <img id="header-logo-img" alt="Samurai.NET">
       </div>
       <div class="header-text">
-        <h1>Tagihan WiFi RT/RW</h1>
+        <h1>Tagihan WiFi RT/RW<span id="header-mode-badge" class="header-mode-badge prepaid" style="display:none;">PREPAID</span></h1>
         <p id="header-info">Samurai.NET</p>
       </div>
     </div>
     <div class="header-actions">
-      <div id="sync-status" style="font-size:12px;padding:5px 10px;border-radius:6px;background:rgba(255,255,255,0.08);color:white;display:none;border:1px solid rgba(255,255,255,0.15);"></div>
-      <button id="btn-gdrive" class="btn btn-sm" onclick="handleGDriveClick()">☁️ Connect Drive</button>
-      <button class="btn btn-sm" onclick="exportData()">⬇ Backup</button>
-      <button class="btn btn-sm" onclick="document.getElementById('import-file').click()">⬆ Restore</button>
-      <a href="ftth/" target="_blank" rel="noopener" class="btn btn-sm" style="text-decoration:none;">📡 FTTH Designer</a>
+      <div id="sync-status" onclick="handleSyncStatusClick()" style="font-size:12px;padding:5px 10px;border-radius:6px;background:rgba(255,255,255,0.08);color:white;display:none;border:1px solid rgba(255,255,255,0.15);cursor:pointer;gap:6px;align-items:center;" title="Klik untuk sync manual">
+        <span class="sync-icon">☁️</span><span class="sync-label"></span>
+      </div>
+      <a href="ftth/" target="_blank" rel="noopener" class="btn btn-sm btn-primary-glass btn-ftth" style="text-decoration:none;" title="Buka FTTH Designer">
+        <span>📡</span><span class="btn-label btn-label-desktop"> FTTH Designer</span>
+      </a>
+      <div class="header-more-wrap">
+        <button id="btn-header-more" class="btn btn-sm" onclick="toggleHeaderMoreMenu(event)" title="Menu lainnya">
+          <span>⋯</span>
+        </button>
+        <div id="header-more-menu" class="header-more-menu">
+          <div class="header-more-item" onclick="handleGDriveClick();closeHeaderMoreMenu();" id="menu-gdrive">
+            <span>☁️</span> <span id="menu-gdrive-label">Connect Drive</span>
+          </div>
+          <hr>
+          <div class="header-more-item" onclick="exportData();closeHeaderMoreMenu();">
+            <span>⬇</span> <span>Backup ke File</span>
+          </div>
+          <div class="header-more-item" onclick="document.getElementById('import-file').click();closeHeaderMoreMenu();">
+            <span>⬆</span> <span>Restore dari File</span>
+          </div>
+        </div>
+      </div>
       <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
     </div>
   </header>
 
   <div class="tabs">
-    <button class="tab active" onclick="showTab('dashboard', this)">📊 Dashboard</button>
-    <button class="tab" onclick="showTab('input-cepat', this)">⚡ Input Cepat</button>
-    <button class="tab" onclick="showTab('setoran', this)">💼 Setoran</button>
-    <button class="tab" onclick="showTab('tukang', this)">👷 Tukang</button>
-    <button class="tab" onclick="showTab('pelanggan', this)">👥 Pelanggan</button>
-    <button class="tab" onclick="showTab('gratis', this)">🎁 Gratis</button>
-    <button class="tab" onclick="showTab('lokasi', this)">📍 Lokasi</button>
-    <button class="tab" onclick="showTab('paket', this)">📦 Paket</button>
-    <button class="tab" onclick="showTab('pembayaran', this)">💰 Pembayaran</button>
-    <button class="tab" onclick="showTab('tunggakan', this)">⚠️ Tunggakan</button>
-    <button class="tab" onclick="showTab('catatan', this)">📝 Catatan</button>
-    <button class="tab" onclick="showTab('pengaturan', this)">⚙️ Pengaturan</button>
+    <!-- Main Group: Transactions -->
+    <button class="tab active" onclick="showTab('dashboard', this)"><span>📊</span><span class="tab-label">Dashboard</span></button>
+    <button class="tab" onclick="showTab('input-cepat', this)"><span>⚡</span><span class="tab-label">Input Cepat</span></button>
+    <button class="tab" onclick="showTab('setoran', this)" id="tab-setoran"><span>💼</span><span class="tab-label">Setoran</span><span id="badge-setoran"></span></button>
+    <button class="tab" onclick="showTab('pembayaran', this)"><span>💰</span><span class="tab-label">Pembayaran</span></button>
+    <button class="tab" onclick="showTab('tunggakan', this)" id="tab-tunggakan"><span>⚠️</span><span class="tab-label">Tunggakan</span><span id="badge-tunggakan"></span></button>
+
+    <div class="tab-divider"></div>
+
+    <!-- Master Data Group -->
+    <button class="tab" onclick="showTab('pelanggan', this)"><span>👥</span><span class="tab-label">Pelanggan</span></button>
+    <button class="tab" onclick="showTab('tukang', this)"><span>👷</span><span class="tab-label">Tukang</span></button>
+    <button class="tab" onclick="showTab('lokasi', this)"><span>📍</span><span class="tab-label">Lokasi</span></button>
+    <button class="tab" onclick="showTab('paket', this)"><span>📦</span><span class="tab-label">Paket</span></button>
+
+    <div class="tab-divider"></div>
+
+    <!-- More Menu (overflow) -->
+    <div class="tab-more-wrap" style="margin-left:auto;">
+      <button class="tab" onclick="toggleTabMoreMenu(event)" id="btn-tab-more" title="Menu lainnya"><span>⋯</span><span class="tab-label" style="margin-left:4px;">Lainnya</span></button>
+      <div id="tab-more-menu" class="tab-more-menu">
+        <button class="tab" onclick="showTab('gratis', this);closeTabMoreMenu();"><span>🎁</span><span style="margin-left:4px;">Pelanggan Gratis</span></button>
+        <button class="tab" onclick="showTab('catatan', this);closeTabMoreMenu();"><span>📝</span><span style="margin-left:4px;">Catatan</span></button>
+        <button class="tab" onclick="showTab('pengaturan', this);closeTabMoreMenu();"><span>⚙️</span><span style="margin-left:4px;">Pengaturan</span></button>
+      </div>
+    </div>
   </div>
 
   <!-- INPUT CEPAT -->
@@ -2164,9 +2448,35 @@ function setSyncStatus(text, color) {
   const el = document.getElementById('sync-status');
   if (!el) return;
   if (!text) { el.style.display = 'none'; return; }
-  el.style.display = 'inline-block';
-  el.textContent = text;
+  el.style.display = 'inline-flex';
   el.style.background = color || 'rgba(255,255,255,0.15)';
+
+  // Extract icon from text (first emoji)
+  let icon = '☁️';
+  let label = text;
+  const iconMatch = text.match(/^([\u{1F300}-\u{1F9FF}\u{2600}-\u{27BF}\u{2B50}\u{1F004}-\u{1F0CF}\u{1F170}-\u{1F251}✓✅⚠️⏳❌⛅]+)\s*/u);
+  if (iconMatch) {
+    icon = iconMatch[1];
+    label = text.slice(iconMatch[0].length).trim();
+  }
+
+  // Determine if pending state (for spinning animation)
+  const isPending = text.includes('⏳') || text.toLowerCase().includes('connecting') || text.toLowerCase().includes('syncing') || text.toLowerCase().includes('pending');
+  el.classList.toggle('pending', isPending);
+
+  const iconEl = el.querySelector('.sync-icon');
+  const labelEl = el.querySelector('.sync-label');
+  if (iconEl && labelEl) {
+    iconEl.textContent = icon;
+    labelEl.textContent = label;
+  } else {
+    // Fallback: rebuild the structure
+    el.innerHTML = `<span class="sync-icon">${icon}</span><span class="sync-label">${escapeHtml(label)}</span>`;
+  }
+
+  // Update tooltip with more detail
+  const lastSyncTime = gdriveLastSync ? new Date(gdriveLastSync).toLocaleString('id-ID') : 'Belum pernah sync';
+  el.title = `${text}\nSync terakhir: ${lastSyncTime}\n\nKlik untuk sync sekarang`;
 }
 
 function showSyncError(message, allowReconnect) {
@@ -2879,6 +3189,13 @@ function saveState() {
   state.lastModified = Date.now();
   saveStateLocal();
   scheduleSyncToGDrive();
+  // Refresh header info and tab badges (debounced by browser event loop)
+  if (typeof updateHeaderInfo === 'function') {
+    setTimeout(() => {
+      updateHeaderInfo();
+      updateTabBadges();
+    }, 0);
+  }
 }
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 function fmtRp(n) { return 'Rp ' + (n||0).toLocaleString('id-ID'); }
@@ -2972,7 +3289,7 @@ function showTab(name, btn) {
   document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
   document.getElementById('tab-' + name).style.display = 'block';
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  btn.classList.add('active');
+  if (btn) btn.classList.add('active');
   if (name === 'dashboard') renderDashboard();
   if (name === 'input-cepat') initFastInput();
   if (name === 'setoran') renderDeposits();
@@ -2985,6 +3302,137 @@ function showTab(name, btn) {
   if (name === 'tunggakan') renderArrears();
   if (name === 'catatan') renderNotes();
   if (name === 'pengaturan') { loadSettings(); renderLocationsList(); }
+  // Update tab badges every time we switch tabs
+  updateTabBadges();
+  updateHeaderInfo();
+}
+
+// ===== HEADER OVERFLOW MENU =====
+function toggleHeaderMoreMenu(e) {
+  e && e.stopPropagation();
+  const menu = document.getElementById('header-more-menu');
+  if (!menu) return;
+  menu.classList.toggle('show');
+  // Close tab menu if open
+  const tabMenu = document.getElementById('tab-more-menu');
+  if (tabMenu) tabMenu.classList.remove('show');
+}
+function closeHeaderMoreMenu() {
+  const menu = document.getElementById('header-more-menu');
+  if (menu) menu.classList.remove('show');
+}
+
+// ===== TAB OVERFLOW MENU =====
+function toggleTabMoreMenu(e) {
+  e && e.stopPropagation();
+  const menu = document.getElementById('tab-more-menu');
+  if (!menu) return;
+  menu.classList.toggle('show');
+  // Close header menu if open
+  const headerMenu = document.getElementById('header-more-menu');
+  if (headerMenu) headerMenu.classList.remove('show');
+}
+function closeTabMoreMenu() {
+  const menu = document.getElementById('tab-more-menu');
+  if (menu) menu.classList.remove('show');
+}
+
+// Close menus on outside click
+document.addEventListener('click', (e) => {
+  const hMenu = document.getElementById('header-more-menu');
+  const tMenu = document.getElementById('tab-more-menu');
+  const hBtn = document.getElementById('btn-header-more');
+  const tBtn = document.getElementById('btn-tab-more');
+  if (hMenu && hMenu.classList.contains('show')) {
+    if (!hMenu.contains(e.target) && e.target !== hBtn) hMenu.classList.remove('show');
+  }
+  if (tMenu && tMenu.classList.contains('show')) {
+    if (!tMenu.contains(e.target) && e.target !== tBtn) tMenu.classList.remove('show');
+  }
+});
+
+// ===== TAB BADGES (notifications) =====
+function updateTabBadges() {
+  // Tunggakan badge: hitung pelanggan dengan tunggakan
+  const badgeEl = document.getElementById('badge-tunggakan');
+  if (badgeEl) {
+    let count = 0;
+    state.customers.forEach(c => {
+      if (c.isFree || c.status === 'nonaktif') return;
+      const bal = calculateBalance(c.id);
+      if (bal.balance > 0) count++;
+    });
+    if (count > 0) {
+      badgeEl.outerHTML = `<span id="badge-tunggakan" class="tab-badge warning">${count > 99 ? '99+' : count}</span>`;
+    } else {
+      badgeEl.outerHTML = `<span id="badge-tunggakan"></span>`;
+    }
+  }
+
+  // Setoran badge: hitung sesi setoran yang belum ditutup
+  const setoranBadgeEl = document.getElementById('badge-setoran');
+  if (setoranBadgeEl) {
+    let openCount = 0;
+    if (state.deposits) {
+      openCount = state.deposits.filter(d => !d.closed && d.status !== 'closed').length;
+    }
+    if (openCount > 0) {
+      setoranBadgeEl.outerHTML = `<span id="badge-setoran" class="tab-badge info">${openCount}</span>`;
+    } else {
+      setoranBadgeEl.outerHTML = `<span id="badge-setoran"></span>`;
+    }
+  }
+}
+
+// ===== HEADER INFO DYNAMIC =====
+function updateHeaderInfo() {
+  const infoEl = document.getElementById('header-info');
+  if (!infoEl) return;
+
+  // Count active customers
+  const activeCount = state.customers.filter(c => !c.isFree && c.status === 'aktif').length;
+
+  // Today's date
+  const today = new Date();
+  const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+  const dayName = days[today.getDay()];
+  const dateStr = `${dayName}, ${today.getDate()} ${months[today.getMonth()]} ${today.getFullYear()}`;
+
+  // Today's revenue (payments with paidAt = today)
+  const todayStrVal = todayStr();
+  const todayRevenue = state.payments
+    .filter(p => p.paidAt === todayStrVal)
+    .reduce((s, p) => s + p.amount, 0);
+
+  infoEl.innerHTML = `
+    <span style="color:#94a3b8;">${dateStr}</span>
+    <span style="color:#64748b;margin:0 6px;">·</span>
+    <span style="color:#cbd5e1;font-weight:500;">${activeCount} pelanggan aktif</span>
+    ${todayRevenue > 0 ? `<span style="color:#64748b;margin:0 6px;">·</span><span style="color:#86efac;font-weight:500;">💰 ${fmtRp(todayRevenue)} hari ini</span>` : ''}
+  `;
+
+  // Mode badge
+  const modeBadge = document.getElementById('header-mode-badge');
+  if (modeBadge) {
+    const mode = getBillingMode ? getBillingMode() : 'prepaid';
+    if (mode === 'postpaid') {
+      modeBadge.textContent = 'POSTPAID';
+      modeBadge.className = 'header-mode-badge postpaid';
+      modeBadge.style.display = 'inline-block';
+    } else {
+      modeBadge.style.display = 'none'; // hide for prepaid (default, less prominent)
+    }
+  }
+}
+
+// ===== SYNC STATUS CLICK - trigger manual sync =====
+function handleSyncStatusClick() {
+  if (typeof syncToGDrive === 'function' && gdriveAccessToken) {
+    syncToGDrive(true);
+  } else if (typeof handleGDriveClick === 'function') {
+    handleGDriveClick();
+  }
 }
 
 // ===================== DASHBOARD =====================
@@ -8229,12 +8677,14 @@ function formatDate(d) {
     headerLogo.src = splashLogo.src;
   }
 })();
-// Update header title with company name if set
-const companyName = state.settings.name && state.settings.name.trim();
-document.getElementById('header-info').textContent = companyName || 'Samurai.NET';
 // Auto-reactivate isolated customers whose isolatedUntil date has passed
 autoUpdateIsolationStatus();
 renderDashboard();
+updateHeaderInfo();
+updateTabBadges();
+
+// Refresh header info every minute (for time-sensitive info)
+setInterval(updateHeaderInfo, 60000);
 
 // Initialize Google Drive sync after a short delay (for libraries to load)
 setTimeout(initGoogleDriveSync, 1000);
