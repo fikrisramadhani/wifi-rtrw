@@ -874,9 +874,26 @@ tbody tr:last-child td { border-bottom: none; }
   .header-logo { width: 40px; height: 40px; }
   .header-text h1 { font-size: 16px; }
   .header-text p { font-size: 11px; }
+  .header-actions { gap: 6px; }
   .header-actions .btn { padding: 6px 10px; font-size: 12px; }
   .stat-value { font-size: 20px; }
   .panel { padding: 14px; }
+
+  /* Kompak: FTTH text disembunyikan di HP, hanya emoji */
+  .header-actions .ftth-label { display: none; }
+  /* Tombol Backup/Restore text disembunyikan, hanya emoji */
+  .header-actions .btn { min-width: auto; }
+}
+
+/* Tabs: icon-only untuk tab non-aktif di HP */
+@media (max-width: 640px) {
+  .tabs { gap: 2px; padding: 4px; }
+  .tab { padding: 8px 10px; font-size: 12px; }
+  /* Tab non-active: hanya icon */
+  .tab:not(.active) .tab-label { display: none; }
+  /* Tab active: icon + label lengkap */
+  .tab.active .tab-label { display: inline; margin-left: 4px; }
+  .tab-icon { font-size: 15px; }
 }
 </style>
 </head>
@@ -929,25 +946,25 @@ tbody tr:last-child td { border-bottom: none; }
       <div id="sync-status" style="font-size:12px;padding:5px 10px;border-radius:6px;background:rgba(255,255,255,0.08);color:white;display:none;border:1px solid rgba(255,255,255,0.15);"></div>
       <button id="btn-gdrive" class="btn btn-sm" onclick="handleGDriveClick()">☁️ Connect Drive</button>
       <button class="btn btn-sm" onclick="exportData()">⬇ Backup</button>
-      <button class="btn btn-sm" onclick="document.getElementById('import-file').click()">⬆ Restore</button>
-      <a href="ftth/" target="_blank" rel="noopener" class="btn btn-sm" style="text-decoration:none;">📡 FTTH Designer</a>
+      <button class="btn btn-sm" onclick="document.getElementById('import-file').click()" style="background:rgba(217,119,6,0.2)!important;border-color:rgba(252,211,77,0.4)!important;" title="Restore akan MENGGANTIKAN data saat ini">⬆ Restore</button>
+      <a href="ftth/" target="_blank" rel="noopener" class="btn btn-sm btn-ftth-nav" style="text-decoration:none;background:linear-gradient(135deg,rgba(59,130,246,0.35),rgba(139,92,246,0.35))!important;border-color:rgba(147,197,253,0.5)!important;">📡 <span class="ftth-label">FTTH Designer</span></a>
       <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
     </div>
   </header>
 
   <div class="tabs">
-    <button class="tab active" onclick="showTab('dashboard', this)">📊 Dashboard</button>
-    <button class="tab" onclick="showTab('input-cepat', this)">⚡ Input Cepat</button>
-    <button class="tab" onclick="showTab('setoran', this)">💼 Setoran</button>
-    <button class="tab" onclick="showTab('tukang', this)">👷 Tukang</button>
-    <button class="tab" onclick="showTab('pelanggan', this)">👥 Pelanggan</button>
-    <button class="tab" onclick="showTab('gratis', this)">🎁 Gratis</button>
-    <button class="tab" onclick="showTab('lokasi', this)">📍 Lokasi</button>
-    <button class="tab" onclick="showTab('paket', this)">📦 Paket</button>
-    <button class="tab" onclick="showTab('pembayaran', this)">💰 Pembayaran</button>
-    <button class="tab" onclick="showTab('tunggakan', this)">⚠️ Tunggakan</button>
-    <button class="tab" onclick="showTab('catatan', this)">📝 Catatan</button>
-    <button class="tab" onclick="showTab('pengaturan', this)">⚙️ Pengaturan</button>
+    <button class="tab active" onclick="showTab('dashboard', this)"><span class="tab-icon">📊</span><span class="tab-label">Dashboard</span></button>
+    <button class="tab" onclick="showTab('input-cepat', this)"><span class="tab-icon">⚡</span><span class="tab-label">Input Cepat</span></button>
+    <button class="tab" onclick="showTab('setoran', this)"><span class="tab-icon">💼</span><span class="tab-label">Setoran</span></button>
+    <button class="tab" onclick="showTab('pembayaran', this)"><span class="tab-icon">💰</span><span class="tab-label">Pembayaran</span></button>
+    <button class="tab" onclick="showTab('tunggakan', this)"><span class="tab-icon">⚠️</span><span class="tab-label">Tunggakan</span></button>
+    <button class="tab" onclick="showTab('pelanggan', this)"><span class="tab-icon">👥</span><span class="tab-label">Pelanggan</span></button>
+    <button class="tab" onclick="showTab('tukang', this)"><span class="tab-icon">👷</span><span class="tab-label">Tukang</span></button>
+    <button class="tab" onclick="showTab('gratis', this)"><span class="tab-icon">🎁</span><span class="tab-label">Gratis</span></button>
+    <button class="tab" onclick="showTab('lokasi', this)"><span class="tab-icon">📍</span><span class="tab-label">Lokasi</span></button>
+    <button class="tab" onclick="showTab('paket', this)"><span class="tab-icon">📦</span><span class="tab-label">Paket</span></button>
+    <button class="tab" onclick="showTab('catatan', this)"><span class="tab-icon">📝</span><span class="tab-label">Catatan</span></button>
+    <button class="tab" onclick="showTab('pengaturan', this)"><span class="tab-icon">⚙️</span><span class="tab-label">Pengaturan</span></button>
   </div>
 
   <!-- INPUT CEPAT -->
