@@ -2388,7 +2388,11 @@ async function migrateGDriveFileToFolder(fileId, folderId) {
 
 async function onGDriveLoggedIn(silent) {
   setSyncStatus('⏳ Connecting...', '#d97706');
-  document.getElementById('btn-gdrive').textContent = '☁️ Connected';
+  // Update menu item label (btn-gdrive was moved to overflow menu as menu-gdrive-label)
+  const menuLabel = document.getElementById('menu-gdrive-label');
+  if (menuLabel) menuLabel.textContent = 'Drive Connected ✓';
+  const oldBtn = document.getElementById('btn-gdrive');
+  if (oldBtn) oldBtn.textContent = '☁️ Connected';
   clearSyncError();
 
   // Get user info
