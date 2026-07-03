@@ -6475,9 +6475,12 @@ function renderFastInput() {
       ? `<input type="checkbox" class="fi-checkbox fi-row-cb" data-id="${c.id}" data-period="${period}" onchange="onFiRowCheckboxChange(this)" style="cursor:pointer;">`
       : `<span style="color:#a8a29e;font-size:11px;">${i+1}</span>`;
 
+    // Detail button - lihat riwayat pembayaran per bulan
+    const detailBtn = `<button onclick="event.stopPropagation();showCustomerDetail('${c.id}')" title="Lihat detail & riwayat pembayaran per bulan" style="background:none;border:none;cursor:pointer;padding:2px 4px;margin-left:4px;font-size:14px;opacity:0.5;transition:opacity 0.15s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5">📋</button>`;
+
     html += `<div class="fast-input-row ${rowExtraClass}" id="fi-row-${c.id}" style="grid-template-columns:30px 1fr 100px 130px 140px;">
       <div>${checkboxCell}</div>
-      <div class="name" style="cursor:pointer;" title="Klik nama untuk edit pelanggan"><strong onclick="editCustomer('${c.id}')" style="text-decoration:underline;text-decoration-style:dotted;text-decoration-color:#1e40af;">${escapeHtml(c.name)}</strong>${quickActionBtn}${badge}${locBadge}<small>${escapeHtml(c.username||'')}${c.phone ? ' · ' + escapeHtml(c.phone) : ''}</small></div>
+      <div class="name" style="cursor:pointer;" title="Klik nama untuk edit pelanggan"><strong onclick="editCustomer('${c.id}')" style="text-decoration:underline;text-decoration-style:dotted;text-decoration-color:#1e40af;">${escapeHtml(c.name)}</strong>${detailBtn}${quickActionBtn}${badge}${locBadge}<small>${escapeHtml(c.username||'')}${c.phone ? ' · ' + escapeHtml(c.phone) : ''}</small></div>
       ${tagihanInfo}
       <div>${inputCell}</div>
       <div>${actionCell}</div>
