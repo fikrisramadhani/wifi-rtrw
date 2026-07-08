@@ -1776,6 +1776,30 @@ tbody tr:last-child td { border-bottom: none; }
   </div>
 </div>
 
+<!-- Modal Reaktivasi Pelanggan -->
+<div class="modal-bg" id="modal-quick-reactivate">
+  <div class="modal" style="max-width:480px;">
+    <h3>🔓 Aktifkan Kembali Pelanggan</h3>
+    <input type="hidden" id="quick-reactivate-customer-id">
+    <div style="font-size:14px;font-weight:600;color:#44403c;margin-bottom:10px;">
+      Pelanggan: <span id="quick-reactivate-customer-name" style="color:#1e40af;"></span>
+    </div>
+    <div id="quick-reactivate-info" style="font-size:13px;padding:8px 12px;background:#dcfce7;border:1px solid #86efac;border-radius:6px;color:#166534;margin-bottom:12px;">
+      ✅ Semua tunggakan sudah terbayar. Silakan pilih tanggal aktif kembali.
+    </div>
+    <div class="form-group">
+      <label>Tgl Aktif Kembali</label>
+      <input type="date" id="quick-reactivate-date">
+      <small style="color:#78716c;">Tanggal saat layanan pelanggan dianggap aktif kembali. Biasanya = hari ini.</small>
+    </div>
+    <div id="quick-reactivate-info-detail" style="font-size:12px;color:#78716c;margin-top:8px;font-style:italic;"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-quick-reactivate')">Batal</button>
+      <button class="btn btn-success" onclick="saveQuickReactivate()">🔓 Aktifkan Sekarang</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg" id="modal-customer">
   <div class="modal">
     <h3 id="modal-customer-title">Tambah Pelanggan</h3>
@@ -4117,25 +4141,65 @@ function quickReactivate(customerId) {
   const c = state.customers.find(x => x.id === customerId);
   if (!c) return;
   if (c.status !== 'diisolir') { alert('Pelanggan tidak sedang diisolir'); return; }
-  if (!confirm(
-    `✅ AKTIFKAN KEMBALI\n\n` +
-    `Pelanggan: ${c.name}\n` +
-    `Diisolir sejak: ${c.isolatedFrom ? formatDate(c.isolatedFrom) : '-'}\n\n` +
-    `Layanan akan dianggap AKTIF kembali mulai hari ini.\nLanjut?`
-  )) return;
 
-  // Set isolatedUntil to today so history preserved
-  c.isolatedUntil = todayStr();
+  // Open modal with date picker
+  document.getElementById('quick-reactivate-customer-id').value = customerId;
+  document.getElementById('quick-reactivate-customer-name').textContent = c.name;
+  document.getElementById('quick-reactivate-date').value = todayStr();
+
+  // Show info detail (durasi isolasi)
+  const detailEl = document.getElementById('quick-reactivate-info-detail');
+  if (c.isolatedFrom) {
+    const days = Math.floor((new Date(todayStr()) - new Date(c.isolatedFrom)) / (1000 * 60 * 60 * 24));
+    detailEl.innerHTML = `Diisolir sejak: <strong>${formatDate(c.isolatedFrom)}</strong> (${days} hari)`;
+  } else {
+    detailEl.innerHTML = '';
+  }
+
+  // Cek tunggakan (untuk info)
+  const bal = calculateBalance(customerId, curMonth());
+  const infoEl = document.getElementById('quick-reactivate-info');
+  if (bal.balance > 0) {
+    infoEl.style.background = '#fef3c7';
+    infoEl.style.borderColor = '#fde68a';
+    infoEl.style.color = '#92400e';
+    infoEl.innerHTML = `⚠️ Masih ada tunggakan <strong>${fmtRp(bal.balance)}</strong>. Yakin ingin aktifkan?`;
+  } else {
+    infoEl.style.background = '#dcfce7';
+    infoEl.style.borderColor = '#86efac';
+    infoEl.style.color = '#166534';
+    infoEl.innerHTML = `✅ Semua tunggakan sudah terbayar. Silakan pilih tanggal aktif kembali.`;
+  }
+
+  document.getElementById('modal-quick-reactivate').classList.add('show');
+}
+
+function saveQuickReactivate() {
+  const customerId = document.getElementById('quick-reactivate-customer-id').value;
+  const untilDate = document.getElementById('quick-reactivate-date').value;
+  if (!untilDate) { alert('Tgl Aktif Kembali wajib diisi'); return; }
+
+  const c = state.customers.find(x => x.id === customerId);
+  if (!c) return;
+
+  // Validasi: tanggal aktif kembali tidak boleh lebih awal dari tanggal mulai isolir
+  if (c.isolatedFrom && untilDate < c.isolatedFrom) {
+    alert(`⚠️ Tgl Aktif Kembali tidak boleh lebih awal dari Tgl Mulai Isolir (${formatDate(c.isolatedFrom)})`);
+    return;
+  }
+
+  c.isolatedUntil = untilDate;
   c.status = 'aktif';
   // Update history
   if (c.isolationHistory && c.isolationHistory.length > 0) {
     c.isolationHistory[c.isolationHistory.length - 1].until = c.isolatedUntil;
   }
   saveState();
+  closeModal('modal-quick-reactivate');
   renderCustomers();
   const fastInputTab = document.getElementById('tab-input-cepat');
   if (fastInputTab && fastInputTab.style.display !== 'none') renderFastInput();
-  showToast(`🔓 ${c.name} berhasil diaktifkan kembali`, 'success');
+  showToast(`🔓 ${c.name} aktif kembali (${formatDate(untilDate)})`, 'success');
 }
 
 // Simple toast helper for use in this module
@@ -6698,16 +6762,11 @@ function fastInputPay(customerId, period, amount) {
           `✅ TUNGGAKAN LUNAS\n\n` +
           `Pelanggan: ${c.name}\n` +
           `Semua tunggakan sudah terbayar.\n\n` +
-          `Aktifkan kembali pelanggan ini sekarang?`
+          `Aktifkan kembali pelanggan ini sekarang?\n` +
+          `(Anda bisa pilih tanggal aktif kembali di modal berikutnya)`
         )) {
-          c.isolatedUntil = todayStr();
-          c.status = 'aktif';
-          if (c.isolationHistory && c.isolationHistory.length > 0) {
-            c.isolationHistory[c.isolationHistory.length - 1].until = c.isolatedUntil;
-          }
-          saveState();
-          renderFastInput();
-          showToast(`🔓 ${c.name} aktif kembali`, 'success');
+          // Buka modal dengan date picker
+          quickReactivate(customerId);
         }
       }, 300);
     }
