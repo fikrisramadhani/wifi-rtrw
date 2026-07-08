@@ -4983,9 +4983,14 @@ function renderPayments() {
   const colSel = document.getElementById('filter-payment-collector');
   if (colSel) {
     const cur = colSel.value;
-    colSel.innerHTML = '<option value="">Semua Tukang</option>' +
-      '<option value="__direct__">🏦 Transfer Langsung (tanpa tukang)</option>' +
-      state.collectors.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+    let options = '<option value="">Semua Tukang</option>' +
+      '<option value="__direct__">🏦 Transfer Langsung (tanpa tukang)</option>';
+    // Untuk tiap tukang: 2 opsi — semua pembayaran & hanya setoran
+    state.collectors.forEach(t => {
+      options += `<option value="${t.id}">👷 ${escapeHtml(t.name)} (semua pembayaran wilayah)</option>`;
+      options += `<option value="__setoran__${t.id}">💰 ${escapeHtml(t.name)} (hanya setoran tukang)</option>`;
+    });
+    colSel.innerHTML = options;
     colSel.value = cur;
   }
 
@@ -5027,10 +5032,22 @@ function applyPaymentFilters() {
 
   // Filter by collector or direct transfer
   if (filterCollector === '__direct__') {
+    // Filter khusus: hanya TF langsung ke admin
     list = list.filter(p => p.directTransfer);
-  } else if (filterCollector) {
+  } else if (filterCollector && filterCollector.startsWith('__setoran__')) {
+    // Filter: HANYA setoran tukang (tunai/transfer via tukang, TIDAK termasuk TF langsung)
+    const tukangId = filterCollector.replace('__setoran__', '');
     list = list.filter(p => {
-      if (p.directTransfer) return false;
+      if (p.directTransfer) return false; // exclude TF langsung
+      const c = state.customers.find(x => x.id === p.customerId);
+      if (!c) return false;
+      const collector = getCollectorForLocation(c.locationCode);
+      return collector && collector.id === tukangId;
+    });
+  } else if (filterCollector) {
+    // Default: tampilkan SEMUA pembayaran dari pelanggan di wilayah tukang ini,
+    // termasuk TF langsung ke admin (karena pelanggan-nya di wilayah tukang tsb)
+    list = list.filter(p => {
       const c = state.customers.find(x => x.id === p.customerId);
       if (!c) return false;
       const collector = getCollectorForLocation(c.locationCode);
@@ -5274,9 +5291,13 @@ function renderActiveFilterChips(filters) {
   if (filters.filterCollector) {
     let name;
     if (filters.filterCollector === '__direct__') name = 'TF Langsung';
-    else {
+    else if (filters.filterCollector.startsWith('__setoran__')) {
+      const tukangId = filters.filterCollector.replace('__setoran__', '');
+      const col = state.collectors.find(t => t.id === tukangId);
+      name = col ? `${col.name} (hanya setoran)` : '?';
+    } else {
       const col = state.collectors.find(t => t.id === filters.filterCollector);
-      name = col ? col.name : '?';
+      name = col ? `${col.name} (wilayah)` : '?';
     }
     chips.push({ label: `Tukang: ${name}`, clear: `document.getElementById('filter-payment-collector').value='';applyPaymentFilters();` });
   }
