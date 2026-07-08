@@ -2259,6 +2259,11 @@ function initGoogleDriveSync() {
       callback: (response) => {
         if (response.error) {
           console.error('Token error:', response);
+          // Kalau silent refresh gagal tapi token yang ada masih valid, JANGAN tampilkan error
+          if (isTokenValid()) {
+            console.warn('Silent token refresh gagal, tapi token sekarang masih valid. Skip error notif.');
+            return;
+          }
           showSyncError('Login Google gagal. Silakan klik Re-Login.', true);
           setSyncStatus('⚠️ Login gagal', '#dc2626');
           return;
@@ -2275,6 +2280,19 @@ function initGoogleDriveSync() {
       },
       error_callback: (error) => {
         console.error('Token request error:', error);
+        // Kalau silent refresh gagal tapi token yang ada masih valid, JANGAN tampilkan error
+        if (isTokenValid()) {
+          console.warn('Silent token refresh gagal (background), tapi token sekarang masih valid. Skip error notif.');
+          // Coba refresh lagi 10 menit kemudian
+          if (gdriveAutoRefreshTimer) clearTimeout(gdriveAutoRefreshTimer);
+          gdriveAutoRefreshTimer = setTimeout(() => {
+            if (gdriveTokenClient && gdriveAccessToken && isTokenValid()) {
+              gdriveTokenClient.requestAccessToken({ prompt: '' });
+            }
+          }, 10 * 60 * 1000);
+          return;
+        }
+        // Token sudah tidak valid → user butuh action
         showSyncError('Gagal request token Google. Klik Re-Login untuk mencoba lagi.', true);
       }
     });
@@ -2306,12 +2324,18 @@ function initGoogleDriveSync() {
 function scheduleTokenAutoRefresh() {
   if (gdriveAutoRefreshTimer) clearTimeout(gdriveAutoRefreshTimer);
   if (!gdriveTokenExpiresAt) return;
-  // Refresh 5 minutes before expiry
-  const refreshIn = Math.max(0, gdriveTokenExpiresAt - Date.now() - 5 * 60 * 1000);
+  // Refresh 2 minutes before expiry (was 5 minutes — bikin refresh terlalu sering)
+  // Minimum interval 5 menit dari sekarang untuk mencegah refresh terus-menerus
+  const refreshIn = Math.max(5 * 60 * 1000, gdriveTokenExpiresAt - Date.now() - 2 * 60 * 1000);
   gdriveAutoRefreshTimer = setTimeout(() => {
+    // Cek lagi: kalau token masih lama valid, jadwal ulang saja (skip refresh sekarang)
     if (gdriveTokenClient && gdriveAccessToken) {
       // Silent refresh — doesn't show consent screen if user already granted
-      gdriveTokenClient.requestAccessToken({ prompt: '' });
+      try {
+        gdriveTokenClient.requestAccessToken({ prompt: '' });
+      } catch (e) {
+        console.warn('Silent token refresh threw error:', e);
+      }
     }
   }, refreshIn);
 }
