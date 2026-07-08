@@ -7992,7 +7992,13 @@ function calculateBalance(customerId, asOfMonth) {
 
   // === PERIODE-FIRST ALLOCATION ===
   // Step 1: Each payment goes to its DECLARED PERIOD first
+  // PENTING: Payment untuk periode yang LEBIH BARU dari endMonth (asOfMonth) di-SKIP
+  // Ini menjaga konsistensi: hasil calculateBalance(id, 'April') harus sama untuk bulan April
+  // baik dilihat dari April maupun dari Juni.
   payments.forEach(p => {
+    // Skip payment dengan periode > endMonth (masa depan relatif terhadap asOfMonth)
+    if (p.period && p.period > endMonth) return;
+
     const monthEntry = months.find(m => m.period === p.period);
     if (monthEntry) {
       const need = monthEntry.billed - monthEntry.paid;
