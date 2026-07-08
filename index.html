@@ -1344,10 +1344,10 @@ tbody tr:last-child td { border-bottom: none; }
         <div class="form-group">
           <label>Metode</label>
           <select id="pay-method">
-            <option value="Tunai">Tunai</option>
-            <option value="Transfer">Transfer</option>
-            <option value="QRIS">QRIS</option>
-            <option value="E-wallet">E-wallet</option>
+            <option value="Tunai">💵 Tunai</option>
+            <option value="Transfer">💳 Transfer</option>
+            <option value="QRIS">📱 QRIS</option>
+            <option value="E-wallet">📲 E-wallet</option>
           </select>
         </div>
         <div class="form-group">
@@ -1370,37 +1370,38 @@ tbody tr:last-child td { border-bottom: none; }
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;">
           <div>
             <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Cari Pelanggan</label>
-            <input type="text" id="search-payment" placeholder="🔍 Nama / username / HP" oninput="renderPayments()">
+            <input type="text" id="search-payment" placeholder="🔍 Nama / username / HP" oninput="applyPaymentFilters()">
           </div>
           <div>
-            <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Periode Tagihan</label>
-            <input type="month" id="filter-payment-period" onchange="renderPayments()">
+            <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;" title="Filter berdasarkan bulan yang ditagihkan (bukan tanggal transaksi)">📅 Periode Tagihan</label>
+            <input type="month" id="filter-payment-period" onchange="applyPaymentFilters()" title="Contoh: filter semua pembayaran untuk tagihan Juni 2026">
           </div>
           <div>
             <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Daerah</label>
-            <select id="filter-payment-location" onchange="renderPayments()">
+            <select id="filter-payment-location" onchange="applyPaymentFilters()">
               <option value="">Semua Daerah</option>
             </select>
           </div>
           <div>
             <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Tukang</label>
-            <select id="filter-payment-collector" onchange="renderPayments()">
+            <select id="filter-payment-collector" onchange="applyPaymentFilters()">
               <option value="">Semua Tukang</option>
             </select>
           </div>
           <div>
             <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Metode Pembayaran</label>
-            <select id="filter-payment-method" onchange="renderPayments()">
+            <select id="filter-payment-method" onchange="applyPaymentFilters()">
               <option value="">Semua Metode</option>
               <option value="Tunai">💵 Tunai</option>
               <option value="Transfer">💳 Transfer</option>
               <option value="QRIS">📱 QRIS</option>
+              <option value="E-wallet">📲 E-wallet</option>
               <option value="__direct__">🏦 Transfer Langsung ke Admin</option>
             </select>
           </div>
           <div>
             <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Urutkan</label>
-            <select id="sort-payment" onchange="renderPayments()">
+            <select id="sort-payment" onchange="applyPaymentFilters()">
               <option value="date-desc">Terbaru</option>
               <option value="date-asc">Terlama</option>
               <option value="amount-desc">Jumlah terbesar</option>
@@ -1411,33 +1412,38 @@ tbody tr:last-child td { border-bottom: none; }
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:10px;">
           <div>
-            <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Tgl Bayar Dari</label>
-            <input type="date" id="filter-payment-date-from" onchange="renderPayments()">
+            <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;" title="Filter berdasarkan tanggal transaksi bayar (bukan periode tagihan)">🗓️ Tgl Bayar Dari</label>
+            <input type="date" id="filter-payment-date-from" onchange="applyPaymentFilters()">
           </div>
           <div>
-            <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Tgl Bayar Sampai</label>
-            <input type="date" id="filter-payment-date-to" onchange="renderPayments()">
+            <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">🗓️ Tgl Bayar Sampai</label>
+            <input type="date" id="filter-payment-date-to" onchange="applyPaymentFilters()">
           </div>
           <div>
             <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Nominal Min</label>
-            <input type="number" id="filter-payment-min" placeholder="Rp 0" oninput="renderPayments()">
+            <input type="number" id="filter-payment-min" placeholder="Rp 0" oninput="applyPaymentFilters()">
           </div>
           <div>
             <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Nominal Max</label>
-            <input type="number" id="filter-payment-max" placeholder="Tanpa batas" oninput="renderPayments()">
+            <input type="number" id="filter-payment-max" placeholder="Tanpa batas" oninput="applyPaymentFilters()">
           </div>
         </div>
-        <div style="display:flex;justify-content:flex-end;margin-top:10px;">
+        <!-- Filter Active Chips + Reset -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;gap:8px;flex-wrap:wrap;">
+          <div id="payment-active-filters" style="display:flex;gap:6px;flex-wrap:wrap;flex:1;"></div>
           <button class="btn btn-sm" onclick="resetPaymentFilters()" style="background:#f5f5f4;">↻ Reset Filter</button>
         </div>
       </div>
+
+      <!-- Quick Stats: Hari ini, Bulan ini -->
+      <div id="payment-quick-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:10px;"></div>
 
       <!-- Summary -->
       <div id="payment-summary" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:13px;display:none;"></div>
 
       <div class="table-wrap">
         <table id="payments-table">
-          <thead><tr><th>Tgl Bayar</th><th>Pelanggan</th><th>Periode</th><th>Jumlah</th><th>Metode</th><th>Aksi</th></tr></thead>
+          <thead><tr><th>Tgl Bayar</th><th>Pelanggan</th><th>Periode</th><th>Jumlah</th><th>Metode</th><th>Tukang</th><th>Aksi</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -5024,7 +5030,7 @@ function applyPaymentFilters() {
     list = list.filter(p => p.directTransfer);
   } else if (filterCollector) {
     list = list.filter(p => {
-      if (p.directTransfer) return false; // direct transfer tidak ada tukang
+      if (p.directTransfer) return false;
       const c = state.customers.find(x => x.id === p.customerId);
       if (!c) return false;
       const collector = getCollectorForLocation(c.locationCode);
@@ -5036,7 +5042,7 @@ function applyPaymentFilters() {
   if (filterMethod === '__direct__') {
     list = list.filter(p => p.directTransfer);
   } else if (filterMethod) {
-    list = list.filter(p => p.method === filterMethod);
+    list = list.filter(p => p.method === filterMethod && !p.directTransfer);
   }
 
   // Filter by date range
@@ -5045,6 +5051,19 @@ function applyPaymentFilters() {
 
   // Filter by amount range
   list = list.filter(p => p.amount >= minAmount && p.amount <= maxAmount);
+
+  // Store filtered result globally (for export)
+  window.paymentFilteredList = list;
+
+  // Render active filter chips
+  renderActiveFilterChips({
+    search, filterPeriod, filterLoc, filterCollector, filterMethod,
+    dateFrom, dateTo, minAmount: document.getElementById('filter-payment-min').value,
+    maxAmount: document.getElementById('filter-payment-max').value
+  });
+
+  // Render quick stats (independent of filter — untuk overview cepat)
+  renderPaymentQuickStats();
 
   // Sort
   list.sort((a, b) => {
@@ -5056,7 +5075,6 @@ function applyPaymentFilters() {
       const cb = state.customers.find(x => x.id === b.customerId);
       return (ca ? ca.name : '').localeCompare(cb ? cb.name : '');
     }
-    // default: date-desc
     return (b.paidAt||'').localeCompare(a.paidAt||'');
   });
 
@@ -5087,7 +5105,7 @@ function applyPaymentFilters() {
         ${(transferTotal > 0 || directTransferTotal > 0) ? `
         <div>
           <div style="font-size:11px;color:#78716c;">Breakdown</div>
-          <div style="font-size:11px;">
+          <div style="font-size:11px;line-height:1.5;">
             ${cashTotal > 0 ? `💵 ${fmtRp(cashTotal)}<br>` : ''}
             ${transferTotal > 0 ? `💳 TF tukang ${fmtRp(transferTotal)}<br>` : ''}
             ${directTransferTotal > 0 ? `🏦 TF langsung ${fmtRp(directTransferTotal)}` : ''}
@@ -5102,33 +5120,194 @@ function applyPaymentFilters() {
 
   const tbody = document.querySelector('#payments-table tbody');
   if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><h3>Tidak ada pembayaran</h3><p>Tidak ada hasil sesuai filter. Coba reset atau ubah filter.</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><h3>Tidak ada pembayaran</h3><p>Tidak ada hasil sesuai filter. Coba reset atau ubah filter.</p></div></td></tr>`;
     return;
   }
+
+  // Detect duplicates (same customer, period, amount within 5 min)
+  const duplicateIds = new Set();
+  const paymentKeys = new Map();
+  list.forEach(p => {
+    const key = `${p.customerId}|${p.period}|${p.amount}`;
+    if (paymentKeys.has(key)) {
+      const prev = paymentKeys.get(key);
+      const timeDiff = Math.abs(new Date(p.paidAt).getTime() - new Date(prev.paidAt).getTime());
+      if (timeDiff < 5 * 60 * 1000 || p.paidAt === prev.paidAt) {
+        duplicateIds.add(p.id);
+        duplicateIds.add(prev.id);
+      }
+    }
+    paymentKeys.set(key, p);
+  });
+
   tbody.innerHTML = list.slice(0, 500).map(p => {
     const c = state.customers.find(x => x.id === p.customerId);
     const methodBadge = p.directTransfer
       ? `<span class="badge" style="background:#cffafe;color:#0e7490;">🏦 TF Langsung</span>`
       : p.method === 'Transfer'
       ? `<span class="badge" style="background:#dbeafe;color:#1e40af;">💳 ${escapeHtml(p.method)}</span>`
-      : `<span class="badge badge-info">💵 ${escapeHtml(p.method)}</span>`;
-    return `<tr>
-      <td>${formatDate(p.paidAt)}</td>
-      <td>${escapeHtml(c ? c.name : '?')}${c && c.username ? `<br><small style="color:#78716c;">${escapeHtml(c.username)} ${c.locationCode ? '· ' + escapeHtml(getLocationName(c.locationCode)) : ''}</small>` : ''}</td>
+      : p.method === 'QRIS'
+      ? `<span class="badge" style="background:#ede9fe;color:#7c3aed;">📱 QRIS</span>`
+      : p.method === 'E-wallet'
+      ? `<span class="badge" style="background:#cffafe;color:#0891b2;">📲 E-wallet</span>`
+      : `<span class="badge" style="background:#dcfce7;color:#166534;">💵 ${escapeHtml(p.method || 'Tunai')}</span>`;
+
+    // Tukang info
+    let collectorName = '-';
+    if (p.directTransfer) {
+      collectorName = '<span style="color:#0891b2;font-style:italic;">Admin (TF langsung)</span>';
+    } else if (c) {
+      const col = getCollectorForLocation(c.locationCode);
+      collectorName = col ? escapeHtml(col.name) : '<span style="color:#a8a29e;">-</span>';
+    }
+
+    const dupBadge = duplicateIds.has(p.id)
+      ? `<span title="Kemungkinan pembayaran duplikat" style="background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:8px;font-size:10px;font-weight:600;margin-left:4px;">⚠️ dup</span>`
+      : '';
+
+    return `<tr${duplicateIds.has(p.id) ? ' style="background:#fffbeb;"' : ''}>
+      <td>${formatDate(p.paidAt)}${dupBadge}</td>
+      <td>${c
+        ? `<span onclick="showCustomerDetail('${c.id}')" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:#1e40af;color:#1e40af;" title="Klik untuk detail pelanggan">${escapeHtml(c.name)}</span>`
+        : '<span style="color:#a8a29e;">? (dihapus)</span>'
+      }${c && c.username ? `<br><small style="color:#78716c;">${escapeHtml(c.username)} ${c.locationCode ? '· ' + escapeHtml(getLocationName(c.locationCode)) : ''}</small>` : ''}</td>
       <td>${monthLabel(p.period)}</td>
       <td><strong>${fmtRp(p.amount)}</strong></td>
       <td>${methodBadge}</td>
+      <td style="font-size:12px;">${collectorName}</td>
       <td style="white-space:nowrap;">
-        <button class="btn btn-sm" onclick="showReceipt('${p.id}')">🧾</button>
-        <button class="btn btn-sm btn-danger" onclick="deletePayment('${p.id}')">🗑</button>
+        <button class="btn btn-sm" onclick="showReceipt('${p.id}')" title="Lihat kwitansi">🧾</button>
+        <button class="btn btn-sm btn-danger" onclick="deletePayment('${p.id}')" title="Hapus pembayaran">🗑</button>
       </td>
     </tr>`;
   }).join('');
 
-  // If list truncated, add note
   if (list.length > 500) {
-    tbody.innerHTML += `<tr><td colspan="6" style="text-align:center;padding:12px;color:#78716c;font-size:12px;">Menampilkan 500 dari ${list.length} pembayaran. Persempit filter untuk melihat lebih spesifik.</td></tr>`;
+    tbody.innerHTML += `<tr><td colspan="7" style="text-align:center;padding:12px;color:#78716c;font-size:12px;">Menampilkan 500 dari ${list.length} pembayaran. Persempit filter untuk melihat lebih spesifik.</td></tr>`;
   }
+}
+
+// Render quick stats: pembayaran hari ini, kemarin, bulan ini
+function renderPaymentQuickStats() {
+  const container = document.getElementById('payment-quick-stats');
+  if (!container) return;
+
+  const today = todayStr();
+  const now = new Date(today);
+  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const yesterdayStr = yesterday.toISOString().slice(0, 10);
+  const monthPrefix = today.slice(0, 7); // YYYY-MM
+  const curYear = today.slice(0, 4);
+
+  const todayPays = state.payments.filter(p => p.paidAt === today);
+  const yesterdayPays = state.payments.filter(p => p.paidAt === yesterdayStr);
+  const monthPays = state.payments.filter(p => (p.paidAt || '').startsWith(monthPrefix));
+  const yearPays = state.payments.filter(p => (p.paidAt || '').startsWith(curYear));
+
+  const todayTotal = todayPays.reduce((s, p) => s + p.amount, 0);
+  const yesterdayTotal = yesterdayPays.reduce((s, p) => s + p.amount, 0);
+  const monthTotal = monthPays.reduce((s, p) => s + p.amount, 0);
+  const yearTotal = yearPays.reduce((s, p) => s + p.amount, 0);
+
+  container.innerHTML = `
+    <div style="background:white;border:1px solid #dcfce7;border-left:3px solid #16a34a;border-radius:8px;padding:10px 12px;cursor:pointer;" onclick="quickFilterByDate('${today}')" title="Klik untuk filter tanggal ini">
+      <div style="font-size:10px;color:#78716c;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Hari Ini</div>
+      <div style="font-size:16px;font-weight:700;color:#16a34a;margin-top:2px;">${fmtRp(todayTotal)}</div>
+      <div style="font-size:11px;color:#78716c;">${todayPays.length}x pembayaran</div>
+    </div>
+    <div style="background:white;border:1px solid #f3f4f6;border-left:3px solid #78716c;border-radius:8px;padding:10px 12px;cursor:pointer;" onclick="quickFilterByDate('${yesterdayStr}')" title="Klik untuk filter kemarin">
+      <div style="font-size:10px;color:#78716c;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Kemarin</div>
+      <div style="font-size:16px;font-weight:700;color:#57534e;margin-top:2px;">${fmtRp(yesterdayTotal)}</div>
+      <div style="font-size:11px;color:#78716c;">${yesterdayPays.length}x pembayaran</div>
+    </div>
+    <div style="background:white;border:1px solid #dbeafe;border-left:3px solid #1e40af;border-radius:8px;padding:10px 12px;cursor:pointer;" onclick="quickFilterByMonth('${monthPrefix}')" title="Klik untuk filter bulan ini">
+      <div style="font-size:10px;color:#78716c;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Bulan Ini</div>
+      <div style="font-size:16px;font-weight:700;color:#1e40af;margin-top:2px;">${fmtRp(monthTotal)}</div>
+      <div style="font-size:11px;color:#78716c;">${monthPays.length}x pembayaran</div>
+    </div>
+    <div style="background:white;border:1px solid #ede9fe;border-left:3px solid #7c3aed;border-radius:8px;padding:10px 12px;">
+      <div style="font-size:10px;color:#78716c;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Tahun ${curYear}</div>
+      <div style="font-size:16px;font-weight:700;color:#7c3aed;margin-top:2px;">${fmtRp(yearTotal)}</div>
+      <div style="font-size:11px;color:#78716c;">${yearPays.length}x pembayaran</div>
+    </div>
+  `;
+}
+
+// Helper: quick filter by specific date
+function quickFilterByDate(dateStr) {
+  document.getElementById('filter-payment-date-from').value = dateStr;
+  document.getElementById('filter-payment-date-to').value = dateStr;
+  applyPaymentFilters();
+  // Scroll to filter area
+  const filterEl = document.getElementById('filter-payment-date-from');
+  if (filterEl) filterEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// Helper: quick filter by month
+function quickFilterByMonth(monthPrefix) {
+  const [y, m] = monthPrefix.split('-');
+  const firstDay = `${y}-${m}-01`;
+  const lastDay = new Date(parseInt(y), parseInt(m), 0).toISOString().slice(0, 10);
+  document.getElementById('filter-payment-date-from').value = firstDay;
+  document.getElementById('filter-payment-date-to').value = lastDay;
+  applyPaymentFilters();
+  const filterEl = document.getElementById('filter-payment-date-from');
+  if (filterEl) filterEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// Render active filter chips - user bisa lihat filter apa saja yang aktif, klik untuk clear
+function renderActiveFilterChips(filters) {
+  const container = document.getElementById('payment-active-filters');
+  if (!container) return;
+
+  const chips = [];
+  if (filters.search) {
+    chips.push({ label: `Cari: "${filters.search}"`, clear: `document.getElementById('search-payment').value='';applyPaymentFilters();` });
+  }
+  if (filters.filterPeriod) {
+    chips.push({ label: `Periode: ${monthLabel(filters.filterPeriod)}`, clear: `document.getElementById('filter-payment-period').value='';applyPaymentFilters();` });
+  }
+  if (filters.filterLoc) {
+    const loc = state.locations.find(l => l.code === filters.filterLoc);
+    chips.push({ label: `Daerah: ${loc ? loc.name : filters.filterLoc}`, clear: `document.getElementById('filter-payment-location').value='';applyPaymentFilters();` });
+  }
+  if (filters.filterCollector) {
+    let name;
+    if (filters.filterCollector === '__direct__') name = 'TF Langsung';
+    else {
+      const col = state.collectors.find(t => t.id === filters.filterCollector);
+      name = col ? col.name : '?';
+    }
+    chips.push({ label: `Tukang: ${name}`, clear: `document.getElementById('filter-payment-collector').value='';applyPaymentFilters();` });
+  }
+  if (filters.filterMethod) {
+    const labels = { 'Tunai': '💵 Tunai', 'Transfer': '💳 Transfer', 'QRIS': '📱 QRIS', 'E-wallet': '📲 E-wallet', '__direct__': '🏦 TF Langsung' };
+    chips.push({ label: `Metode: ${labels[filters.filterMethod] || filters.filterMethod}`, clear: `document.getElementById('filter-payment-method').value='';applyPaymentFilters();` });
+  }
+  if (filters.dateFrom) {
+    chips.push({ label: `Dari: ${formatDate(filters.dateFrom)}`, clear: `document.getElementById('filter-payment-date-from').value='';applyPaymentFilters();` });
+  }
+  if (filters.dateTo) {
+    chips.push({ label: `Sampai: ${formatDate(filters.dateTo)}`, clear: `document.getElementById('filter-payment-date-to').value='';applyPaymentFilters();` });
+  }
+  if (filters.minAmount) {
+    chips.push({ label: `Min: ${fmtRp(parseInt(filters.minAmount))}`, clear: `document.getElementById('filter-payment-min').value='';applyPaymentFilters();` });
+  }
+  if (filters.maxAmount) {
+    chips.push({ label: `Max: ${fmtRp(parseInt(filters.maxAmount))}`, clear: `document.getElementById('filter-payment-max').value='';applyPaymentFilters();` });
+  }
+
+  if (chips.length === 0) {
+    container.innerHTML = '<span style="font-size:11px;color:#78716c;">Tidak ada filter aktif</span>';
+    return;
+  }
+  container.innerHTML = `<span style="font-size:11px;color:#78716c;align-self:center;">${chips.length} filter aktif:</span>` +
+    chips.map(chip => `
+      <span style="display:inline-flex;align-items:center;gap:4px;background:#dbeafe;color:#1e40af;padding:3px 6px 3px 8px;border-radius:12px;font-size:11px;font-weight:500;">
+        ${escapeHtml(chip.label)}
+        <button onclick="${chip.clear}" style="background:none;border:none;color:#1e40af;cursor:pointer;font-size:14px;padding:0 2px;line-height:1;" title="Hapus filter ini">×</button>
+      </span>
+    `).join('');
 }
 
 function resetPaymentFilters() {
@@ -5258,10 +5437,98 @@ function savePayment() {
 }
 
 function deletePayment(id) {
-  if (!confirm('Hapus catatan pembayaran ini?')) return;
+  const payment = state.payments.find(p => p.id === id);
+  if (!payment) return;
+  const c = state.customers.find(x => x.id === payment.customerId);
+  const cname = c ? c.name : 'Pelanggan';
+
+  if (!confirm(
+    `🗑️ HAPUS PEMBAYARAN\n\n` +
+    `Pelanggan: ${cname}\n` +
+    `Periode: ${monthLabel(payment.period)}\n` +
+    `Jumlah: ${fmtRp(payment.amount)}\n` +
+    `Metode: ${payment.method}\n\n` +
+    `Lanjutkan hapus?`
+  )) return;
+
   state.payments = state.payments.filter(p => p.id !== id);
   saveState();
-  renderPayments();
+  applyPaymentFilters();
+
+  // Show undo toast
+  showDeletePaymentUndoToast(payment);
+}
+
+// Toast dengan tombol UNDO untuk restore pembayaran yang baru dihapus
+function showDeletePaymentUndoToast(deletedPayment) {
+  // Remove existing toast if any
+  const existing = document.getElementById('delete-payment-toast');
+  if (existing) existing.remove();
+
+  const c = state.customers.find(x => x.id === deletedPayment.customerId);
+  const cname = c ? c.name : 'Pelanggan';
+
+  const toast = document.createElement('div');
+  toast.id = 'delete-payment-toast';
+  toast.style.cssText = `
+    position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+    background:#b45309;color:white;padding:12px 18px;border-radius:10px;
+    box-shadow:0 8px 24px rgba(0,0,0,0.3);
+    z-index:2000;display:flex;align-items:center;gap:14px;
+    animation:slideUp 0.25s ease-out;font-size:13px;max-width:90%;
+  `;
+  toast.innerHTML = `
+    <span>🗑️ Dihapus: ${escapeHtml(cname)} ${fmtRp(deletedPayment.amount)}</span>
+    <button onclick="undoDeletePayment('${deletedPayment.id}')" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:white;padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;">↶ UNDO</button>
+    <button onclick="document.getElementById('delete-payment-toast').remove();" style="background:none;border:none;color:white;cursor:pointer;font-size:18px;padding:0 4px;">×</button>
+  `;
+  document.body.appendChild(toast);
+
+  // Store the deleted payment temporarily for undo
+  window._deletedPaymentBackup = window._deletedPaymentBackup || {};
+  window._deletedPaymentBackup[deletedPayment.id] = deletedPayment;
+
+  // Auto dismiss after 8 seconds
+  setTimeout(() => {
+    const t = document.getElementById('delete-payment-toast');
+    if (t) {
+      t.style.animation = 'slideDown 0.2s ease-out';
+      setTimeout(() => t.remove(), 200);
+    }
+    // Cleanup backup
+    if (window._deletedPaymentBackup) delete window._deletedPaymentBackup[deletedPayment.id];
+  }, 8000);
+}
+
+function undoDeletePayment(paymentId) {
+  const backup = window._deletedPaymentBackup && window._deletedPaymentBackup[paymentId];
+  if (!backup) {
+    alert('Data pembayaran sudah tidak bisa dipulihkan (timeout)');
+    return;
+  }
+  // Restore
+  state.payments.push(backup);
+  saveState();
+  applyPaymentFilters();
+  delete window._deletedPaymentBackup[paymentId];
+  const toast = document.getElementById('delete-payment-toast');
+  if (toast) toast.remove();
+  const c = state.customers.find(x => x.id === backup.customerId);
+  const cname = c ? c.name : 'Pelanggan';
+  // Show success toast
+  const successToast = document.createElement('div');
+  successToast.style.cssText = `
+    position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+    background:#16a34a;color:white;padding:12px 18px;border-radius:10px;
+    box-shadow:0 8px 24px rgba(0,0,0,0.3);z-index:2000;font-size:13px;
+    animation:slideUp 0.25s ease-out;
+  `;
+  successToast.innerHTML = `↶ Dipulihkan: ${escapeHtml(cname)} ${fmtRp(backup.amount)}`;
+  document.body.appendChild(successToast);
+  setTimeout(() => {
+    successToast.style.animation = 'slideDown 0.2s ease-out';
+    setTimeout(() => successToast.remove(), 200);
+  }, 2500);
 }
 
 // ===================== TUNGGAKAN =====================
@@ -8228,52 +8495,41 @@ function importData(event) {
 function exportPaymentsCSV() {
   if (!state.payments.length) { alert('Belum ada pembayaran'); return; }
 
-  // Use the same filter logic as renderPayments to export filtered data
-  const search = (document.getElementById('search-payment').value || '').toLowerCase();
-  const filterPeriod = document.getElementById('filter-payment-period').value;
-  const filterLoc = document.getElementById('filter-payment-location').value;
-  const filterCollector = document.getElementById('filter-payment-collector').value;
-  const filterMethod = document.getElementById('filter-payment-method').value;
-  const dateFrom = document.getElementById('filter-payment-date-from').value;
-  const dateTo = document.getElementById('filter-payment-date-to').value;
-  const minAmount = parseInt(document.getElementById('filter-payment-min').value) || 0;
-  const maxAmount = parseInt(document.getElementById('filter-payment-max').value) || Infinity;
-
-  let list = [...state.payments];
-  if (search) list = list.filter(p => {
-    const c = state.customers.find(x => x.id === p.customerId);
-    if (!c) return false;
-    return (c.name||'').toLowerCase().includes(search) ||
-           (c.username||'').toLowerCase().includes(search) ||
-           (c.phone||'').toLowerCase().includes(search);
-  });
-  if (filterPeriod) list = list.filter(p => p.period === filterPeriod);
-  if (filterLoc) list = list.filter(p => {
-    const c = state.customers.find(x => x.id === p.customerId);
-    return c && c.locationCode === filterLoc;
-  });
-  if (filterCollector === '__direct__') {
-    list = list.filter(p => p.directTransfer);
-  } else if (filterCollector) {
-    list = list.filter(p => {
-      if (p.directTransfer) return false;
-      const c = state.customers.find(x => x.id === p.customerId);
-      if (!c) return false;
-      const collector = getCollectorForLocation(c.locationCode);
-      return collector && collector.id === filterCollector;
-    });
-  }
-  if (filterMethod === '__direct__') {
-    list = list.filter(p => p.directTransfer);
-  } else if (filterMethod) {
-    list = list.filter(p => p.method === filterMethod);
-  }
-  if (dateFrom) list = list.filter(p => (p.paidAt || '') >= dateFrom);
-  if (dateTo) list = list.filter(p => (p.paidAt || '') <= dateTo);
-  list = list.filter(p => p.amount >= minAmount && p.amount <= maxAmount);
+  // Ensure filter list is up-to-date
+  applyPaymentFilters();
+  const list = window.paymentFilteredList || [];
 
   if (!list.length) { alert('Tidak ada pembayaran sesuai filter aktif'); return; }
 
+  // Cek apakah ada filter aktif
+  const hasActiveFilters =
+    document.getElementById('search-payment').value ||
+    document.getElementById('filter-payment-period').value ||
+    document.getElementById('filter-payment-location').value ||
+    document.getElementById('filter-payment-collector').value ||
+    document.getElementById('filter-payment-method').value ||
+    document.getElementById('filter-payment-date-from').value ||
+    document.getElementById('filter-payment-date-to').value ||
+    document.getElementById('filter-payment-min').value ||
+    document.getElementById('filter-payment-max').value;
+
+  const totalAll = state.payments.length;
+  const totalFiltered = list.length;
+
+  if (hasActiveFilters && totalFiltered < totalAll) {
+    if (!confirm(
+      `📊 EXPORT CSV\n\n` +
+      `Ada filter aktif. Mau export data yang mana?\n\n` +
+      `✓ OK = Export hasil filter (${totalFiltered} pembayaran)\n` +
+      `✗ Cancel = Export SEMUA pembayaran (${totalAll} pembayaran)`
+    )) {
+      // User pilih export SEMUA
+      exportAllPaymentsCSV();
+      return;
+    }
+  }
+
+  const filterSuffix = hasActiveFilters ? '-filtered' : '';
   const headers = ['Tgl Bayar','Username','Nama Pelanggan','Lokasi','Tukang','Periode','Jumlah','Metode','Tipe','Catatan'];
   const rows = list.map(p => {
     const c = state.customers.find(x => x.id === p.customerId);
@@ -8291,7 +8547,30 @@ function exportPaymentsCSV() {
       p.note || ''
     ];
   });
-  downloadCSV([headers, ...rows], `pembayaran-${todayStr()}.csv`);
+  downloadCSV([headers, ...rows], `pembayaran${filterSuffix}-${todayStr()}.csv`);
+}
+
+// Export SEMUA pembayaran tanpa filter
+function exportAllPaymentsCSV() {
+  const list = state.payments.slice().sort((a, b) => (b.paidAt||'').localeCompare(a.paidAt||''));
+  const headers = ['Tgl Bayar','Username','Nama Pelanggan','Lokasi','Tukang','Periode','Jumlah','Metode','Tipe','Catatan'];
+  const rows = list.map(p => {
+    const c = state.customers.find(x => x.id === p.customerId);
+    const collector = c && !p.directTransfer ? getCollectorForLocation(c.locationCode) : null;
+    return [
+      p.paidAt,
+      c ? (c.username || '') : '',
+      c ? c.name : '',
+      c ? getLocationName(c.locationCode) : '',
+      collector ? collector.name : (p.directTransfer ? '(Transfer Langsung)' : '-'),
+      monthLabel(p.period),
+      p.amount,
+      p.method,
+      p.directTransfer ? 'TF Langsung Admin' : 'Via Tukang',
+      p.note || ''
+    ];
+  });
+  downloadCSV([headers, ...rows], `pembayaran-semua-${todayStr()}.csv`);
 }
 
 function exportArrearsCSV() {
