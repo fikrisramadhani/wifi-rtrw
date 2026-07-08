@@ -1005,13 +1005,14 @@ tbody tr:last-child td { border-bottom: none; }
           <input type="date" id="fi-date">
         </div>
         <div class="form-group">
-          <label>Metode Default</label>
-          <select id="fi-method">
-            <option value="Tunai">Tunai</option>
-            <option value="Transfer">Transfer</option>
-            <option value="QRIS">QRIS</option>
-            <option value="E-wallet">E-wallet</option>
+          <label>Metode Default <span id="fi-method-indicator" style="font-size:14px;margin-left:4px;">💵</span></label>
+          <select id="fi-method" onchange="updateFiMethodIndicator()" style="font-weight:600;">
+            <option value="Tunai">💵 Tunai</option>
+            <option value="Transfer">💳 Transfer</option>
+            <option value="QRIS">📱 QRIS</option>
+            <option value="E-wallet">📲 E-wallet</option>
           </select>
+          <small id="fi-method-hint" style="color:#78716c;font-size:11px;font-style:italic;">Tombol "Bayar" & "Lunas" pakai metode ini</small>
         </div>
       </div>
 
@@ -5749,11 +5750,16 @@ function showCustomerDetail(customerId) {
       <thead><tr><th>Tgl</th><th>Periode</th><th>Jumlah</th><th>Metode</th><th>Aksi</th></tr></thead>
       <tbody>`;
     customerPayments.forEach(p => {
+      const methodBadge = p.directTransfer
+        ? `<span class="badge" style="background:#cffafe;color:#0e7490;font-size:11px;">🏦 TF Langsung</span>`
+        : p.method === 'Transfer'
+        ? `<span class="badge" style="background:#dbeafe;color:#1e40af;font-size:11px;">💳 Transfer</span>`
+        : `<span class="badge" style="background:#dcfce7;color:#166534;font-size:11px;">💵 ${escapeHtml(p.method || 'Tunai')}</span>`;
       html += `<tr>
         <td>${formatDate(p.paidAt)}</td>
         <td>${monthLabel(p.period)}</td>
         <td>${fmtRp(p.amount)}</td>
-        <td>${escapeHtml(p.method)}</td>
+        <td>${methodBadge}</td>
         <td><button class="btn btn-sm" onclick="showReceipt('${p.id}')">🧾</button></td>
       </tr>`;
     });
@@ -6345,6 +6351,9 @@ function initFastInput() {
   sessionStorage.setItem('fi-last-date', document.getElementById('fi-date').value);
   sessionStorage.setItem('fi-last-method', document.getElementById('fi-method').value);
 
+  // Update visual indicator for default method
+  updateFiMethodIndicator();
+
   // Update sticky offsets on window resize
   if (!window._fiStickyListener) {
     window._fiStickyListener = true;
@@ -6358,7 +6367,45 @@ function initFastInput() {
   renderFastInput();
 }
 
+// Update visual indicator based on selected default method
+function updateFiMethodIndicator() {
+  const sel = document.getElementById('fi-method');
+  const indicator = document.getElementById('fi-method-indicator');
+  const hint = document.getElementById('fi-method-hint');
+  if (!sel || !indicator) return;
+  const value = sel.value;
+  const icons = { 'Tunai': '💵', 'Transfer': '💳', 'QRIS': '📱', 'E-wallet': '📲' };
+  indicator.textContent = icons[value] || '💵';
+  if (hint) {
+    if (value === 'Transfer') {
+      hint.innerHTML = '<strong style="color:#1e40af;">🔵 Mode Transfer:</strong> Tombol "Bayar" & "Lunas" akan tercatat sebagai Transfer';
+    } else if (value === 'QRIS') {
+      hint.innerHTML = '<strong style="color:#7c3aed;">🟣 Mode QRIS:</strong> Tombol "Bayar" & "Lunas" akan tercatat sebagai QRIS';
+    } else if (value === 'E-wallet') {
+      hint.innerHTML = '<strong style="color:#0891b2;">🔷 Mode E-wallet:</strong> Tombol "Bayar" & "Lunas" akan tercatat sebagai E-wallet';
+    } else {
+      hint.innerHTML = '<strong style="color:#166534;">🟢 Mode Tunai:</strong> Tombol "Bayar" & "Lunas" akan tercatat sebagai Tunai';
+    }
+  }
+}
+
 function renderFastInput() {
+  // Helper: cari metode pembayaran terakhir untuk pelanggan+periode, kembalikan icon HTML
+  function getMethodIcon(customerId, periodStr) {
+    const pays = state.payments.filter(p => p.customerId === customerId && p.period === periodStr);
+    if (!pays.length) return '';
+    // Pakai pembayaran terakhir sebagai indikator dominan
+    const lastPay = pays.slice().sort((a,b) => (b.paidAt||'').localeCompare(a.paidAt||''))[0];
+    // Cek apakah ada mix (tunai + transfer)
+    const hasTransfer = pays.some(p => p.method === 'Transfer' || p.directTransfer);
+    const hasTunai = pays.some(p => p.method !== 'Transfer' && !p.directTransfer);
+    if (hasTransfer && hasTunai) {
+      return `<span title="Campuran Tunai + Transfer" style="font-size:11px;">💵+💳</span>`;
+    }
+    if (lastPay.directTransfer) return `<span title="Transfer langsung ke admin" style="font-size:11px;">🏦</span>`;
+    if (lastPay.method === 'Transfer') return `<span title="Transfer" style="font-size:11px;">💳</span>`;
+    return `<span title="Tunai" style="font-size:11px;">💵</span>`;
+  }
   const locCode = document.getElementById('fi-location').value;
   const period = document.getElementById('fi-period').value || curMonth();
   const collectorId = document.getElementById('fi-collector').value;
@@ -6558,8 +6605,9 @@ function renderFastInput() {
         actionCell = `<div style="color:#a8a29e;font-size:18px;text-align:center;">—</div>`;
       } else {
         const showFromHint = rawPaidThisPeriod > 0;
+        const methodIcon = showFromHint ? getMethodIcon(c.id, period) : '';
         const paidInfo = showFromHint
-          ? `<div style="color:#16a34a;font-size:11px;font-weight:600;margin-bottom:3px;">Sudah bayar ${fmtRp(rawPaidThisPeriod)}</div>`
+          ? `<div style="color:#16a34a;font-size:11px;font-weight:600;margin-bottom:3px;">Sudah bayar ${methodIcon} ${fmtRp(rawPaidThisPeriod)}</div>`
           : '';
         inputCell = `<div>
           ${paidInfo}
@@ -6583,18 +6631,20 @@ function renderFastInput() {
                            rawPaidThisPeriod > 0 && rawPaidThisPeriod !== me.paid;
 
       if (me.status === 'lunas') {
+        const methodIcon = getMethodIcon(c.id, period);
         const lunasLabel = showFromHint
-          ? `✓ Lunas (${fmtRp(me.paid)} dari ${fmtRp(rawPaidThisPeriod)})`
-          : `✓ Lunas (${fmtRp(me.paid)})`;
+          ? `✓ Lunas ${methodIcon} (${fmtRp(me.paid)} dari ${fmtRp(rawPaidThisPeriod)})`
+          : `✓ Lunas ${methodIcon} (${fmtRp(me.paid)})`;
         inputCell = `<div style="color:#16a34a;font-weight:600;">${lunasLabel}</div>`;
         actionCell = `<div style="display:flex;gap:3px;width:100%;align-items:center;justify-content:space-between;">
           <span style="color:#16a34a;font-size:11px;">Sudah dibayar</span>
           <button class="btn-edit-payment" onclick="editLastPayment('${c.id}','${period}')" title="Edit pembayaran terakhir">✏️</button>
         </div>`;
       } else if (me.status === 'sebagian') {
+        const methodIcon = getMethodIcon(c.id, period);
         const paidLabel = showFromHint
-          ? `Sudah bayar ${fmtRp(me.paid)} (dari ${fmtRp(rawPaidThisPeriod)})`
-          : `Sudah bayar ${fmtRp(me.paid)}`;
+          ? `Sudah bayar ${methodIcon} ${fmtRp(me.paid)} (dari ${fmtRp(rawPaidThisPeriod)})`
+          : `Sudah bayar ${methodIcon} ${fmtRp(me.paid)}`;
         inputCell = `<div>
           <div style="color:#16a34a;font-size:11px;font-weight:600;margin-bottom:3px;">${paidLabel}</div>
           <input type="number" class="fast-input-amount" id="fi-amt-${c.id}" placeholder="${sisa}" data-customer="${c.id}" data-period="${period}">
@@ -6865,20 +6915,35 @@ function refreshFastInputRow(customerId, period) {
   // Update tagihan cell (index 2)
   cells[2].innerHTML = `<div><strong>${fmtRp(me.billed)}</strong>${tunggakan > 0 ? `<br><small style="color:#dc2626;">+${fmtRp(tunggakan)} tunggak</small>` : ''}</div>`;
 
+  // Helper: cari metode pembayaran terakhir untuk pelanggan+periode, kembalikan icon HTML
+  function getMethodIconLocal(customerId, periodStr) {
+    const pays = state.payments.filter(p => p.customerId === customerId && p.period === periodStr);
+    if (!pays.length) return '';
+    const lastPay = pays.slice().sort((a,b) => (b.paidAt||'').localeCompare(a.paidAt||''))[0];
+    const hasTransfer = pays.some(p => p.method === 'Transfer' || p.directTransfer);
+    const hasTunai = pays.some(p => p.method !== 'Transfer' && !p.directTransfer);
+    if (hasTransfer && hasTunai) return `<span title="Campuran Tunai + Transfer" style="font-size:11px;">💵+💳</span>`;
+    if (lastPay.directTransfer) return `<span title="Transfer langsung ke admin" style="font-size:11px;">🏦</span>`;
+    if (lastPay.method === 'Transfer') return `<span title="Transfer" style="font-size:11px;">💳</span>`;
+    return `<span title="Tunai" style="font-size:11px;">💵</span>`;
+  }
+
   // Update input & action cells (index 3 & 4)
   if (me.status === 'lunas') {
+    const methodIcon = getMethodIconLocal(c.id, period);
     const lunasLabel = showFromHint
-      ? `✓ Lunas (${fmtRp(me.paid)} dari ${fmtRp(rawPaidThisPeriod)})`
-      : `✓ Lunas (${fmtRp(me.paid)})`;
+      ? `✓ Lunas ${methodIcon} (${fmtRp(me.paid)} dari ${fmtRp(rawPaidThisPeriod)})`
+      : `✓ Lunas ${methodIcon} (${fmtRp(me.paid)})`;
     cells[3].innerHTML = `<div style="color:#16a34a;font-weight:600;">${lunasLabel}</div>`;
     cells[4].innerHTML = `<div style="display:flex;gap:3px;width:100%;align-items:center;justify-content:space-between;">
       <span style="color:#16a34a;font-size:11px;">Sudah dibayar</span>
       <button class="btn-edit-payment" onclick="editLastPayment('${c.id}','${period}')" title="Edit pembayaran terakhir">✏️</button>
     </div>`;
   } else if (me.status === 'sebagian') {
+    const methodIcon = getMethodIconLocal(c.id, period);
     const paidLabel = showFromHint
-      ? `Sudah bayar ${fmtRp(me.paid)} (dari ${fmtRp(rawPaidThisPeriod)})`
-      : `Sudah bayar ${fmtRp(me.paid)}`;
+      ? `Sudah bayar ${methodIcon} ${fmtRp(me.paid)} (dari ${fmtRp(rawPaidThisPeriod)})`
+      : `Sudah bayar ${methodIcon} ${fmtRp(me.paid)}`;
     cells[3].innerHTML = `<div>
       <div style="color:#16a34a;font-size:11px;font-weight:600;margin-bottom:3px;">${paidLabel}</div>
       <input type="number" class="fast-input-amount" id="fi-amt-${c.id}" placeholder="${sisa}" data-customer="${c.id}" data-period="${period}" data-billed="${me.billed}" data-paid="${me.paid}">
