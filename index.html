@@ -5252,6 +5252,8 @@ function savePayment() {
   document.getElementById('pay-info').style.display = 'none';
   renderPayments();
   showReceipt(payment.id);
+  // Cek reaktivasi kalau pelanggan diisolir
+  checkAndPromptReactivate(customerId);
 }
 
 function deletePayment(id) {
@@ -6139,6 +6141,26 @@ function batchPayLunas() {
   renderFastInput();
   updateFastInputSummary();
   showToast(`💰 ${count} pelanggan lunas (${fmtRp(total)})`, 'success');
+
+  // Cek reaktivasi untuk pelanggan yang diisolir dari batch
+  const isolatedInBatch = items.filter(item => {
+    const cust = state.customers.find(c => c.id === item.id);
+    return cust && cust.status === 'diisolir';
+  });
+  if (isolatedInBatch.length > 0) {
+    setTimeout(() => {
+      if (confirm(
+        `🔓 REAKTIVASI PELANGGAN DIISOLIR\n\n` +
+        `${isolatedInBatch.length} pelanggan diisolir baru saja dilunasi:\n` +
+        isolatedInBatch.slice(0, 5).map(i => `• ${i.name}`).join('\n') +
+        (isolatedInBatch.length > 5 ? `\n...dan ${isolatedInBatch.length - 5} lainnya` : '') +
+        `\n\nBuka Manajer Isolir untuk aktifkan mereka satu per satu?`
+      )) {
+        openIsolationManager();
+        switchIsolationTab('reminder');
+      }
+    }, 500);
+  }
 }
 
 // ===================== TOGGLE HELP =====================
@@ -6753,24 +6775,27 @@ function fastInputPay(customerId, period, amount) {
   if (c) showFiUndoToast(payment.id, `${c.name}: ${fmtRp(amount)} (${method})`);
 
   // If customer diisolir and bill is now clear, offer to reactivate
-  if (c && c.status === 'diisolir') {
-    const bal = calculateBalance(customerId, curMonth());
-    if (bal.balance <= 0) {
-      // Wait a bit for the row refresh, then show prompt
-      setTimeout(() => {
-        if (confirm(
-          `✅ TUNGGAKAN LUNAS\n\n` +
-          `Pelanggan: ${c.name}\n` +
-          `Semua tunggakan sudah terbayar.\n\n` +
-          `Aktifkan kembali pelanggan ini sekarang?\n` +
-          `(Anda bisa pilih tanggal aktif kembali di modal berikutnya)`
-        )) {
-          // Buka modal dengan date picker
-          quickReactivate(customerId);
-        }
-      }, 300);
+  checkAndPromptReactivate(customerId);
+}
+
+// Helper: cek apakah pelanggan diisolir dan tunggakan lunas, tampilkan prompt reaktivasi
+function checkAndPromptReactivate(customerId) {
+  const c = state.customers.find(x => x.id === customerId);
+  if (!c || c.status !== 'diisolir') return;
+  const bal = calculateBalance(customerId, curMonth());
+  if (bal.balance > 0) return;
+  // Wait a bit for the row refresh, then show prompt
+  setTimeout(() => {
+    if (confirm(
+      `✅ TUNGGAKAN LUNAS\n\n` +
+      `Pelanggan: ${c.name}\n` +
+      `Semua tunggakan sudah terbayar.\n\n` +
+      `Aktifkan kembali pelanggan ini sekarang?\n` +
+      `(Anda bisa pilih tanggal aktif kembali di modal berikutnya)`
+    )) {
+      quickReactivate(customerId);
     }
-  }
+  }, 300);
 }
 
 function fastInputTransfer(customerId, period, defaultAmount) {
@@ -6806,6 +6831,8 @@ function fastInputTransfer(customerId, period, defaultAmount) {
   updateFastInputSummary();
   // Show undo toast
   showFiUndoToast(payment.id, `${c.name}: ${fmtRp(amount)} (Transfer langsung)`);
+  // Cek reaktivasi kalau pelanggan diisolir dan tunggakan lunas
+  checkAndPromptReactivate(customerId);
 }
 
 function refreshFastInputRow(customerId, period) {
