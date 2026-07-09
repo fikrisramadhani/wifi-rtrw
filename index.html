@@ -7696,11 +7696,35 @@ function updateFastInputSummary() {
 function finalizeFastInput() {
   const locCode = document.getElementById('fi-location').value;
   const period = document.getElementById('fi-period').value || curMonth();
-  const loc = state.locations.find(l => l.code === locCode);
-  if (!loc) { alert('Pilih daerah dulu'); return; }
+  const collectorId = document.getElementById('fi-collector').value;
 
-  // Find payments for this location & period that haven't been linked to a deposit yet
-  const customers = state.customers.filter(c => c.locationCode === locCode);
+  // Determine active location codes
+  let activeCodes = [];
+  let collectorForDeposit = null;
+
+  if (locCode === '__all__') {
+    // "Semua Daerah Tukang Ini" - butuh collector context
+    if (!collectorId) {
+      alert('Pilih daerah dulu atau pilih tukang tertentu');
+      return;
+    }
+    const col = state.collectors.find(c => c.id === collectorId);
+    if (!col) { alert('Tukang tidak ditemukan'); return; }
+    activeCodes = col.locationCodes || [];
+    collectorForDeposit = col;
+    if (!activeCodes.length) {
+      alert('Tukang ini belum punya daerah kerja. Setel dulu di tab Tukang.');
+      return;
+    }
+  } else {
+    const loc = state.locations.find(l => l.code === locCode);
+    if (!loc) { alert('Pilih daerah dulu'); return; }
+    activeCodes = [locCode];
+    collectorForDeposit = getCollectorForLocation(locCode);
+  }
+
+  // Find payments for these locations & period that haven't been linked to a deposit yet
+  const customers = state.customers.filter(c => activeCodes.includes(c.locationCode));
   const customerIds = new Set(customers.map(c => c.id));
 
   // Collect all paymentIds that are already linked to existing deposits
@@ -7738,16 +7762,61 @@ function finalizeFastInput() {
 
   // Open deposit modal pre-filled
   openDepositModal();
-  document.getElementById('deposit-location').value = locCode;
+
+  // Multi-location scenario: pre-select the first location, but user can change
+  // Kalau user tetap mau setoran gabungan, mereka bisa pakai sesi setoran multi-lokasi (jika ada)
+  const primaryLocation = activeCodes[0];
+  document.getElementById('deposit-location').value = primaryLocation;
   document.getElementById('deposit-period').value = period;
-  // Auto-select collector for this location (use new helper)
-  const collector = getCollectorForLocation(locCode);
-  if (collector) document.getElementById('deposit-collector').value = collector.id;
+  if (collectorForDeposit) {
+    document.getElementById('deposit-collector').value = collectorForDeposit.id;
+  }
+
+  // If multiple locations, show a hint to the user
+  if (activeCodes.length > 1) {
+    setTimeout(() => {
+      const collectorName = collectorForDeposit ? collectorForDeposit.name : '';
+      const locNames = activeCodes.map(code => {
+        const l = state.locations.find(x => x.code === code);
+        return l ? l.name : code;
+      }).join(', ');
+      const totalPerLoc = {};
+      activeCodes.forEach(code => {
+        const custIds = new Set(state.customers.filter(c => c.locationCode === code).map(c => c.id));
+        totalPerLoc[code] = todayPayments.filter(p => custIds.has(p.customerId)).reduce((s,p) => s + p.amount, 0);
+      });
+      const breakdown = activeCodes.map(code => {
+        const l = state.locations.find(x => x.code === code);
+        return `• ${l ? l.name : code}: ${fmtRp(totalPerLoc[code] || 0)}`;
+      }).join('\n');
+
+      alert(
+        `ℹ️ MULTI-DAERAH DETECTED\n\n` +
+        `Tukang: ${collectorName}\n` +
+        `Wilayah: ${locNames}\n\n` +
+        `Total pembayaran per daerah:\n${breakdown}\n\n` +
+        `Total keseluruhan: ${fmtRp(totalAmount)}\n\n` +
+        `⚠️ Karena setoran per daerah, buat sesi setoran satu-per-satu:\n` +
+        `1. Yang muncul di modal ini adalah daerah pertama (${state.locations.find(l => l.code === primaryLocation)?.name}).\n` +
+        `2. Setelah sesi ini disimpan, buka Input Cepat lagi lalu buat sesi untuk daerah berikutnya.`
+      );
+    }, 100);
+  }
+  // Kalau multi-daerah, filter pembayaran hanya untuk daerah pertama (primary)
+  // Ini sesuai dengan modal setoran yang akan tampil (satu daerah per sesi)
+  let paymentsForDeposit = todayPayments;
+  let totalForDeposit = totalAmount;
+  if (activeCodes.length > 1) {
+    const primaryCustomerIds = new Set(state.customers.filter(c => c.locationCode === primaryLocation).map(c => c.id));
+    paymentsForDeposit = todayPayments.filter(p => primaryCustomerIds.has(p.customerId));
+    totalForDeposit = paymentsForDeposit.reduce((s,p) => s + p.amount, 0);
+  }
+
   // Suggest the deposit amount (only cash, not transfer)
-  document.getElementById('deposit-amount').value = totalAmount;
+  document.getElementById('deposit-amount').value = totalForDeposit;
   // Mark these payments to be linked
   document.getElementById('deposit-id').value = '__from_fastinput__';
-  window.fastInputPaymentIds = todayPayments.map(p => p.id);
+  window.fastInputPaymentIds = paymentsForDeposit.map(p => p.id);
 
   // Show info about excluded transfers if any
   if (transferPayments.length > 0) {
