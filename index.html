@@ -1072,17 +1072,92 @@ tbody tr:last-child td { border-bottom: none; }
 
   <!-- SETORAN -->
   <div id="tab-setoran" class="tab-content" style="display:none;">
+    <!-- Quick Stats -->
+    <div id="deposit-quick-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px;"></div>
+
     <div class="panel">
       <div class="panel-header">
         <h2>💼 Sesi Setoran Tukang</h2>
-        <button class="btn btn-primary" onclick="openDepositModal()">+ Sesi Setoran Manual</button>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="btn btn-sm" onclick="exportDepositsCSV()" title="Export ke CSV">⬇ Export CSV</button>
+          <button class="btn btn-sm" onclick="toggleDepositRekap()" title="Rekap per tukang">📊 Rekap per Tukang</button>
+          <button class="btn btn-primary" onclick="openDepositModal()">+ Sesi Setoran Manual</button>
+        </div>
       </div>
-      <div class="alert alert-info">
-        ℹ️ Sesi setoran dibuat otomatis dari Input Cepat, atau bisa dibuat manual. Sesi membantu cocokkan total pembayaran dengan uang yang disetor tukang.
+
+      <!-- Filter Panel -->
+      <div style="background:#fafaf9;border:1px solid #e7e5e4;border-radius:10px;padding:12px;margin-bottom:10px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;">
+          <div>
+            <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Tukang</label>
+            <select id="filter-deposit-collector" onchange="renderDeposits()">
+              <option value="">Semua Tukang</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Daerah</label>
+            <select id="filter-deposit-location" onchange="renderDeposits()">
+              <option value="">Semua Daerah</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Periode Tagihan</label>
+            <input type="month" id="filter-deposit-period" onchange="renderDeposits()">
+          </div>
+          <div>
+            <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Status</label>
+            <select id="filter-deposit-status" onchange="renderDeposits()">
+              <option value="">Semua Status</option>
+              <option value="match">✓ Cocok</option>
+              <option value="minus">⚠️ Selisih Kurang</option>
+              <option value="plus">🟡 Selisih Lebih</option>
+              <option value="unverified">⏳ Belum Diverifikasi</option>
+              <option value="verified">✓ Sudah Diverifikasi</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Tgl Setor Dari</label>
+            <input type="date" id="filter-deposit-date-from" onchange="renderDeposits()">
+          </div>
+          <div>
+            <label style="font-size:11px;color:#78716c;display:block;margin-bottom:2px;">Tgl Setor Sampai</label>
+            <input type="date" id="filter-deposit-date-to" onchange="renderDeposits()">
+          </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:8px;">
+          <button class="btn btn-sm" onclick="resetDepositFilters()" style="background:#f5f5f4;">↻ Reset Filter</button>
+        </div>
       </div>
+
+      <!-- Rekap per Tukang (collapsible) -->
+      <div id="deposit-rekap-panel" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px;margin-bottom:10px;"></div>
+
+      <!-- Batch Actions Bar -->
+      <div id="deposit-batch-bar" style="display:none;background:linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);color:white;padding:10px 14px;border-radius:8px;margin-bottom:10px;align-items:center;gap:12px;flex-wrap:wrap;box-shadow:0 4px 12px rgba(30,64,175,0.2);">
+        <span id="deposit-batch-count" style="font-weight:600;">0 dipilih</span>
+        <div style="flex:1;"></div>
+        <button onclick="batchVerifyDeposits()" style="background:rgba(255,255,255,0.2);color:white;border:1px solid rgba(255,255,255,0.3);padding:6px 12px;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">✓ Verifikasi Semua</button>
+        <button onclick="batchClearDepositSelection()" style="background:rgba(255,255,255,0.2);color:white;border:1px solid rgba(255,255,255,0.3);padding:6px 12px;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">✕ Batal</button>
+      </div>
+
+      <!-- Summary -->
+      <div id="deposit-filter-summary" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:13px;display:none;"></div>
+
       <div class="table-wrap">
         <table id="deposits-table">
-          <thead><tr><th>Tanggal</th><th>Tukang</th><th>Daerah</th><th>Periode</th><th>Total Bayar</th><th>Setoran</th><th>Selisih</th><th>Komisi</th><th>Aksi</th></tr></thead>
+          <thead><tr>
+            <th style="width:30px;"><input type="checkbox" id="deposit-select-all" onchange="toggleAllDepositSelection(this)" title="Pilih semua"></th>
+            <th>Tanggal</th>
+            <th>Tukang</th>
+            <th>Daerah</th>
+            <th>Periode</th>
+            <th>Total Bayar</th>
+            <th>Setoran</th>
+            <th>Selisih</th>
+            <th>Komisi</th>
+            <th>Status</th>
+            <th>Aksi</th>
+          </tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -2107,6 +2182,17 @@ tbody tr:last-child td { border-bottom: none; }
 
     <div id="deposit-summary" class="alert alert-info" style="margin-top:10px;display:none;"></div>
 
+    <!-- List Pembayaran Terlink dengan checkbox pilihan -->
+    <div id="deposit-payment-list-wrap" style="margin-top:10px;display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <strong style="font-size:13px;color:#1e40af;">📋 Pembayaran yang akan dimasukkan ke sesi ini:</strong>
+        <div style="font-size:11px;color:#78716c;">
+          <label style="cursor:pointer;"><input type="checkbox" id="deposit-manual-select" onchange="onDepositManualSelectChange()"> Pilih manual</label>
+        </div>
+      </div>
+      <div id="deposit-payment-list" style="max-height:200px;overflow-y:auto;background:#fafaf9;border:1px solid #e5e7eb;border-radius:8px;padding:8px;font-size:12px;"></div>
+    </div>
+
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('modal-deposit')">Batal</button>
       <button class="btn btn-primary" onclick="saveDeposit()">Simpan</button>
@@ -2932,6 +3018,11 @@ function migrate(s) {
         });
       }
     }
+  });
+  // Deposit migrations
+  s.deposits.forEach(d => {
+    if (d.verified === undefined) d.verified = false;
+    if (d.verifiedAt === undefined) d.verifiedAt = null;
   });
   return s;
 }
@@ -7835,40 +7926,486 @@ function finalizeFastInput() {
 }
 
 // ===================== SETORAN (DEPOSITS) =====================
+// Global batch selection state for deposits
+const depositBatchSelected = new Set();
+
 function renderDeposits() {
+  // Populate filter dropdowns
+  refreshDepositFilterDropdowns();
+  // Render quick stats
+  renderDepositQuickStats();
+
   const tbody = document.querySelector('#deposits-table tbody');
   if (!state.deposits.length) {
-    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><h3>Belum ada sesi setoran</h3></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11"><div class="empty-state"><h3>Belum ada sesi setoran</h3><p>Buat dari Input Cepat atau tambah manual.</p></div></td></tr>`;
+    document.getElementById('deposit-filter-summary').style.display = 'none';
     return;
   }
-  const sorted = [...state.deposits].sort((a,b) => (b.date||'').localeCompare(a.date||''));
-  tbody.innerHTML = sorted.map(d => {
+
+  // Apply filters
+  const filterCollector = document.getElementById('filter-deposit-collector').value;
+  const filterLoc = document.getElementById('filter-deposit-location').value;
+  const filterPeriod = document.getElementById('filter-deposit-period').value;
+  const filterStatus = document.getElementById('filter-deposit-status').value;
+  const dateFrom = document.getElementById('filter-deposit-date-from').value;
+  const dateTo = document.getElementById('filter-deposit-date-to').value;
+
+  let list = [...state.deposits];
+
+  if (filterCollector) list = list.filter(d => d.collectorId === filterCollector);
+  if (filterLoc) list = list.filter(d => d.locationCode === filterLoc);
+  if (filterPeriod) list = list.filter(d => d.period === filterPeriod);
+  if (dateFrom) list = list.filter(d => (d.date || '') >= dateFrom);
+  if (dateTo) list = list.filter(d => (d.date || '') <= dateTo);
+
+  // Filter by status
+  if (filterStatus) {
+    list = list.filter(d => {
+      const totalPayments = (d.paymentIds || []).reduce((s, pid) => {
+        const p = state.payments.find(x => x.id === pid);
+        return s + (p ? p.amount : 0);
+      }, 0);
+      const selisih = d.amount - totalPayments;
+      if (filterStatus === 'match') return selisih === 0;
+      if (filterStatus === 'minus') return selisih < 0;
+      if (filterStatus === 'plus') return selisih > 0;
+      if (filterStatus === 'unverified') return !d.verified;
+      if (filterStatus === 'verified') return !!d.verified;
+      return true;
+    });
+  }
+
+  // Sort by date descending
+  list.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+  // Store filtered result for export
+  window.depositFilteredList = list;
+
+  // Filter summary
+  const summaryEl = document.getElementById('deposit-filter-summary');
+  const hasFilter = filterCollector || filterLoc || filterPeriod || filterStatus || dateFrom || dateTo;
+  if (hasFilter || list.length > 0) {
+    const totalSetoran = list.reduce((s, d) => s + d.amount, 0);
+    const totalKomisi = list.reduce((s, d) => {
+      const totalPay = (d.paymentIds || []).reduce((ss, pid) => {
+        const p = state.payments.find(x => x.id === pid);
+        return ss + (p ? p.amount : 0);
+      }, 0);
+      const loc = state.locations.find(l => l.code === d.locationCode);
+      const commPct = loc ? (loc.commissionPercent || 0) : 0;
+      return s + (totalPay * commPct / 100);
+    }, 0);
+    const netto = totalSetoran - totalKomisi;
+    const cocokCount = list.filter(d => {
+      const tp = (d.paymentIds || []).reduce((s, pid) => {
+        const p = state.payments.find(x => x.id === pid);
+        return s + (p ? p.amount : 0);
+      }, 0);
+      return tp === d.amount;
+    }).length;
+    summaryEl.style.display = 'block';
+    summaryEl.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;">
+        <div><div style="font-size:11px;color:#78716c;">Sesi</div><div style="font-size:16px;font-weight:600;">${list.length}</div></div>
+        <div><div style="font-size:11px;color:#78716c;">Cocok</div><div style="font-size:16px;font-weight:600;color:#16a34a;">${cocokCount}/${list.length}</div></div>
+        <div><div style="font-size:11px;color:#78716c;">Total Setoran</div><div style="font-size:16px;font-weight:600;color:#1e40af;">${fmtRp(totalSetoran)}</div></div>
+        <div><div style="font-size:11px;color:#78716c;">Total Komisi</div><div style="font-size:16px;font-weight:600;color:#d97706;">${fmtRp(totalKomisi)}</div></div>
+        <div><div style="font-size:11px;color:#78716c;">Netto</div><div style="font-size:16px;font-weight:600;color:#16a34a;">${fmtRp(netto)}</div></div>
+      </div>
+    `;
+  } else {
+    summaryEl.style.display = 'none';
+  }
+
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="11"><div class="empty-state"><h3>Tidak ada hasil</h3><p>Coba reset filter atau ubah kriteria.</p></div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = list.map(d => {
     const collector = state.collectors.find(c => c.id === d.collectorId);
-    const totalPayments = (d.paymentIds || []).reduce((s,pid) => {
+    const totalPayments = (d.paymentIds || []).reduce((s, pid) => {
       const p = state.payments.find(x => x.id === pid);
       return s + (p ? p.amount : 0);
     }, 0);
+    const paymentCount = (d.paymentIds || []).length;
     const selisih = d.amount - totalPayments;
-    const commission = totalPayments * (d.commissionPercent || 0) / 100;
-    return `<tr>
-      <td>${formatDate(d.date)}</td>
+    const loc = state.locations.find(l => l.code === d.locationCode);
+    const commPct = loc ? (loc.commissionPercent || 0) : 0;
+    const commission = totalPayments * commPct / 100;
+
+    // Selisih badge: hijau cocok, kuning lebih (anomali), merah kurang
+    let selisihBadge;
+    if (selisih === 0) {
+      selisihBadge = '<span class="badge badge-success">Cocok ✓</span>';
+    } else if (selisih > 0) {
+      selisihBadge = `<span class="badge" style="background:#fef3c7;color:#92400e;" title="Setoran lebih besar dari total pembayaran tercatat">🟡 +${fmtRp(selisih)}</span>`;
+    } else {
+      selisihBadge = `<span class="badge badge-danger" title="Setoran kurang dari total pembayaran tercatat">⚠️ ${fmtRp(selisih)}</span>`;
+    }
+
+    // Verify badge
+    const verifyBadge = d.verified
+      ? `<span class="badge badge-success" title="Diverifikasi ${d.verifiedAt ? formatDate(d.verifiedAt.slice(0,10)) : ''}">✓ Verified</span>`
+      : `<span class="badge" style="background:#f5f5f4;color:#78716c;">⏳ Draft</span>`;
+
+    // Row highlight jika belum verified
+    const rowStyle = !d.verified ? ' style="background:#fefaf6;"' : '';
+
+    // Note preview
+    const notePreview = d.note ? `<br><small style="color:#78716c;font-style:italic;">📝 ${escapeHtml(d.note.slice(0, 40))}${d.note.length > 40 ? '...' : ''}</small>` : '';
+
+    const isSelected = depositBatchSelected.has(d.id);
+
+    return `<tr${rowStyle}>
+      <td><input type="checkbox" class="deposit-cb" data-id="${d.id}" ${isSelected ? 'checked' : ''} onchange="toggleDepositSelection('${d.id}', this)"></td>
+      <td>${formatDate(d.date)}${notePreview}</td>
       <td>${escapeHtml(collector ? collector.name : '-')}</td>
       <td>${escapeHtml(getLocationName(d.locationCode))}</td>
       <td>${monthLabel(d.period)}</td>
-      <td>${fmtRp(totalPayments)}</td>
+      <td>${fmtRp(totalPayments)}<br><small style="color:#78716c;">${paymentCount} bayar</small></td>
       <td><strong>${fmtRp(d.amount)}</strong></td>
-      <td>${selisih === 0
-        ? '<span class="badge badge-success">Cocok ✓</span>'
-        : selisih > 0
-          ? `<span class="badge badge-info">+${fmtRp(selisih)}</span>`
-          : `<span class="badge badge-danger">${fmtRp(selisih)}</span>`}</td>
-      <td>${fmtRp(commission)}</td>
+      <td>${selisihBadge}</td>
+      <td>${fmtRp(commission)}<br><small style="color:#78716c;">${commPct}%</small></td>
+      <td>${verifyBadge}</td>
       <td style="white-space:nowrap;">
-        <button class="btn btn-sm" onclick="editDeposit('${d.id}')">✏</button>
-        <button class="btn btn-sm btn-danger" onclick="deleteDeposit('${d.id}')">🗑</button>
+        <button class="btn btn-sm" onclick="showDepositDetail('${d.id}')" title="Lihat detail pembayaran">📋</button>
+        <button class="btn btn-sm" onclick="editDeposit('${d.id}')" title="Edit">✏</button>
+        ${!d.verified
+          ? `<button class="btn btn-sm" onclick="toggleDepositVerify('${d.id}', true)" title="Verifikasi" style="background:#dcfce7;color:#166534;">✓</button>`
+          : `<button class="btn btn-sm" onclick="toggleDepositVerify('${d.id}', false)" title="Batal verifikasi" style="background:#fef3c7;color:#92400e;">↺</button>`
+        }
+        <button class="btn btn-sm btn-danger" onclick="deleteDeposit('${d.id}')" title="Hapus">🗑</button>
       </td>
     </tr>`;
   }).join('');
+}
+
+function refreshDepositFilterDropdowns() {
+  // Populate collector filter
+  const colSel = document.getElementById('filter-deposit-collector');
+  if (colSel) {
+    const cur = colSel.value;
+    colSel.innerHTML = '<option value="">Semua Tukang</option>' +
+      state.collectors.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+    colSel.value = cur;
+  }
+  // Populate location filter
+  const locSel = document.getElementById('filter-deposit-location');
+  if (locSel) {
+    const cur = locSel.value;
+    locSel.innerHTML = '<option value="">Semua Daerah</option>' +
+      state.locations.map(l => `<option value="${l.code}">${escapeHtml(l.name)}</option>`).join('');
+    locSel.value = cur;
+  }
+}
+
+function resetDepositFilters() {
+  document.getElementById('filter-deposit-collector').value = '';
+  document.getElementById('filter-deposit-location').value = '';
+  document.getElementById('filter-deposit-period').value = '';
+  document.getElementById('filter-deposit-status').value = '';
+  document.getElementById('filter-deposit-date-from').value = '';
+  document.getElementById('filter-deposit-date-to').value = '';
+  renderDeposits();
+}
+
+function renderDepositQuickStats() {
+  const container = document.getElementById('deposit-quick-stats');
+  if (!container) return;
+
+  const today = todayStr();
+  const monthPrefix = today.slice(0, 7);
+
+  const thisMonth = state.deposits.filter(d => (d.date || '').startsWith(monthPrefix));
+  const unverified = state.deposits.filter(d => !d.verified);
+  const minusSelisih = state.deposits.filter(d => {
+    const tp = (d.paymentIds || []).reduce((s, pid) => {
+      const p = state.payments.find(x => x.id === pid);
+      return s + (p ? p.amount : 0);
+    }, 0);
+    return (d.amount - tp) < 0;
+  });
+
+  const thisMonthTotal = thisMonth.reduce((s, d) => s + d.amount, 0);
+  const thisMonthKomisi = thisMonth.reduce((s, d) => {
+    const tp = (d.paymentIds || []).reduce((ss, pid) => {
+      const p = state.payments.find(x => x.id === pid);
+      return ss + (p ? p.amount : 0);
+    }, 0);
+    const loc = state.locations.find(l => l.code === d.locationCode);
+    return s + (tp * (loc ? (loc.commissionPercent || 0) : 0) / 100);
+  }, 0);
+
+  container.innerHTML = `
+    <div style="background:white;border:1px solid #dbeafe;border-left:3px solid #1e40af;border-radius:8px;padding:10px 12px;">
+      <div style="font-size:10px;color:#78716c;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Bulan Ini</div>
+      <div style="font-size:16px;font-weight:700;color:#1e40af;margin-top:2px;">${fmtRp(thisMonthTotal)}</div>
+      <div style="font-size:11px;color:#78716c;">${thisMonth.length}x sesi setoran</div>
+    </div>
+    <div style="background:white;border:1px solid #fef3c7;border-left:3px solid #d97706;border-radius:8px;padding:10px 12px;">
+      <div style="font-size:10px;color:#78716c;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Komisi Bulan Ini</div>
+      <div style="font-size:16px;font-weight:700;color:#d97706;margin-top:2px;">${fmtRp(thisMonthKomisi)}</div>
+      <div style="font-size:11px;color:#78716c;">Untuk tukang</div>
+    </div>
+    <div style="background:white;border:1px solid #f3f4f6;border-left:3px solid #78716c;border-radius:8px;padding:10px 12px;cursor:pointer;" onclick="document.getElementById('filter-deposit-status').value='unverified';renderDeposits();">
+      <div style="font-size:10px;color:#78716c;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Belum Diverifikasi</div>
+      <div style="font-size:16px;font-weight:700;color:#57534e;margin-top:2px;">${unverified.length}</div>
+      <div style="font-size:11px;color:#78716c;">Klik untuk filter</div>
+    </div>
+    <div style="background:white;border:1px solid #fee2e2;border-left:3px solid #dc2626;border-radius:8px;padding:10px 12px;cursor:pointer;" onclick="document.getElementById('filter-deposit-status').value='minus';renderDeposits();">
+      <div style="font-size:10px;color:#78716c;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Selisih Minus</div>
+      <div style="font-size:16px;font-weight:700;color:#dc2626;margin-top:2px;">${minusSelisih.length}</div>
+      <div style="font-size:11px;color:#78716c;">Perlu ditindaklanjuti</div>
+    </div>
+  `;
+}
+
+// Batch selection functions
+function toggleAllDepositSelection(cb) {
+  const checkboxes = document.querySelectorAll('.deposit-cb');
+  checkboxes.forEach(x => {
+    x.checked = cb.checked;
+    if (cb.checked) depositBatchSelected.add(x.dataset.id);
+    else depositBatchSelected.delete(x.dataset.id);
+  });
+  updateDepositBatchBar();
+}
+
+function toggleDepositSelection(id, cb) {
+  if (cb.checked) depositBatchSelected.add(id);
+  else depositBatchSelected.delete(id);
+  updateDepositBatchBar();
+}
+
+function updateDepositBatchBar() {
+  const bar = document.getElementById('deposit-batch-bar');
+  const countEl = document.getElementById('deposit-batch-count');
+  if (depositBatchSelected.size > 0) {
+    bar.style.display = 'flex';
+    countEl.textContent = `${depositBatchSelected.size} dipilih`;
+  } else {
+    bar.style.display = 'none';
+    const selectAll = document.getElementById('deposit-select-all');
+    if (selectAll) selectAll.checked = false;
+  }
+}
+
+function batchClearDepositSelection() {
+  depositBatchSelected.clear();
+  document.querySelectorAll('.deposit-cb').forEach(x => x.checked = false);
+  const selectAll = document.getElementById('deposit-select-all');
+  if (selectAll) selectAll.checked = false;
+  updateDepositBatchBar();
+}
+
+function batchVerifyDeposits() {
+  if (depositBatchSelected.size === 0) return;
+  if (!confirm(`Verifikasi ${depositBatchSelected.size} sesi setoran terpilih?\n\nStatus akan berubah menjadi "Verified".`)) return;
+  const now = new Date().toISOString();
+  let count = 0;
+  depositBatchSelected.forEach(id => {
+    const d = state.deposits.find(x => x.id === id);
+    if (d && !d.verified) {
+      d.verified = true;
+      d.verifiedAt = now;
+      count++;
+    }
+  });
+  saveState();
+  depositBatchSelected.clear();
+  renderDeposits();
+  showToast(`✓ ${count} sesi setoran diverifikasi`, 'success');
+}
+
+function toggleDepositVerify(id, verify) {
+  const d = state.deposits.find(x => x.id === id);
+  if (!d) return;
+  d.verified = verify;
+  d.verifiedAt = verify ? new Date().toISOString() : null;
+  saveState();
+  renderDeposits();
+  showToast(verify ? '✓ Sesi diverifikasi' : '↺ Verifikasi dibatalkan', 'success');
+}
+
+// Rekap per tukang: expand/collapse view
+let depositRekapVisible = false;
+function toggleDepositRekap() {
+  depositRekapVisible = !depositRekapVisible;
+  const panel = document.getElementById('deposit-rekap-panel');
+  if (!depositRekapVisible) {
+    panel.style.display = 'none';
+    return;
+  }
+
+  const monthPrefix = todayStr().slice(0, 7);
+  const filterPeriod = document.getElementById('filter-deposit-period').value;
+  const targetPeriod = filterPeriod || monthPrefix;
+
+  // Group by collector
+  const perCollector = {};
+  state.deposits.forEach(d => {
+    if (d.period !== targetPeriod) return;
+    if (!perCollector[d.collectorId]) perCollector[d.collectorId] = { deposits: [], totalSetoran: 0, totalKomisi: 0, totalPayments: 0, unverified: 0 };
+    const totalPay = (d.paymentIds || []).reduce((s, pid) => {
+      const p = state.payments.find(x => x.id === pid);
+      return s + (p ? p.amount : 0);
+    }, 0);
+    const loc = state.locations.find(l => l.code === d.locationCode);
+    const commPct = loc ? (loc.commissionPercent || 0) : 0;
+    const komisi = totalPay * commPct / 100;
+    perCollector[d.collectorId].deposits.push(d);
+    perCollector[d.collectorId].totalSetoran += d.amount;
+    perCollector[d.collectorId].totalKomisi += komisi;
+    perCollector[d.collectorId].totalPayments += totalPay;
+    if (!d.verified) perCollector[d.collectorId].unverified++;
+  });
+
+  const items = Object.entries(perCollector)
+    .map(([cId, data]) => {
+      const col = state.collectors.find(c => c.id === cId);
+      return { name: col ? col.name : '?', cId, ...data };
+    })
+    .sort((a, b) => b.totalSetoran - a.totalSetoran);
+
+  let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+    <strong style="color:#1e40af;">📊 Rekap Setoran per Tukang — ${monthLabel(targetPeriod)}</strong>
+    <button class="btn btn-sm" onclick="toggleDepositRekap()" style="background:white;">✕ Tutup</button>
+  </div>`;
+
+  if (!items.length) {
+    html += `<div style="color:#78716c;text-align:center;padding:20px;">Belum ada setoran untuk periode ${monthLabel(targetPeriod)}</div>`;
+  } else {
+    html += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;">`;
+    items.forEach((item, idx) => {
+      const netto = item.totalSetoran - item.totalKomisi;
+      const rankIcon = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx+1}`;
+      html += `
+        <div style="background:white;border:1px solid #e5e7eb;border-radius:8px;padding:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <div style="font-weight:600;font-size:14px;">${rankIcon} ${escapeHtml(item.name)}</div>
+            <div style="font-size:11px;color:#78716c;">${item.deposits.length} sesi</div>
+          </div>
+          <div style="font-size:12px;line-height:1.7;">
+            <div style="display:flex;justify-content:space-between;"><span style="color:#78716c;">Total Pembayaran:</span> <strong>${fmtRp(item.totalPayments)}</strong></div>
+            <div style="display:flex;justify-content:space-between;"><span style="color:#78716c;">Total Setoran:</span> <strong style="color:#1e40af;">${fmtRp(item.totalSetoran)}</strong></div>
+            <div style="display:flex;justify-content:space-between;"><span style="color:#78716c;">Komisi:</span> <strong style="color:#d97706;">${fmtRp(item.totalKomisi)}</strong></div>
+            <div style="display:flex;justify-content:space-between;border-top:1px solid #f1f5f9;margin-top:4px;padding-top:4px;"><span style="color:#78716c;">Netto:</span> <strong style="color:#16a34a;">${fmtRp(netto)}</strong></div>
+            ${item.unverified > 0 ? `<div style="margin-top:6px;color:#d97706;font-size:11px;">⏳ ${item.unverified} sesi belum diverifikasi</div>` : ''}
+          </div>
+          <button class="btn btn-sm" onclick="document.getElementById('filter-deposit-collector').value='${item.cId}';renderDeposits();" style="width:100%;margin-top:8px;font-size:11px;">Lihat Detail Setoran →</button>
+        </div>
+      `;
+    });
+    html += `</div>`;
+  }
+
+  panel.innerHTML = html;
+  panel.style.display = 'block';
+}
+
+// Export CSV
+function exportDepositsCSV() {
+  if (!state.deposits.length) { alert('Belum ada sesi setoran'); return; }
+  renderDeposits(); // ensure filtered list is up-to-date
+  const list = window.depositFilteredList || state.deposits;
+  if (!list.length) { alert('Tidak ada sesi setoran sesuai filter'); return; }
+
+  const headers = ['Tanggal Setor','Tukang','Daerah','Periode Tagihan','Jumlah Pembayaran','Total Pembayaran','Uang Disetor','Selisih','Komisi %','Komisi Nominal','Netto','Status','Catatan'];
+  const rows = list.map(d => {
+    const col = state.collectors.find(c => c.id === d.collectorId);
+    const loc = state.locations.find(l => l.code === d.locationCode);
+    const totalPay = (d.paymentIds || []).reduce((s, pid) => {
+      const p = state.payments.find(x => x.id === pid);
+      return s + (p ? p.amount : 0);
+    }, 0);
+    const commPct = loc ? (loc.commissionPercent || 0) : 0;
+    const komisi = totalPay * commPct / 100;
+    return [
+      d.date,
+      col ? col.name : '-',
+      loc ? loc.name : d.locationCode,
+      monthLabel(d.period),
+      (d.paymentIds || []).length,
+      totalPay,
+      d.amount,
+      d.amount - totalPay,
+      commPct + '%',
+      komisi,
+      d.amount - komisi,
+      d.verified ? 'Verified' : 'Draft',
+      d.note || ''
+    ];
+  });
+  downloadCSV([headers, ...rows], `setoran-${todayStr()}.csv`);
+}
+
+// Show detail of a deposit - list of payments linked
+function showDepositDetail(id) {
+  const d = state.deposits.find(x => x.id === id);
+  if (!d) return;
+  const col = state.collectors.find(c => c.id === d.collectorId);
+  const loc = state.locations.find(l => l.code === d.locationCode);
+  const linkedPayments = (d.paymentIds || []).map(pid => state.payments.find(p => p.id === pid)).filter(Boolean);
+  const totalPay = linkedPayments.reduce((s, p) => s + p.amount, 0);
+  const selisih = d.amount - totalPay;
+  const commPct = loc ? (loc.commissionPercent || 0) : 0;
+  const komisi = totalPay * commPct / 100;
+
+  let html = `<h3>📋 Detail Sesi Setoran</h3>
+    <div style="background:#fafaf9;border-radius:8px;padding:12px;margin-bottom:12px;font-size:13px;">
+      <div><strong>Tanggal Setor:</strong> ${formatDate(d.date)}</div>
+      <div><strong>Tukang:</strong> ${escapeHtml(col ? col.name : '-')}</div>
+      <div><strong>Daerah:</strong> ${escapeHtml(loc ? loc.name : d.locationCode)}</div>
+      <div><strong>Periode Tagihan:</strong> ${monthLabel(d.period)}</div>
+      <div style="margin-top:8px;border-top:1px dashed #e5e7eb;padding-top:8px;">
+        <div style="display:flex;justify-content:space-between;"><span>Total Pembayaran Tercatat (${linkedPayments.length}x):</span> <strong>${fmtRp(totalPay)}</strong></div>
+        <div style="display:flex;justify-content:space-between;"><span>Uang Disetor Tukang:</span> <strong>${fmtRp(d.amount)}</strong></div>
+        <div style="display:flex;justify-content:space-between;"><span>Selisih:</span> <strong style="color:${selisih === 0 ? '#16a34a' : selisih > 0 ? '#d97706' : '#dc2626'};">${selisih === 0 ? 'Cocok ✓' : (selisih > 0 ? '+' : '') + fmtRp(selisih)}</strong></div>
+        <div style="display:flex;justify-content:space-between;"><span>Komisi (${commPct}%):</span> <strong style="color:#d97706;">${fmtRp(komisi)}</strong></div>
+        <div style="display:flex;justify-content:space-between;border-top:1px solid #e5e7eb;margin-top:4px;padding-top:4px;"><span>Netto ke Admin:</span> <strong style="color:#16a34a;">${fmtRp(d.amount - komisi)}</strong></div>
+      </div>
+      ${d.note ? `<div style="margin-top:8px;border-top:1px dashed #e5e7eb;padding-top:8px;"><strong>Catatan:</strong> ${escapeHtml(d.note)}</div>` : ''}
+      <div style="margin-top:8px;font-size:11px;color:#78716c;">Status: ${d.verified ? `<span style="color:#16a34a;font-weight:600;">✓ Verified</span> pada ${d.verifiedAt ? formatDate(d.verifiedAt.slice(0,10)) : '-'}` : `<span style="color:#78716c;">⏳ Draft (belum diverifikasi)</span>`}</div>
+    </div>`;
+
+  html += `<h4>Daftar Pembayaran Terlink (${linkedPayments.length}):</h4>`;
+  if (linkedPayments.length === 0) {
+    html += `<div style="color:#78716c;padding:12px;text-align:center;">Tidak ada pembayaran yang terhubung ke sesi ini.</div>`;
+  } else {
+    html += `<div style="max-height:300px;overflow-y:auto;">
+      <table style="width:100%;font-size:12px;"><thead><tr style="background:#fafaf9;">
+        <th style="padding:6px;text-align:left;">Tanggal</th><th style="padding:6px;text-align:left;">Pelanggan</th><th style="padding:6px;text-align:left;">Metode</th><th style="padding:6px;text-align:right;">Jumlah</th>
+      </tr></thead><tbody>`;
+    linkedPayments.forEach(p => {
+      const c = state.customers.find(x => x.id === p.customerId);
+      const methodIcon = p.method === 'Transfer' ? '💳' : p.method === 'QRIS' ? '📱' : p.method === 'E-wallet' ? '📲' : '💵';
+      html += `<tr style="border-bottom:1px solid #f1f5f9;">
+        <td style="padding:6px;">${formatDate(p.paidAt)}</td>
+        <td style="padding:6px;">${escapeHtml(c ? c.name : '?')}</td>
+        <td style="padding:6px;">${methodIcon} ${escapeHtml(p.method || 'Tunai')}</td>
+        <td style="padding:6px;text-align:right;"><strong>${fmtRp(p.amount)}</strong></td>
+      </tr>`;
+    });
+    html += `</tbody></table></div>`;
+  }
+
+  html += `<div class="modal-actions">
+    <button class="btn" onclick="closeModal('modal-deposit-detail')">Tutup</button>
+    <button class="btn btn-primary" onclick="closeModal('modal-deposit-detail');editDeposit('${d.id}');">✏ Edit</button>
+  </div>`;
+
+  // Reuse a generic modal container
+  let modal = document.getElementById('modal-deposit-detail');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-deposit-detail';
+    modal.className = 'modal-bg';
+    modal.innerHTML = '<div class="modal large"></div>';
+    document.body.appendChild(modal);
+  }
+  modal.querySelector('.modal').innerHTML = html;
+  modal.classList.add('show');
 }
 
 function openDepositModal() {
@@ -7879,6 +8416,8 @@ function openDepositModal() {
   document.getElementById('deposit-amount').value = '';
   document.getElementById('deposit-note').value = '';
   document.getElementById('deposit-summary').style.display = 'none';
+  document.getElementById('deposit-payment-list-wrap').style.display = 'none';
+  document.getElementById('deposit-manual-select').checked = false;
   // Refresh collector & location dropdowns
   const collSel = document.getElementById('deposit-collector');
   collSel.innerHTML = '<option value="">— Pilih Tukang —</option>' +
@@ -7886,16 +8425,40 @@ function openDepositModal() {
   const locSel = document.getElementById('deposit-location');
   locSel.innerHTML = '<option value="">— Pilih Daerah —</option>' +
     state.locations.map(l => `<option value="${l.code}">${escapeHtml(l.name)}</option>`).join('');
-  document.getElementById('deposit-location').onchange = updateDepositCalc;
+  // Auto-select tukang saat pilih daerah
+  document.getElementById('deposit-location').onchange = () => {
+    const locCode = document.getElementById('deposit-location').value;
+    const collector = getCollectorForLocation(locCode);
+    if (collector) document.getElementById('deposit-collector').value = collector.id;
+    updateDepositCalc();
+  };
   document.getElementById('deposit-period').onchange = updateDepositCalc;
+  document.getElementById('deposit-collector').onchange = updateDepositCalc;
   window.fastInputPaymentIds = null;
+  window.depositManuallySelectedIds = null;
   document.getElementById('modal-deposit').classList.add('show');
+}
+
+// Handler untuk toggle Manual Select mode
+function onDepositManualSelectChange() {
+  const manual = document.getElementById('deposit-manual-select').checked;
+  if (manual) {
+    // Init manual selection dengan semua yang currently linked
+    const listEl = document.getElementById('deposit-payment-list');
+    const checkboxes = listEl.querySelectorAll('.deposit-payment-cb');
+    checkboxes.forEach(cb => { cb.disabled = false; });
+  } else {
+    // Reset ke automatic mode
+    window.depositManuallySelectedIds = null;
+    updateDepositCalc();
+  }
 }
 
 function editDeposit(id) {
   const d = state.deposits.find(x => x.id === id);
   if (!d) return;
   openDepositModal();
+  document.getElementById('modal-deposit-title').textContent = 'Edit Sesi Setoran';
   document.getElementById('deposit-id').value = d.id;
   document.getElementById('deposit-collector').value = d.collectorId || '';
   document.getElementById('deposit-location').value = d.locationCode || '';
@@ -7907,21 +8470,42 @@ function editDeposit(id) {
   updateDepositCalc();
 }
 
+// When user checks/unchecks payment in the list
+function onDepositPaymentToggle(paymentId, cb) {
+  if (!window.depositManuallySelectedIds) window.depositManuallySelectedIds = new Set();
+  if (cb.checked) window.depositManuallySelectedIds.add(paymentId);
+  else window.depositManuallySelectedIds.delete(paymentId);
+  updateDepositCalc();
+}
+
 function updateDepositCalc() {
   const locCode = document.getElementById('deposit-location').value;
   const period = document.getElementById('deposit-period').value;
   const amount = parseInt(document.getElementById('deposit-amount').value) || 0;
   const editId = document.getElementById('deposit-id').value;
   const summary = document.getElementById('deposit-summary');
-  if (!locCode || !period) { summary.style.display = 'none'; return; }
+  const listWrap = document.getElementById('deposit-payment-list-wrap');
+
+  if (!locCode || !period) {
+    summary.style.display = 'none';
+    listWrap.style.display = 'none';
+    return;
+  }
 
   const loc = state.locations.find(l => l.code === locCode);
   const commPercent = loc ? (loc.commissionPercent || 0) : 0;
 
-  // Find payments to associate
-  let paymentIds = window.fastInputPaymentIds;
-  if (!paymentIds) {
-    // Default: all payments for this location & period not yet associated to another deposit
+  // Determine payment IDs
+  let paymentIds;
+  const manualMode = document.getElementById('deposit-manual-select').checked;
+
+  if (manualMode && window.depositManuallySelectedIds) {
+    // User is manually selecting
+    paymentIds = [...window.depositManuallySelectedIds];
+  } else if (window.fastInputPaymentIds) {
+    paymentIds = window.fastInputPaymentIds;
+  } else {
+    // Default: all unlinked payments for this location + period
     const customers = state.customers.filter(c => c.locationCode === locCode);
     const customerIds = new Set(customers.map(c => c.id));
     const linkedPids = new Set();
@@ -7930,11 +8514,11 @@ function updateDepositCalc() {
       (d.paymentIds || []).forEach(pid => linkedPids.add(pid));
     });
     paymentIds = state.payments
-      .filter(p => p.period === period && customerIds.has(p.customerId) && !linkedPids.has(p.id))
+      .filter(p => p.period === period && customerIds.has(p.customerId) && !linkedPids.has(p.id) && !p.directTransfer)
       .map(p => p.id);
   }
 
-  const totalPayments = paymentIds.reduce((s,pid) => {
+  const totalPayments = paymentIds.reduce((s, pid) => {
     const p = state.payments.find(x => x.id === pid);
     return s + (p ? p.amount : 0);
   }, 0);
@@ -7948,14 +8532,57 @@ function updateDepositCalc() {
   if (selisih === 0 && amount > 0) {
     html += `<span style="color:#16a34a;font-weight:600;">✓ Cocok!</span><br>`;
   } else if (selisih > 0) {
-    html += `<span style="color:#1e40af;">Setoran lebih ${fmtRp(selisih)}</span><br>`;
+    html += `<span style="color:#d97706;font-weight:600;">🟡 Setoran lebih ${fmtRp(selisih)}</span><br>
+      <small style="color:#78716c;">Kemungkinan ada pembayaran belum tercatat, atau tukang setor lebih. Cek daftar pembayaran.</small><br>`;
   } else if (selisih < 0) {
-    html += `<span style="color:#dc2626;font-weight:600;">⚠️ Selisih kurang ${fmtRp(-selisih)}</span><br>`;
+    html += `<span style="color:#dc2626;font-weight:600;">⚠️ Selisih kurang ${fmtRp(-selisih)}</span><br>
+      <small style="color:#78716c;">Uang setor tidak sesuai. Cek kembali daftar pembayaran, mungkin ada yang tidak seharusnya termasuk.</small><br>`;
   }
   html += `<br>Komisi tukang (${commPercent}%): <strong>${fmtRp(commission)}</strong><br>
     Pendapatan bersih: <strong>${fmtRp(netSetor)}</strong>`;
   summary.innerHTML = html;
   summary.style.display = 'block';
+
+  // Show payment list
+  const linkedPaymentsSet = new Set(paymentIds);
+  const allEligiblePayments = (() => {
+    if (manualMode) {
+      // Show all unlinked for period + location
+      const customers = state.customers.filter(c => c.locationCode === locCode);
+      const customerIds = new Set(customers.map(c => c.id));
+      const linkedPids = new Set();
+      state.deposits.forEach(d => {
+        if (d.id === editId) return;
+        (d.paymentIds || []).forEach(pid => linkedPids.add(pid));
+      });
+      return state.payments.filter(p => p.period === period && customerIds.has(p.customerId) && (!linkedPids.has(p.id) || linkedPaymentsSet.has(p.id)) && !p.directTransfer);
+    }
+    return paymentIds.map(pid => state.payments.find(p => p.id === pid)).filter(Boolean);
+  })();
+
+  if (allEligiblePayments.length > 0) {
+    listWrap.style.display = 'block';
+    const listEl = document.getElementById('deposit-payment-list');
+    listEl.innerHTML = allEligiblePayments.map(p => {
+      const c = state.customers.find(x => x.id === p.customerId);
+      const cName = c ? c.name : '?';
+      const methodIcon = p.method === 'Transfer' ? '💳' : p.method === 'QRIS' ? '📱' : p.method === 'E-wallet' ? '📲' : '💵';
+      const isChecked = linkedPaymentsSet.has(p.id);
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 6px;border-bottom:1px solid #f1f5f9;">
+        <div style="display:flex;gap:8px;align-items:center;flex:1;">
+          ${manualMode ? `<input type="checkbox" class="deposit-payment-cb" data-id="${p.id}" ${isChecked ? 'checked' : ''} onchange="onDepositPaymentToggle('${p.id}', this)">` : ''}
+          <div>
+            <div><strong>${escapeHtml(cName)}</strong> ${methodIcon} <small style="color:#78716c;">${escapeHtml(p.method || 'Tunai')}</small></div>
+            <small style="color:#78716c;">${formatDate(p.paidAt)}</small>
+          </div>
+        </div>
+        <strong style="color:#1e40af;">${fmtRp(p.amount)}</strong>
+      </div>`;
+    }).join('');
+  } else {
+    listWrap.style.display = 'block';
+    document.getElementById('deposit-payment-list').innerHTML = '<div style="text-align:center;color:#78716c;padding:16px;">Tidak ada pembayaran untuk daerah + periode ini yang belum dilink ke sesi lain.</div>';
+  }
 }
 
 function saveDeposit() {
@@ -7975,9 +8602,16 @@ function saveDeposit() {
   const commPercent = loc ? (loc.commissionPercent || 0) : 0;
 
   // Determine payment IDs
-  let paymentIds = window.fastInputPaymentIds;
+  let paymentIds;
   const editingId = (id && id !== '__from_fastinput__') ? id : null;
-  if (!paymentIds) {
+  const manualMode = document.getElementById('deposit-manual-select').checked;
+
+  if (manualMode && window.depositManuallySelectedIds) {
+    // Use manual selection
+    paymentIds = [...window.depositManuallySelectedIds];
+  } else if (window.fastInputPaymentIds) {
+    paymentIds = window.fastInputPaymentIds;
+  } else {
     const customers = state.customers.filter(c => c.locationCode === locCode);
     const customerIds = new Set(customers.map(c => c.id));
     const linkedPids = new Set();
@@ -7990,10 +8624,15 @@ function saveDeposit() {
       .map(p => p.id);
   }
 
+  // Preserve verified status if editing
+  const existingDeposit = editingId ? state.deposits.find(d => d.id === editingId) : null;
+
   const data = {
     id: editingId || uid(),
     collectorId, locationCode: locCode, period, date, amount, note,
-    paymentIds, commissionPercent: commPercent
+    paymentIds, commissionPercent: commPercent,
+    verified: existingDeposit ? existingDeposit.verified : false,
+    verifiedAt: existingDeposit ? existingDeposit.verifiedAt : null
   };
 
   if (editingId) {
@@ -8005,6 +8644,7 @@ function saveDeposit() {
   saveState();
   closeModal('modal-deposit');
   window.fastInputPaymentIds = null;
+  window.depositManuallySelectedIds = null;
   renderDeposits();
 }
 
