@@ -594,6 +594,8 @@ tbody tr:last-child td { border-bottom: none; }
     margin: 0 !important;
   }
   body.printing .print-area .no-print { display: none !important; }
+  /* HIDE all no-print elements anywhere (modal actions buttons) */
+  body.printing .no-print { display: none !important; }
   body.printing .print-area table {
     font-size: 10px;
     page-break-inside: auto;
@@ -1212,6 +1214,16 @@ tbody tr:last-child td { border-bottom: none; }
         <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:4px;">
           <label style="cursor:pointer;"><input type="checkbox" id="print-show-address"> Tampilkan kolom Alamat</label>
           <label style="cursor:pointer;"><input type="checkbox" id="print-show-phone"> Tampilkan kolom HP</label>
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label>Filter Pelanggan</label>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:4px;">
+          <label style="cursor:pointer;"><input type="radio" name="print-filter" value="all" checked> Semua pelanggan aktif</label>
+          <label style="cursor:pointer;"><input type="radio" name="print-filter" value="arrears"> Hanya yang punya tunggakan</label>
+          <label style="cursor:pointer;"><input type="radio" name="print-filter" value="unpaid"> Yang belum lunas periode ini</label>
+          <label style="cursor:pointer;"><input type="radio" name="print-filter" value="isolated"> Hanya yang diisolir</label>
+          <label style="cursor:pointer;"><input type="checkbox" id="print-exclude-isolated"> Kecuali diisolir</label>
         </div>
       </div>
       <button class="btn btn-success" onclick="generatePrintBilling()">📄 Buat & Cetak Daftar</button>
@@ -2204,8 +2216,9 @@ tbody tr:last-child td { border-bottom: none; }
 <div class="modal-bg" id="modal-print-billing">
   <div class="modal" style="max-width:900px;">
     <div id="print-billing-content" class="print-area"></div>
-    <div class="modal-actions no-print">
+    <div class="modal-actions no-print" style="gap:8px;flex-wrap:wrap;">
       <button class="btn" onclick="closeModal('modal-print-billing')">Tutup</button>
+      <button class="btn" onclick="downloadPrintBillingHTML()" title="Download sebagai file HTML">⬇ Download HTML</button>
       <button class="btn btn-primary" onclick="printBillingList()">🖨 Cetak / Save PDF</button>
     </div>
   </div>
@@ -8704,6 +8717,47 @@ function printBillingList() {
   setTimeout(cleanup, 1000);
 }
 
+// Download daftar tagihan sebagai file HTML mandiri
+function downloadPrintBillingHTML() {
+  const content = document.getElementById('print-billing-content').innerHTML;
+  if (!content.trim()) { alert('Belum ada daftar untuk didownload'); return; }
+
+  // Build full standalone HTML
+  const title = 'Daftar Tagihan ' + todayStr();
+  const html = `<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>${escapeHtml(title)}</title>
+<style>
+  body { font-family: Arial, sans-serif; padding: 20px; color: #111; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #999; padding: 4px 6px; vertical-align: top; font-size: 11px; }
+  th { background: #e5e7eb; }
+  h2 { margin: 0; }
+  h3 { margin: 0 0 4px; }
+  small { color: #666; }
+  @media print { body { padding: 10px; } }
+</style>
+</head>
+<body>
+${content}
+</body>
+</html>`;
+
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `daftar-tagihan-${todayStr()}.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+  showToast('⬇ File HTML berhasil didownload', 'success');
+}
+
 function generatePrintBilling() {
   const period = document.getElementById('print-period').value;
   if (!period) { alert('Pilih periode'); return; }
@@ -8736,7 +8790,7 @@ function generatePrintBilling() {
   }
 
   // Get customers from selected location(s), sort by location then name
-  const customers = state.customers.filter(c =>
+  let customers = state.customers.filter(c =>
     !c.isFree &&
     locationCodes.includes(c.locationCode) &&
     c.status !== 'nonaktif'
@@ -8747,10 +8801,57 @@ function generatePrintBilling() {
     return a.name.localeCompare(b.name);
   });
 
+  // Apply customer status filter
+  const filterEl = document.querySelector('input[name="print-filter"]:checked');
+  const filter = filterEl ? filterEl.value : 'all';
+  const excludeIsolated = document.getElementById('print-exclude-isolated').checked;
+
+  // Pre-compute balance for each customer once (for filter + display)
+  const balanceMap = new Map();
+  customers.forEach(c => {
+    balanceMap.set(c.id, calculateBalance(c.id, period));
+  });
+
+  if (filter === 'arrears') {
+    customers = customers.filter(c => {
+      const bal = balanceMap.get(c.id);
+      const me = bal.months.find(m => m.period === period);
+      const sisaPeriodIni = me ? (me.billed - me.paid) : 0;
+      const tunggakanSebelumnya = bal.balance - sisaPeriodIni;
+      return tunggakanSebelumnya > 0;
+    });
+  } else if (filter === 'unpaid') {
+    customers = customers.filter(c => {
+      const bal = balanceMap.get(c.id);
+      return bal.balance > 0;
+    });
+  } else if (filter === 'isolated') {
+    customers = customers.filter(c => c.status === 'diisolir');
+  }
+
+  // Additional filter: exclude isolated (except when filter itself is 'isolated')
+  if (excludeIsolated && filter !== 'isolated') {
+    customers = customers.filter(c => c.status !== 'diisolir');
+  }
+
   if (!customers.length) {
-    alert('Tidak ada pelanggan di daerah yang dipilih');
+    let msg = 'Tidak ada pelanggan di daerah yang dipilih';
+    if (filter === 'arrears') msg = 'Tidak ada pelanggan dengan tunggakan';
+    else if (filter === 'unpaid') msg = 'Semua pelanggan sudah lunas periode ini';
+    else if (filter === 'isolated') msg = 'Tidak ada pelanggan diisolir';
+    alert(msg);
     return;
   }
+
+  // Count stats for header info
+  const totalCustomers = customers.length;
+  const withArrears = customers.filter(c => {
+    const bal = balanceMap.get(c.id);
+    const me = bal.months.find(m => m.period === period);
+    const sisa = me ? (me.billed - me.paid) : 0;
+    return (bal.balance - sisa) > 0;
+  }).length;
+  const isolatedCount = customers.filter(c => c.status === 'diisolir').length;
 
   // Get column toggle preferences
   const showAddress = document.getElementById('print-show-address').checked;
@@ -8775,7 +8876,7 @@ function generatePrintBilling() {
     }
     runningNumber++;
 
-    const bal = calculateBalance(c.id, period);
+    const bal = balanceMap.get(c.id) || calculateBalance(c.id, period);
     const me = bal.months.find(m => m.period === period);
     const totalArrears = bal.balance;
     const tunggakanSebelumnya = me
@@ -8807,6 +8908,15 @@ function generatePrintBilling() {
   // Calculate colspan for total row (everything except last 3: tagihan, tunggakan, total — and bayar)
   const totalLabelColspan = 2 + (showAddress ? 1 : 0) + (showPhone ? 1 : 0) + 1; // No + Nama + [Alamat] + [HP] + Paket
 
+  // Filter label for info display
+  const filterLabelMap = {
+    all: 'Semua pelanggan aktif',
+    arrears: 'Hanya pelanggan dengan tunggakan',
+    unpaid: 'Yang belum lunas periode ini',
+    isolated: 'Hanya pelanggan diisolir'
+  };
+  const filterLabel = filterLabelMap[filter] + (excludeIsolated && filter !== 'isolated' ? ' (kecuali diisolir)' : '');
+
   const html = `
     <div style="font-family:Arial,sans-serif;">
       <div style="text-align:center;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:14px;">
@@ -8814,10 +8924,16 @@ function generatePrintBilling() {
         ${state.settings.address ? `<div style="font-size:12px;">${escapeHtml(state.settings.address)}</div>` : ''}
       </div>
       <h3 style="margin:0 0 4px;font-size:15px;">${escapeHtml(title)}</h3>
-      <div style="font-size:13px;margin-bottom:10px;">
+      <div style="font-size:13px;margin-bottom:6px;">
         <strong>Tukang:</strong> ${escapeHtml(collector ? collector.name : '(belum diatur)')}
         ${collector && collector.phone ? ' · ' + escapeHtml(collector.phone) : ''}
         ${collector ? ' · Komisi ' + (collector.commissionPercent || 0) + '%' : ''}
+      </div>
+      <div style="font-size:11px;color:#555;margin-bottom:10px;padding:6px 8px;background:#f9fafb;border-radius:4px;border-left:3px solid #1e40af;">
+        <strong>📊 Ringkasan:</strong> ${totalCustomers} pelanggan
+        ${withArrears > 0 ? ` · <span style="color:#dc2626;">${withArrears} punya tunggakan</span>` : ''}
+        ${isolatedCount > 0 ? ` · <span style="color:#d97706;">${isolatedCount} diisolir</span>` : ''}
+        · Filter: ${escapeHtml(filterLabel)}
       </div>
       <table style="width:100%;border-collapse:collapse;font-size:11px;">
         <thead>
