@@ -372,45 +372,172 @@ header p { font-size: 12px; opacity: 0.85; margin-top: 2px; }
 .quick-action-card .qa-desc { font-size: 11px; color: #78716c; }
 
 /* Dashboard Reminder Panel */
+/* Dashboard right column layout - reminders at top */
+.dashboard-right-column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.dashboard-right-column .panel {
+  margin-bottom: 0;
+}
+/* Reminders widget - lebih compact padding */
+.reminders-widget .panel-header {
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+@media (max-width: 900px) {
+  .dashboard-main-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .reminders-list {
+    max-height: 300px;
+  }
+}
+
+/* Reminders Widget - Sticky Sidebar Style */
+.reminders-widget {
+  position: relative;
+}
+.reminders-list {
+  max-height: 380px;
+  overflow-y: auto;
+  padding-right: 4px;
+  margin-right: -4px;
+}
+.reminders-list::-webkit-scrollbar { width: 6px; }
+.reminders-list::-webkit-scrollbar-track { background: transparent; }
+.reminders-list::-webkit-scrollbar-thumb { background: #e7e5e4; border-radius: 3px; }
+.reminders-list::-webkit-scrollbar-thumb:hover { background: #d6d3d1; }
+
 .dashboard-reminder {
-  background: linear-gradient(135deg, #fef3c7 0%, #fef9e7 100%);
+  background: #fefaf3;
   border: 1px solid #fde68a;
-  border-radius: 10px;
-  padding: 12px 16px;
-  margin-bottom: 16px;
+  border-left: 3px solid #d97706;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 8px;
+  position: relative;
+  transition: all 0.2s ease;
+  animation: reminderSlideIn 0.3s ease-out;
+}
+.dashboard-reminder:hover {
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+@keyframes reminderSlideIn {
+  from { opacity: 0; transform: translateX(10px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 .dashboard-reminder.info {
-  background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%);
+  background: #f0f6ff;
   border-color: #bfdbfe;
+  border-left-color: #1e40af;
 }
 .dashboard-reminder.success {
-  background: linear-gradient(135deg, #dcfce7 0%, #f0fdf4 100%);
+  background: #f0fdf4;
   border-color: #86efac;
+  border-left-color: #16a34a;
+}
+.dashboard-reminder.critical {
+  background: #fef2f2;
+  border-color: #fecaca;
+  border-left-color: #dc2626;
 }
 .dashboard-reminder .reminder-icon {
-  font-size: 22px;
+  font-size: 18px;
   line-height: 1;
   flex-shrink: 0;
+  margin-top: 1px;
 }
 .dashboard-reminder .reminder-content {
   flex: 1;
-  font-size: 13px;
+  font-size: 12px;
+  min-width: 0;
 }
 .dashboard-reminder .reminder-title {
   font-weight: 600;
   color: #92400e;
+  font-size: 12.5px;
   margin-bottom: 2px;
+  line-height: 1.35;
+}
+.dashboard-reminder .reminder-desc {
+  color: #78716c;
+  font-size: 11.5px;
+  line-height: 1.4;
+  margin-bottom: 4px;
 }
 .dashboard-reminder.info .reminder-title { color: #1e40af; }
 .dashboard-reminder.success .reminder-title { color: #16a34a; }
+.dashboard-reminder.critical .reminder-title { color: #dc2626; }
+
 .dashboard-reminder .reminder-actions {
   display: flex;
-  gap: 6px;
-  margin-top: 6px;
+  gap: 4px;
+  margin-top: 4px;
   flex-wrap: wrap;
+}
+.dashboard-reminder .reminder-actions .btn {
+  padding: 3px 8px;
+  font-size: 11px;
+  min-height: auto;
+}
+.dashboard-reminder .reminder-dismiss {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #a8a29e;
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  opacity: 0.5;
+}
+.dashboard-reminder:hover .reminder-dismiss {
+  opacity: 1;
+}
+.dashboard-reminder .reminder-dismiss:hover {
+  background: rgba(0,0,0,0.06);
+  color: #dc2626;
+}
+
+.reminders-empty {
+  text-align: center;
+  padding: 24px 12px;
+  color: var(--color-text-subtle);
+  font-size: 12px;
+}
+.reminders-empty-icon {
+  font-size: 28px;
+  opacity: 0.4;
+  display: block;
+  margin-bottom: 6px;
+}
+
+/* Reminders widget badge counter di title */
+.reminders-count-badge {
+  display: inline-block;
+  background: var(--color-danger);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 8px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.reminders-count-badge.zero {
+  background: var(--color-success);
 }
 
 /* Recent Activity Feed */
@@ -1593,9 +1720,6 @@ tbody tr:last-child td { border-bottom: none; }
 
   <!-- DASHBOARD -->
   <div id="tab-dashboard" class="tab-content">
-    <!-- Reminder & Alerts Panel -->
-    <div id="dashboard-reminders"></div>
-
     <!-- Quick Actions -->
     <div class="dashboard-quick-actions">
       <div class="quick-action-card blue" onclick="showTabByName('input-cepat')">
@@ -1632,7 +1756,7 @@ tbody tr:last-child td { border-bottom: none; }
     <div class="stats-grid" id="stats"></div>
 
     <!-- Main Content: 2 columns on desktop, stack on mobile -->
-    <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;">
+    <div class="dashboard-main-grid" style="display:grid;grid-template-columns:2fr 1fr;gap:16px;">
       <!-- Left: Charts -->
       <div>
         <div class="panel">
@@ -1651,8 +1775,17 @@ tbody tr:last-child td { border-bottom: none; }
         </div>
       </div>
 
-      <!-- Right: Activity & Top Performer -->
-      <div>
+      <!-- Right: Reminders + Activity + Top Performer -->
+      <div class="dashboard-right-column">
+        <!-- Reminders Widget - Sticky Sidebar Style -->
+        <div class="panel reminders-widget" id="reminders-widget">
+          <div class="panel-header">
+            <h2 id="reminders-widget-title">🔔 Peringatan</h2>
+            <button id="reminders-reset-btn" class="btn btn-sm" onclick="resetDismissedReminders()" title="Tampilkan lagi peringatan yang di-dismiss" style="display:none;">↻ Reset</button>
+          </div>
+          <div id="dashboard-reminders" class="reminders-list"></div>
+        </div>
+
         <div class="panel">
           <div class="panel-header">
             <h2>🕒 Aktivitas Terbaru</h2>
@@ -3691,10 +3824,33 @@ function showTabByName(name) {
 }
 
 // ===== DASHBOARD REMINDERS & ALERTS =====
+// Reminders that were dismissed - stored in localStorage
+function getDismissedReminders() {
+  try {
+    return JSON.parse(localStorage.getItem('dismissed_reminders') || '[]');
+  } catch (e) { return []; }
+}
+
+function dismissReminder(id) {
+  const dismissed = getDismissedReminders();
+  if (!dismissed.includes(id)) {
+    dismissed.push(id);
+    localStorage.setItem('dismissed_reminders', JSON.stringify(dismissed));
+  }
+  renderDashboardReminders();
+}
+
+function resetDismissedReminders() {
+  if (!confirm('Tampilkan semua peringatan yang sudah di-dismiss?')) return;
+  localStorage.removeItem('dismissed_reminders');
+  renderDashboardReminders();
+}
+
 function renderDashboardReminders() {
   const container = document.getElementById('dashboard-reminders');
   if (!container) return;
 
+  const dismissed = getDismissedReminders();
   const reminders = [];
 
   // 1. Isolated customers with no arrears (should reactivate)
@@ -3705,11 +3861,12 @@ function renderDashboardReminders() {
   });
   if (isolatedNoArrears.length > 0) {
     reminders.push({
+      id: 'isolated-no-arrears',
       type: 'warning',
       icon: '🔓',
-      title: `${isolatedNoArrears.length} pelanggan diisolir siap diaktifkan`,
-      desc: 'Sudah tidak ada tunggakan. Pertimbangkan aktifkan kembali.',
-      action: `<button class="btn btn-sm" style="background:#16a34a;color:white;" onclick="openIsolationManager();switchIsolationTab('reminder');">Lihat & Aktifkan</button>`
+      title: `${isolatedNoArrears.length} pelanggan siap diaktifkan`,
+      desc: 'Sudah tidak ada tunggakan.',
+      action: `<button class="btn" style="background:#16a34a;color:white;" onclick="openIsolationManager();switchIsolationTab('reminder');">Aktifkan</button>`
     });
   }
 
@@ -3718,19 +3875,21 @@ function renderDashboardReminders() {
   const daysSinceSync = lastSync ? Math.floor((Date.now() - lastSync) / (1000 * 60 * 60 * 24)) : -1;
   if (!gdriveAccessToken) {
     reminders.push({
+      id: 'no-gdrive',
       type: 'info',
       icon: '☁️',
-      title: 'Belum terhubung ke Google Drive',
-      desc: 'Aktifkan backup otomatis ke Drive untuk keamanan data.',
-      action: `<button class="btn btn-sm" onclick="handleGDriveClick()">Connect Drive</button>`
+      title: 'Belum terhubung ke Drive',
+      desc: 'Aktifkan backup otomatis untuk keamanan data.',
+      action: `<button class="btn" onclick="handleGDriveClick()">Connect</button>`
     });
   } else if (daysSinceSync > 3) {
     reminders.push({
+      id: 'stale-sync',
       type: 'warning',
       icon: '⚠️',
-      title: `Backup Drive terakhir ${daysSinceSync} hari yang lalu`,
-      desc: 'Sync data ke Drive supaya cadangan tetap up-to-date.',
-      action: `<button class="btn btn-sm" onclick="syncToGDrive(true)">Sync Sekarang</button>`
+      title: `Backup terakhir ${daysSinceSync} hari lalu`,
+      desc: 'Sync data ke Drive.',
+      action: `<button class="btn" onclick="syncToGDrive(true)">Sync</button>`
     });
   }
 
@@ -3744,34 +3903,65 @@ function renderDashboardReminders() {
   });
   if (bigArrearsCount > 0) {
     reminders.push({
-      type: 'warning',
+      id: 'big-arrears',
+      type: 'critical',
       icon: '💰',
-      title: `${bigArrearsCount} pelanggan dengan tunggakan > 2 bulan`,
-      desc: 'Pertimbangkan follow up atau isolir.',
-      action: `<button class="btn btn-sm" onclick="showTabByName('tunggakan')">Lihat Tunggakan</button>`
+      title: `${bigArrearsCount} pelanggan tunggakan besar`,
+      desc: 'Lebih dari 2 bulan. Follow up atau isolir.',
+      action: `<button class="btn" onclick="showTabByName('tunggakan')">Lihat</button>`
     });
   }
 
+  // Filter out dismissed reminders
+  const activeReminders = reminders.filter(r => !dismissed.includes(r.id));
+
+  // Update title badge count
+  const titleEl = document.getElementById('reminders-widget-title');
+  if (titleEl) {
+    if (activeReminders.length > 0) {
+      titleEl.innerHTML = `🔔 Peringatan <span class="reminders-count-badge">${activeReminders.length}</span>`;
+    } else {
+      titleEl.innerHTML = `🔔 Peringatan <span class="reminders-count-badge zero">✓</span>`;
+    }
+  }
+
+  // Show reset button if any dismissed
+  const resetBtn = document.getElementById('reminders-reset-btn');
+  if (resetBtn) {
+    resetBtn.style.display = dismissed.length > 0 ? 'inline-flex' : 'none';
+  }
+
   // Render
-  if (reminders.length === 0) {
-    container.innerHTML = `
-      <div class="dashboard-reminder success">
-        <div class="reminder-icon">✨</div>
-        <div class="reminder-content">
-          <div class="reminder-title">Semua aman!</div>
-          <div>Tidak ada peringatan yang perlu ditindaklanjuti saat ini.</div>
+  if (activeReminders.length === 0) {
+    if (reminders.length > 0) {
+      // Ada reminder tapi semua di-dismiss
+      container.innerHTML = `
+        <div class="reminders-empty">
+          <span class="reminders-empty-icon">🔕</span>
+          <div>Semua peringatan di-dismiss</div>
+          <div style="font-size:11px;margin-top:4px;">Klik ↻ Reset untuk tampilkan lagi</div>
         </div>
-      </div>
-    `;
+      `;
+    } else {
+      // Memang tidak ada reminder
+      container.innerHTML = `
+        <div class="reminders-empty">
+          <span class="reminders-empty-icon">✨</span>
+          <div><strong style="color:#16a34a;">Semua aman!</strong></div>
+          <div style="font-size:11px;margin-top:4px;">Tidak ada peringatan yang perlu ditindaklanjuti.</div>
+        </div>
+      `;
+    }
     return;
   }
 
-  container.innerHTML = reminders.map(r => `
-    <div class="dashboard-reminder ${r.type === 'info' ? 'info' : ''}">
+  container.innerHTML = activeReminders.map(r => `
+    <div class="dashboard-reminder ${r.type === 'info' ? 'info' : ''} ${r.type === 'critical' ? 'critical' : ''}">
+      <button class="reminder-dismiss" onclick="dismissReminder('${r.id}')" title="Dismiss peringatan ini" aria-label="Tutup">&times;</button>
       <div class="reminder-icon">${r.icon}</div>
       <div class="reminder-content">
         <div class="reminder-title">${escapeHtml(r.title)}</div>
-        <div>${escapeHtml(r.desc)}</div>
+        <div class="reminder-desc">${escapeHtml(r.desc)}</div>
         ${r.action ? `<div class="reminder-actions">${r.action}</div>` : ''}
       </div>
     </div>
