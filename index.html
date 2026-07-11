@@ -108,6 +108,331 @@ body {
   line-height: 1.5;
 }
 .container { max-width: 100%; margin: 0 auto; padding: 16px 24px; }
+
+/* ============ APP SHELL LAYOUT (Sidebar + Content) ============ */
+:root {
+  --sidebar-width: 240px;
+  --sidebar-width-collapsed: 68px;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) 1fr;
+  min-height: 100vh;
+  transition: grid-template-columns 0.25s ease;
+}
+.app-shell.collapsed {
+  grid-template-columns: var(--sidebar-width-collapsed) 1fr;
+}
+
+/* ---------- Sidebar ---------- */
+.sidebar {
+  background: #fafaf9;
+  border-right: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  transition: all 0.25s ease;
+  z-index: 100;
+}
+
+.sidebar-brand {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 60px;
+  overflow: hidden;
+}
+.sidebar-brand-logo {
+  width: 36px;
+  height: 36px;
+  background: var(--color-primary);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.sidebar-brand-text {
+  overflow: hidden;
+  min-width: 0;
+  transition: opacity 0.15s;
+}
+.app-shell.collapsed .sidebar-brand-text { opacity: 0; width: 0; }
+.sidebar-brand-name {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--color-text);
+  white-space: nowrap;
+}
+.sidebar-brand-sub {
+  font-size: 11px;
+  color: var(--color-text-subtle);
+  white-space: nowrap;
+}
+
+.sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+.sidebar-nav::-webkit-scrollbar { width: 6px; }
+.sidebar-nav::-webkit-scrollbar-track { background: transparent; }
+.sidebar-nav::-webkit-scrollbar-thumb { background: #e7e5e4; border-radius: 3px; }
+
+.nav-section {
+  margin-bottom: 8px;
+}
+.nav-section-label {
+  padding: 6px 20px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-text-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  white-space: nowrap;
+  transition: opacity 0.15s, padding 0.15s;
+}
+.app-shell.collapsed .nav-section-label {
+  opacity: 0;
+  height: 6px;
+  padding: 0;
+  overflow: hidden;
+}
+.app-shell.collapsed .nav-section {
+  border-top: 1px solid var(--color-border);
+  padding-top: 4px;
+  margin-bottom: 4px;
+}
+.app-shell.collapsed .nav-section:first-child { border-top: none; padding-top: 0; }
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  margin: 1px 10px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  transition: all 0.15s;
+  position: relative;
+  border-radius: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  border: none;
+  background: transparent;
+  width: calc(100% - 20px);
+  text-align: left;
+  font-weight: 500;
+}
+.nav-item:hover {
+  background: #ececeb;
+  color: var(--color-text);
+}
+.nav-item.active {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+.nav-item:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-primary);
+}
+
+.nav-icon {
+  font-size: 16px;
+  width: 22px;
+  height: 22px;
+  text-align: center;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.nav-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: opacity 0.15s;
+}
+.app-shell.collapsed .nav-label { opacity: 0; width: 0; flex: 0; }
+
+/* Tooltip untuk collapsed mode */
+.app-shell.collapsed .nav-item[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: calc(100% + 16px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: #1c1917;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 200;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* Floating Toggle Button (Opsi 4) */
+.sidebar-floating-toggle {
+  position: absolute;
+  top: 20px;
+  right: -12px;
+  z-index: 101;
+  background: white;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  transition: all 0.15s;
+  padding: 0;
+  line-height: 1;
+}
+.sidebar-floating-toggle:hover {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(30,64,175,0.3);
+}
+.sidebar-floating-toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(30,64,175,0.3);
+}
+
+/* ---------- Main Wrapper (content area) ---------- */
+.main-wrapper {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-x: hidden;
+}
+.content-container {
+  padding: 20px 24px;
+  flex: 1;
+}
+
+/* Nav badge (misal tunggakan count) - dipindah dari .tabs .tab-badge */
+.nav-item #badge-tunggakan:not(:empty),
+.nav-item .tab-badge {
+  background: var(--color-danger);
+  color: white;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-weight: 700;
+  flex-shrink: 0;
+  min-width: 18px;
+  text-align: center;
+  margin-left: auto;
+}
+.app-shell.collapsed .nav-item #badge-tunggakan:not(:empty),
+.app-shell.collapsed .nav-item .tab-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  padding: 0 4px;
+  font-size: 9px;
+  min-width: 14px;
+  height: 14px;
+  line-height: 14px;
+  border-radius: 7px;
+  margin-left: 0;
+}
+
+/* ---------- Header (sekarang di dalam main-wrapper) ---------- */
+.main-wrapper header {
+  border-radius: 0;
+  margin: 0;
+  padding: 14px 24px;
+}
+.mobile-menu-btn {
+  display: none;
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: white;
+  font-size: 18px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-right: 8px;
+}
+
+/* Overlay mobile */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 99;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+/* ---------- Responsive Mobile ---------- */
+@media (max-width: 900px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+  .app-shell.collapsed {
+    grid-template-columns: 1fr;
+  }
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: var(--sidebar-width);
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    z-index: 150;
+    height: 100vh;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.15);
+  }
+  .sidebar.mobile-open {
+    transform: translateX(0);
+  }
+  /* Semua mode mobile fixed pakai full label (bukan collapsed) */
+  .sidebar .sidebar-brand-text,
+  .sidebar .nav-label,
+  .sidebar .nav-section-label {
+    opacity: 1 !important;
+    width: auto !important;
+  }
+  .sidebar-floating-toggle {
+    display: none;
+  }
+  .mobile-menu-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .sidebar-overlay.show {
+    display: block;
+    opacity: 1;
+  }
+  .content-container {
+    padding: 16px;
+  }
+}
+
+.container { max-width: 100%; margin: 0 auto; padding: 16px 24px; }
 header {
   background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #1e40af 100%);
   color: white;
@@ -195,6 +520,319 @@ header::before {
 }
 header h1 { font-size: 22px; font-weight: 700; }
 header p { font-size: 12px; opacity: 0.85; margin-top: 2px; }
+
+/* ============ APP SHELL WITH SIDEBAR (Notion-style) ============ */
+.app-shell {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: 100vh;
+  transition: grid-template-columns 0.25s ease;
+  position: relative;
+}
+.app-shell.collapsed {
+  grid-template-columns: 64px 1fr;
+}
+
+/* ============ SIDEBAR ============ */
+.sidebar {
+  background: #fafaf9;
+  border-right: 1px solid #e7e5e4;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  transition: all 0.25s ease;
+}
+
+.sidebar-brand {
+  padding: 14px 16px;
+  border-bottom: 1px solid #e7e5e4;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 60px;
+  transition: padding 0.15s;
+}
+.app-shell.collapsed .sidebar-brand {
+  padding: 14px 8px;
+  justify-content: center;
+}
+.sidebar-brand-logo {
+  width: 34px;
+  height: 34px;
+  background: linear-gradient(135deg, #1e40af 0%, #7c3aed 100%);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: 15px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(30,64,175,0.25);
+}
+.sidebar-brand-text {
+  overflow: hidden;
+  min-width: 0;
+  transition: opacity 0.15s;
+}
+.sidebar-brand-name {
+  font-weight: 700;
+  font-size: 14px;
+  color: #1c1917;
+  white-space: nowrap;
+}
+.sidebar-brand-sub {
+  font-size: 11px;
+  color: #78716c;
+  white-space: nowrap;
+}
+.app-shell.collapsed .sidebar-brand-text {
+  opacity: 0;
+  width: 0;
+  display: none;
+}
+
+.sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 8px 0;
+}
+.sidebar-nav::-webkit-scrollbar { width: 5px; }
+.sidebar-nav::-webkit-scrollbar-track { background: transparent; }
+.sidebar-nav::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 3px; }
+
+.nav-section { margin-bottom: 4px; }
+.nav-section-label {
+  padding: 10px 20px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #78716c;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: opacity 0.15s, padding 0.15s, height 0.15s;
+}
+.app-shell.collapsed .nav-section-label {
+  opacity: 0;
+  padding: 0;
+  height: 8px;
+}
+.app-shell.collapsed .nav-section {
+  border-top: 1px solid #e7e5e4;
+  padding-top: 4px;
+  margin-bottom: 4px;
+}
+.app-shell.collapsed .nav-section:first-child { border-top: none; }
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #57534e;
+  transition: all 0.1s;
+  position: relative;
+  margin: 1px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  border: none;
+  background: transparent;
+  width: calc(100% - 16px);
+  text-align: left;
+  font-family: inherit;
+  font-weight: 500;
+}
+.nav-item:hover {
+  background: #ececeb;
+  color: #1c1917;
+}
+.nav-item.active {
+  background: #dbeafe;
+  color: #1e40af;
+  font-weight: 600;
+}
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  background: #1e40af;
+  border-radius: 0 2px 2px 0;
+}
+.nav-item:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #1e40af;
+}
+.nav-item .nav-icon {
+  font-size: 16px;
+  width: 22px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.nav-item .nav-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: opacity 0.15s;
+}
+.app-shell.collapsed .nav-item {
+  padding: 8px;
+  justify-content: center;
+}
+.app-shell.collapsed .nav-item .nav-label {
+  opacity: 0;
+  width: 0;
+  flex: 0;
+  display: none;
+}
+.nav-item .nav-badge {
+  background: #dc2626;
+  color: white;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-weight: 700;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+.app-shell.collapsed .nav-item .nav-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 0 4px;
+  font-size: 9px;
+  min-width: 14px;
+  height: 14px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* Tooltip untuk collapsed mode */
+.nav-item[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: calc(100% + 14px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: #1c1917;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+  z-index: 100;
+  font-weight: 500;
+}
+.app-shell.collapsed .nav-item[data-tooltip]:hover::after {
+  opacity: 1;
+}
+
+.sidebar-footer {
+  padding: 8px 12px;
+  border-top: 1px solid #e7e5e4;
+  font-size: 11px;
+  color: #78716c;
+}
+
+/* ============ FLOATING TOGGLE BUTTON (Opsi 4) ============ */
+.sidebar-toggle-floating {
+  position: fixed;
+  top: 24px;
+  left: calc(240px - 14px);
+  z-index: 100;
+  background: white;
+  border: 1px solid #e7e5e4;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  color: #57534e;
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  transition: left 0.25s ease, all 0.15s;
+}
+.sidebar-toggle-floating:hover {
+  background: #1e40af;
+  color: white;
+  border-color: #1e40af;
+  transform: scale(1.1);
+}
+.app-shell.collapsed ~ .sidebar-toggle-floating,
+.app-shell.collapsed .sidebar-toggle-floating {
+  left: calc(64px - 14px);
+}
+
+/* ============ MAIN AREA ============ */
+.main-area {
+  overflow-x: hidden;
+  min-width: 0;
+}
+
+/* ============ MOBILE SIDEBAR (Drawer) ============ */
+@media (max-width: 900px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+  .app-shell.collapsed { grid-template-columns: 1fr; }
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 260px;
+    z-index: 200;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.1);
+  }
+  .app-shell.mobile-open .sidebar {
+    transform: translateX(0);
+  }
+  .app-shell.mobile-open::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 199;
+  }
+  /* Mobile: always expanded state inside drawer */
+  .app-shell.collapsed .sidebar-brand-text,
+  .app-shell.collapsed .nav-section-label,
+  .app-shell.collapsed .nav-item .nav-label {
+    opacity: 1;
+    width: auto;
+    display: revert;
+  }
+  .app-shell.collapsed .sidebar-brand { padding: 14px 16px; justify-content: flex-start; }
+  .app-shell.collapsed .nav-item { padding: 8px 12px; justify-content: flex-start; }
+  /* Floating toggle jadi hamburger di HP - taruh di header nanti */
+  .sidebar-toggle-floating { display: none; }
+}
+
+/* Hide legacy tabs (keep CSS for backward compat but hide) */
+.tabs { display: none !important; }
+
+/* ============ LEGACY TABS (kept for backward compat, hidden) ============ */
 .tabs {
   display: flex;
   gap: 4px;
@@ -1418,44 +2056,123 @@ tbody tr:last-child td { border-bottom: none; }
     })();
   </script>
 
-<div class="container">
-  <header>
-    <div class="header-brand">
-      <div class="header-logo">
-        <img id="header-logo-img" alt="Samurai.NET">
-      </div>
-      <div class="header-text">
-        <h1>Tagihan WiFi RT/RW</h1>
-        <p id="header-info">Samurai.NET</p>
-      </div>
-    </div>
-    <div class="header-actions">
-      <div id="sync-status" role="status" aria-live="polite" style="font-size:12px;padding:5px 10px;border-radius:6px;background:rgba(255,255,255,0.08);color:white;display:none;border:1px solid rgba(255,255,255,0.15);"></div>
-      <button id="btn-gdrive" class="btn btn-sm" onclick="handleGDriveClick()" aria-label="Connect to Google Drive">☁️ Connect Drive</button>
-      <button class="btn btn-sm" onclick="exportData()" aria-label="Backup data ke file JSON">⬇ Backup</button>
-      <button class="btn btn-sm" onclick="document.getElementById('import-file').click()" style="background:rgba(217,119,6,0.2)!important;border-color:rgba(252,211,77,0.4)!important;" title="Restore akan MENGGANTIKAN data saat ini" aria-label="Restore data dari backup file">⬆ Restore</button>
-      <a href="ftth/" target="_blank" rel="noopener" class="btn btn-sm btn-ftth-nav" style="text-decoration:none;background:linear-gradient(135deg,rgba(59,130,246,0.35),rgba(139,92,246,0.35))!important;border-color:rgba(147,197,253,0.5)!important;" aria-label="Buka FTTH Designer">📡 <span class="ftth-label">FTTH Designer</span></a>
-      <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)" aria-label="Import file backup">
-    </div>
-  </header>
+<div class="app-shell" id="app-shell">
 
-  <div class="tabs">
-    <button class="tab active" onclick="showTab('dashboard', this)" aria-label="Dashboard"><span class="tab-icon">📊</span><span class="tab-label">Dashboard</span></button>
-    <span class="tab-divider" aria-hidden="true"></span>
-    <button class="tab" onclick="showTab('input-cepat', this)" aria-label="Input Cepat"><span class="tab-icon">⚡</span><span class="tab-label">Input Cepat</span></button>
-    <button class="tab" onclick="showTab('setoran', this)" aria-label="Setoran"><span class="tab-icon">💼</span><span class="tab-label">Setoran</span></button>
-    <button class="tab" onclick="showTab('pembayaran', this)" aria-label="Pembayaran"><span class="tab-icon">💰</span><span class="tab-label">Pembayaran</span></button>
-    <button class="tab" onclick="showTab('tunggakan', this)" aria-label="Tunggakan"><span class="tab-icon">⚠️</span><span class="tab-label">Tunggakan</span></button>
-    <span class="tab-divider" aria-hidden="true"></span>
-    <button class="tab" onclick="showTab('pelanggan', this)" aria-label="Pelanggan"><span class="tab-icon">👥</span><span class="tab-label">Pelanggan</span></button>
-    <button class="tab" onclick="showTab('tukang', this)" aria-label="Tukang"><span class="tab-icon">👷</span><span class="tab-label">Tukang</span></button>
-    <button class="tab" onclick="showTab('gratis', this)" aria-label="Pelanggan Gratis"><span class="tab-icon">🎁</span><span class="tab-label">Gratis</span></button>
-    <button class="tab" onclick="showTab('lokasi', this)" aria-label="Lokasi"><span class="tab-icon">📍</span><span class="tab-label">Lokasi</span></button>
-    <button class="tab" onclick="showTab('paket', this)" aria-label="Paket"><span class="tab-icon">📦</span><span class="tab-label">Paket</span></button>
-    <span class="tab-divider" aria-hidden="true"></span>
-    <button class="tab" onclick="showTab('catatan', this)" aria-label="Catatan"><span class="tab-icon">📝</span><span class="tab-label">Catatan</span></button>
-    <button class="tab" onclick="showTab('pengaturan', this)" aria-label="Pengaturan"><span class="tab-icon">⚙️</span><span class="tab-label">Pengaturan</span></button>
-  </div>
+  <!-- ================== SIDEBAR ================== -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-logo">
+        <img id="sidebar-logo-img" alt="Samurai.NET" style="width:28px;height:28px;border-radius:6px;">
+      </div>
+      <div class="sidebar-brand-text">
+        <div class="sidebar-brand-name">Samurai.NET</div>
+        <div class="sidebar-brand-sub">Tagihan WiFi RT/RW</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section">
+        <div class="nav-section-label">Overview</div>
+        <button class="nav-item active" onclick="showTab('dashboard', this)" data-tab="dashboard" data-tooltip="Dashboard" aria-label="Dashboard">
+          <span class="nav-icon">📊</span>
+          <span class="nav-label">Dashboard</span>
+        </button>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-label">Transaksi Harian</div>
+        <button class="nav-item" onclick="showTab('input-cepat', this)" data-tab="input-cepat" data-tooltip="Input Cepat" aria-label="Input Cepat">
+          <span class="nav-icon">⚡</span>
+          <span class="nav-label">Input Cepat</span>
+        </button>
+        <button class="nav-item" onclick="showTab('setoran', this)" data-tab="setoran" data-tooltip="Setoran" aria-label="Setoran">
+          <span class="nav-icon">💼</span>
+          <span class="nav-label">Setoran</span>
+        </button>
+        <button class="nav-item" onclick="showTab('pembayaran', this)" data-tab="pembayaran" data-tooltip="Pembayaran" aria-label="Pembayaran">
+          <span class="nav-icon">💰</span>
+          <span class="nav-label">Pembayaran</span>
+        </button>
+        <button class="nav-item" onclick="showTab('tunggakan', this)" data-tab="tunggakan" data-tooltip="Tunggakan" aria-label="Tunggakan">
+          <span class="nav-icon">⚠️</span>
+          <span class="nav-label">Tunggakan</span>
+          <span id="badge-tunggakan"></span>
+        </button>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-label">Master Data</div>
+        <button class="nav-item" onclick="showTab('pelanggan', this)" data-tab="pelanggan" data-tooltip="Pelanggan" aria-label="Pelanggan">
+          <span class="nav-icon">👥</span>
+          <span class="nav-label">Pelanggan</span>
+        </button>
+        <button class="nav-item" onclick="showTab('tukang', this)" data-tab="tukang" data-tooltip="Tukang" aria-label="Tukang">
+          <span class="nav-icon">👷</span>
+          <span class="nav-label">Tukang</span>
+        </button>
+        <button class="nav-item" onclick="showTab('gratis', this)" data-tab="gratis" data-tooltip="Pelanggan Gratis" aria-label="Pelanggan Gratis">
+          <span class="nav-icon">🎁</span>
+          <span class="nav-label">Gratis</span>
+        </button>
+        <button class="nav-item" onclick="showTab('lokasi', this)" data-tab="lokasi" data-tooltip="Lokasi" aria-label="Lokasi">
+          <span class="nav-icon">📍</span>
+          <span class="nav-label">Lokasi</span>
+        </button>
+        <button class="nav-item" onclick="showTab('paket', this)" data-tab="paket" data-tooltip="Paket" aria-label="Paket">
+          <span class="nav-icon">📦</span>
+          <span class="nav-label">Paket</span>
+        </button>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-label">Lainnya</div>
+        <button class="nav-item" onclick="showTab('catatan', this)" data-tab="catatan" data-tooltip="Catatan" aria-label="Catatan">
+          <span class="nav-icon">📝</span>
+          <span class="nav-label">Catatan</span>
+        </button>
+        <button class="nav-item" onclick="showTab('pengaturan', this)" data-tab="pengaturan" data-tooltip="Pengaturan" aria-label="Pengaturan">
+          <span class="nav-icon">⚙️</span>
+          <span class="nav-label">Pengaturan</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- Floating Toggle Button (Opsi 4) -->
+    <button class="sidebar-floating-toggle" onclick="toggleSidebar()" id="sidebar-toggle" title="Toggle sidebar" aria-label="Toggle sidebar">
+      <span id="sidebar-toggle-icon">‹</span>
+    </button>
+  </aside>
+
+  <!-- Mobile menu overlay -->
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeMobileSidebar()"></div>
+
+  <!-- ================== MAIN CONTENT ================== -->
+  <div class="main-wrapper">
+
+    <header>
+      <div class="header-brand">
+        <button class="mobile-menu-btn" onclick="openMobileSidebar()" aria-label="Buka menu">
+          <span>☰</span>
+        </button>
+        <div class="header-logo">
+          <img id="header-logo-img" alt="Samurai.NET">
+        </div>
+        <div class="header-text">
+          <h1>Tagihan WiFi RT/RW</h1>
+          <p id="header-info">Samurai.NET</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div id="sync-status" role="status" aria-live="polite" style="font-size:12px;padding:5px 10px;border-radius:6px;background:rgba(255,255,255,0.08);color:white;display:none;border:1px solid rgba(255,255,255,0.15);"></div>
+        <button id="btn-gdrive" class="btn btn-sm" onclick="handleGDriveClick()" aria-label="Connect to Google Drive">☁️ Connect Drive</button>
+        <button class="btn btn-sm" onclick="exportData()" aria-label="Backup data ke file JSON">⬇ Backup</button>
+        <button class="btn btn-sm" onclick="document.getElementById('import-file').click()" style="background:rgba(217,119,6,0.2)!important;border-color:rgba(252,211,77,0.4)!important;" title="Restore akan MENGGANTIKAN data saat ini" aria-label="Restore data dari backup file">⬆ Restore</button>
+        <a href="ftth/" target="_blank" rel="noopener" class="btn btn-sm btn-ftth-nav" style="text-decoration:none;background:linear-gradient(135deg,rgba(59,130,246,0.35),rgba(139,92,246,0.35))!important;border-color:rgba(147,197,253,0.5)!important;" aria-label="Buka FTTH Designer">📡 <span class="ftth-label">FTTH Designer</span></a>
+        <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)" aria-label="Import file backup">
+      </div>
+    </header>
+
+    <div class="content-container">
 
   <!-- INPUT CEPAT -->
   <div id="tab-input-cepat" class="tab-content" style="display:none;">
@@ -2307,7 +3024,9 @@ tbody tr:last-child td { border-bottom: none; }
       </div>
     </div>
   </div>
-</div>
+    </div><!-- /content-container -->
+  </div><!-- /main-wrapper -->
+</div><!-- /app-shell -->
 
 <!-- Modal Pelanggan -->
 <!-- Modal Isolation Manager -->
@@ -3659,8 +4378,20 @@ function curMonth() {
 function showTab(name, btn) {
   document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
   document.getElementById('tab-' + name).style.display = 'block';
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  btn.classList.add('active');
+  // Support both old .tab and new .nav-item
+  document.querySelectorAll('.tab, .nav-item').forEach(t => t.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  else {
+    // If called without button, find matching nav-item by data-tab
+    const matching = document.querySelector(`.nav-item[data-tab="${name}"]`);
+    if (matching) matching.classList.add('active');
+  }
+  // Auto-close mobile sidebar setelah pindah tab
+  closeMobileSidebar();
+  // Scroll ke atas main content
+  const wrapper = document.querySelector('.main-wrapper');
+  if (wrapper) wrapper.scrollTop = 0;
+
   if (name === 'dashboard') renderDashboard();
   if (name === 'input-cepat') initFastInput();
   if (name === 'setoran') renderDeposits();
@@ -3674,6 +4405,41 @@ function showTab(name, btn) {
   if (name === 'catatan') renderNotes();
   if (name === 'pengaturan') { loadSettings(); renderLocationsList(); }
 }
+
+// ===================== SIDEBAR TOGGLE =====================
+function toggleSidebar() {
+  const shell = document.getElementById('app-shell');
+  const icon = document.getElementById('sidebar-toggle-icon');
+  const collapsed = shell.classList.toggle('collapsed');
+  if (icon) icon.textContent = collapsed ? '›' : '‹';
+  try { localStorage.setItem('sidebar-collapsed', collapsed ? '1' : '0'); } catch(e) {}
+}
+
+function openMobileSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  if (sidebar) sidebar.classList.add('mobile-open');
+  if (overlay) overlay.classList.add('show');
+}
+
+function closeMobileSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  if (sidebar) sidebar.classList.remove('mobile-open');
+  if (overlay) overlay.classList.remove('show');
+}
+
+// Restore sidebar state on load
+(function restoreSidebarState() {
+  try {
+    if (localStorage.getItem('sidebar-collapsed') === '1') {
+      const shell = document.getElementById('app-shell');
+      const icon = document.getElementById('sidebar-toggle-icon');
+      if (shell) shell.classList.add('collapsed');
+      if (icon) icon.textContent = '›';
+    }
+  } catch(e) {}
+})();
 
 // ===================== DASHBOARD =====================
 function renderDashboard() {
@@ -3813,11 +4579,16 @@ function renderDashboard() {
 
 // Helper: switch tab by tab name (used by clickable stat cards)
 function showTabByName(name) {
+  // Look for nav-item first (new sidebar), fallback to .tab
+  const navItem = document.querySelector(`.nav-item[data-tab="${name}"]`);
+  if (navItem) {
+    showTab(name, navItem);
+    return;
+  }
   const tabs = document.querySelectorAll('.tab');
   for (const t of tabs) {
     if (t.getAttribute('onclick') && t.getAttribute('onclick').includes(`'${name}'`)) {
       showTab(name, t);
-      window.scrollTo({top: 0, behavior: 'smooth'});
       return;
     }
   }
@@ -10273,8 +11044,12 @@ function formatDate(d) {
 (function() {
   const splashLogo = document.getElementById('splash-logo');
   const headerLogo = document.getElementById('header-logo-img');
+  const sidebarLogo = document.getElementById('sidebar-logo-img');
   if (splashLogo && headerLogo) {
     headerLogo.src = splashLogo.src;
+  }
+  if (splashLogo && sidebarLogo) {
+    sidebarLogo.src = splashLogo.src;
   }
 })();
 // Update header title with company name if set
