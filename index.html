@@ -7,6 +7,98 @@
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://apis.google.com/js/api.js" async defer></script>
 <style>
+/* ============ DESIGN TOKENS (CSS Variables) ============ */
+:root {
+  /* Colors — Primary */
+  --color-primary: #1e40af;
+  --color-primary-hover: #1e3a8a;
+  --color-primary-light: #dbeafe;
+  --color-primary-lighter: #eff6ff;
+
+  /* Colors — Semantic */
+  --color-success: #16a34a;
+  --color-success-hover: #15803d;
+  --color-success-light: #dcfce7;
+  --color-warning: #d97706;
+  --color-warning-hover: #b45309;
+  --color-warning-light: #fef3c7;
+  --color-danger: #dc2626;
+  --color-danger-hover: #b91c1c;
+  --color-danger-light: #fee2e2;
+  --color-info: #0891b2;
+  --color-info-light: #cffafe;
+  --color-purple: #7c3aed;
+  --color-purple-light: #ede9fe;
+
+  /* Colors — Neutral (stone family) */
+  --color-text: #1c1917;
+  --color-text-secondary: #44403c;
+  --color-text-muted: #57534e;
+  --color-text-subtle: #6b6560;
+  --color-bg: #f5f5f4;
+  --color-surface: #ffffff;
+  --color-surface-2: #fafaf9;
+  --color-border: #e7e5e4;
+  --color-border-strong: #d6d3d1;
+
+  /* Spacing scale (4px base) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* Border radius */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 14px;
+
+  /* Shadows */
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 8px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.08);
+  --shadow-xl: 0 12px 32px rgba(0,0,0,0.12);
+
+  /* Typography scale */
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 18px;
+  --text-2xl: 22px;
+
+  /* Transitions */
+  --transition-fast: 0.15s ease;
+  --transition-base: 0.2s ease;
+  --transition-slow: 0.3s ease;
+
+  /* Focus ring */
+  --focus-ring: 0 0 0 3px rgba(30, 64, 175, 0.2);
+  --focus-ring-danger: 0 0 0 3px rgba(220, 38, 38, 0.2);
+}
+
+/* Dark mode support (opsional, respect user preference) */
+@media (prefers-color-scheme: dark) {
+  :root.dark-mode-supported {
+    --color-text: #f5f5f4;
+    --color-text-secondary: #d6d3d1;
+    --color-text-muted: #a8a29e;
+    --color-text-subtle: #78716c;
+    --color-bg: #1c1917;
+    --color-surface: #292524;
+    --color-surface-2: #1c1917;
+    --color-border: #44403c;
+    --color-border-strong: #57534e;
+  }
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -126,7 +218,18 @@ header p { font-size: 12px; opacity: 0.85; margin-top: 2px; }
   transition: all 0.15s;
 }
 .tab:hover { background: #f5f5f4; }
-.tab.active { background: #1e40af; color: white; }
+.tab.active { 
+  background: var(--color-primary); 
+  color: white; 
+  box-shadow: var(--shadow-sm);
+}
+.tab:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-primary);
+}
+.tab.active:focus-visible {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--color-primary);
+}
 
 .panel {
   background: white;
@@ -393,7 +496,7 @@ input, select, textarea {
   font-family: inherit;
   background: white;
 }
-textarea { resize: vertical; min-height: 120px; font-family: 'Courier New', monospace; font-size: 12px; }
+textarea { resize: vertical; min-height: 120px; font-family: inherit; font-size: 14px; }
 input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: #1e40af;
@@ -425,6 +528,199 @@ input:focus, select:focus, textarea:focus {
 .btn-danger { background: #dc2626; color: white; border-color: #dc2626; }
 .btn-danger:hover { background: #b91c1c; }
 .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+/* ============ UTILITY CLASSES (Design System) ============ */
+
+/* Icon-only button — pengganti inline style tombol icon */
+.btn-icon {
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 6px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  line-height: 1;
+  transition: all var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+}
+.btn-icon:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}
+.btn-icon:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Enhanced focus states for all interactive elements */
+button:focus-visible,
+.btn:focus-visible,
+.tab:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring);
+}
+
+/* Zebra striping untuk tabel */
+tbody tr:nth-child(even) {
+  background: rgba(250, 250, 249, 0.5);
+}
+tbody tr:hover { background: #f4f4f3 !important; }
+
+/* Skeleton Loader */
+.skeleton {
+  background: linear-gradient(90deg, #f5f5f4 0%, #ecebe9 50%, #f5f5f4 100%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+  color: transparent !important;
+  user-select: none;
+  pointer-events: none;
+}
+@keyframes skeleton-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton-line {
+  display: block;
+  height: 14px;
+  margin: 6px 0;
+}
+.skeleton-line.w-25 { width: 25%; }
+.skeleton-line.w-50 { width: 50%; }
+.skeleton-line.w-75 { width: 75%; }
+.skeleton-line.w-100 { width: 100%; }
+.skeleton-title {
+  display: block;
+  height: 18px;
+  width: 40%;
+  margin: 8px 0 12px;
+}
+
+/* Panel elevation variants */
+.panel {
+  box-shadow: var(--shadow-xs);
+}
+.panel.elevated {
+  box-shadow: var(--shadow-md);
+}
+.panel.flat {
+  box-shadow: none;
+}
+
+/* Empty state — actionable */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--color-text-subtle);
+}
+.empty-state h3 {
+  color: var(--color-text-secondary);
+  margin-bottom: 6px;
+  font-size: 15px;
+}
+.empty-state p {
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+.empty-state .btn {
+  margin-top: 8px;
+}
+.empty-state-icon {
+  font-size: 42px;
+  opacity: 0.4;
+  display: block;
+  margin-bottom: 10px;
+}
+
+/* Modal close button (X) */
+.modal-close-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: var(--color-text-muted);
+  transition: all var(--transition-fast);
+  z-index: 2;
+}
+.modal-close-btn:hover {
+  background: var(--color-surface-2);
+  color: var(--color-danger);
+}
+.modal-close-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Loading spinner (inline) */
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spinner-rotate 0.7s linear infinite;
+  vertical-align: middle;
+}
+@keyframes spinner-rotate {
+  to { transform: rotate(360deg); }
+}
+.btn.loading {
+  pointer-events: none;
+  opacity: 0.75;
+}
+.btn.loading .spinner {
+  margin-right: 6px;
+}
+
+/* Divider antar tabs (grouping visual) */
+.tab-divider {
+  width: 1px;
+  background: var(--color-border);
+  align-self: stretch;
+  margin: 4px 4px;
+  flex-shrink: 0;
+}
+
+/* Better modal backdrop with blur */
+.modal-bg {
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  background: rgba(15, 23, 42, 0.55);
+}
+
+/* Textarea family fix - use readable font */
+textarea {
+  font-family: inherit;
+}
+/* But keep code textarea monospace with class */
+textarea.code, textarea.mono {
+  font-family: 'Courier New', 'Consolas', monospace;
+  font-size: 12px;
+}
+
+/* ============ END UTILITY CLASSES ============ */
 
 .table-wrap { overflow-x: auto; border: 1px solid #e7e5e4; border-radius: 10px; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -489,7 +785,7 @@ tbody tr:last-child td { border-bottom: none; }
   overflow-y: auto;
 }
 .modal.large { max-width: 800px; }
-.modal h3 { font-size: 17px; margin-bottom: 14px; }
+.modal h3 { font-size: 17px; margin-bottom: 14px; padding-right: 32px; }
 .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; flex-wrap: wrap; }
 
 /* Mobile modal - full width, minimum padding */
@@ -896,6 +1192,68 @@ tbody tr:last-child td { border-bottom: none; }
   /* Tab active: icon + label lengkap */
   .tab.active .tab-label { display: inline; margin-left: 4px; }
   .tab-icon { font-size: 15px; }
+  /* Sembunyikan divider di HP untuk hemat space */
+  .tab-divider { display: none; }
+}
+
+/* Mobile: table-cards-mobile transforms table rows into cards for narrow screens
+ * Aktifkan dengan class="table-cards-mobile" pada <table>
+ * dan data-label="Label Kolom" pada setiap <td>
+ */
+@media (max-width: 640px) {
+  .table-cards-mobile {
+    border: none;
+  }
+  .table-cards-mobile thead {
+    display: none;
+  }
+  .table-cards-mobile tbody, .table-cards-mobile tr {
+    display: block;
+    width: 100%;
+  }
+  .table-cards-mobile tr {
+    margin-bottom: 10px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 10px 12px;
+    background: var(--color-surface);
+  }
+  .table-cards-mobile td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid #f5f5f4;
+    text-align: right;
+    font-size: 13px;
+  }
+  .table-cards-mobile td:last-child {
+    border-bottom: none;
+    padding-top: 8px;
+  }
+  .table-cards-mobile td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--color-text-subtle);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-right: 12px;
+    text-align: left;
+    flex-shrink: 0;
+  }
+  .table-cards-mobile td[data-label=""]::before,
+  .table-cards-mobile td:not([data-label])::before {
+    display: none;
+  }
+  /* Zebra tidak dipakai di card mode */
+  .table-cards-mobile tbody tr:nth-child(even) {
+    background: var(--color-surface);
+  }
+  /* Row hover polos */
+  .table-cards-mobile tbody tr:hover {
+    background: var(--color-surface) !important;
+  }
 }
 </style>
 </head>
@@ -945,28 +1303,31 @@ tbody tr:last-child td { border-bottom: none; }
       </div>
     </div>
     <div class="header-actions">
-      <div id="sync-status" style="font-size:12px;padding:5px 10px;border-radius:6px;background:rgba(255,255,255,0.08);color:white;display:none;border:1px solid rgba(255,255,255,0.15);"></div>
-      <button id="btn-gdrive" class="btn btn-sm" onclick="handleGDriveClick()">☁️ Connect Drive</button>
-      <button class="btn btn-sm" onclick="exportData()">⬇ Backup</button>
-      <button class="btn btn-sm" onclick="document.getElementById('import-file').click()" style="background:rgba(217,119,6,0.2)!important;border-color:rgba(252,211,77,0.4)!important;" title="Restore akan MENGGANTIKAN data saat ini">⬆ Restore</button>
-      <a href="ftth/" target="_blank" rel="noopener" class="btn btn-sm btn-ftth-nav" style="text-decoration:none;background:linear-gradient(135deg,rgba(59,130,246,0.35),rgba(139,92,246,0.35))!important;border-color:rgba(147,197,253,0.5)!important;">📡 <span class="ftth-label">FTTH Designer</span></a>
-      <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
+      <div id="sync-status" role="status" aria-live="polite" style="font-size:12px;padding:5px 10px;border-radius:6px;background:rgba(255,255,255,0.08);color:white;display:none;border:1px solid rgba(255,255,255,0.15);"></div>
+      <button id="btn-gdrive" class="btn btn-sm" onclick="handleGDriveClick()" aria-label="Connect to Google Drive">☁️ Connect Drive</button>
+      <button class="btn btn-sm" onclick="exportData()" aria-label="Backup data ke file JSON">⬇ Backup</button>
+      <button class="btn btn-sm" onclick="document.getElementById('import-file').click()" style="background:rgba(217,119,6,0.2)!important;border-color:rgba(252,211,77,0.4)!important;" title="Restore akan MENGGANTIKAN data saat ini" aria-label="Restore data dari backup file">⬆ Restore</button>
+      <a href="ftth/" target="_blank" rel="noopener" class="btn btn-sm btn-ftth-nav" style="text-decoration:none;background:linear-gradient(135deg,rgba(59,130,246,0.35),rgba(139,92,246,0.35))!important;border-color:rgba(147,197,253,0.5)!important;" aria-label="Buka FTTH Designer">📡 <span class="ftth-label">FTTH Designer</span></a>
+      <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)" aria-label="Import file backup">
     </div>
   </header>
 
   <div class="tabs">
-    <button class="tab active" onclick="showTab('dashboard', this)"><span class="tab-icon">📊</span><span class="tab-label">Dashboard</span></button>
-    <button class="tab" onclick="showTab('input-cepat', this)"><span class="tab-icon">⚡</span><span class="tab-label">Input Cepat</span></button>
-    <button class="tab" onclick="showTab('setoran', this)"><span class="tab-icon">💼</span><span class="tab-label">Setoran</span></button>
-    <button class="tab" onclick="showTab('pembayaran', this)"><span class="tab-icon">💰</span><span class="tab-label">Pembayaran</span></button>
-    <button class="tab" onclick="showTab('tunggakan', this)"><span class="tab-icon">⚠️</span><span class="tab-label">Tunggakan</span></button>
-    <button class="tab" onclick="showTab('pelanggan', this)"><span class="tab-icon">👥</span><span class="tab-label">Pelanggan</span></button>
-    <button class="tab" onclick="showTab('tukang', this)"><span class="tab-icon">👷</span><span class="tab-label">Tukang</span></button>
-    <button class="tab" onclick="showTab('gratis', this)"><span class="tab-icon">🎁</span><span class="tab-label">Gratis</span></button>
-    <button class="tab" onclick="showTab('lokasi', this)"><span class="tab-icon">📍</span><span class="tab-label">Lokasi</span></button>
-    <button class="tab" onclick="showTab('paket', this)"><span class="tab-icon">📦</span><span class="tab-label">Paket</span></button>
-    <button class="tab" onclick="showTab('catatan', this)"><span class="tab-icon">📝</span><span class="tab-label">Catatan</span></button>
-    <button class="tab" onclick="showTab('pengaturan', this)"><span class="tab-icon">⚙️</span><span class="tab-label">Pengaturan</span></button>
+    <button class="tab active" onclick="showTab('dashboard', this)" aria-label="Dashboard"><span class="tab-icon">📊</span><span class="tab-label">Dashboard</span></button>
+    <span class="tab-divider" aria-hidden="true"></span>
+    <button class="tab" onclick="showTab('input-cepat', this)" aria-label="Input Cepat"><span class="tab-icon">⚡</span><span class="tab-label">Input Cepat</span></button>
+    <button class="tab" onclick="showTab('setoran', this)" aria-label="Setoran"><span class="tab-icon">💼</span><span class="tab-label">Setoran</span></button>
+    <button class="tab" onclick="showTab('pembayaran', this)" aria-label="Pembayaran"><span class="tab-icon">💰</span><span class="tab-label">Pembayaran</span></button>
+    <button class="tab" onclick="showTab('tunggakan', this)" aria-label="Tunggakan"><span class="tab-icon">⚠️</span><span class="tab-label">Tunggakan</span></button>
+    <span class="tab-divider" aria-hidden="true"></span>
+    <button class="tab" onclick="showTab('pelanggan', this)" aria-label="Pelanggan"><span class="tab-icon">👥</span><span class="tab-label">Pelanggan</span></button>
+    <button class="tab" onclick="showTab('tukang', this)" aria-label="Tukang"><span class="tab-icon">👷</span><span class="tab-label">Tukang</span></button>
+    <button class="tab" onclick="showTab('gratis', this)" aria-label="Pelanggan Gratis"><span class="tab-icon">🎁</span><span class="tab-label">Gratis</span></button>
+    <button class="tab" onclick="showTab('lokasi', this)" aria-label="Lokasi"><span class="tab-icon">📍</span><span class="tab-label">Lokasi</span></button>
+    <button class="tab" onclick="showTab('paket', this)" aria-label="Paket"><span class="tab-icon">📦</span><span class="tab-label">Paket</span></button>
+    <span class="tab-divider" aria-hidden="true"></span>
+    <button class="tab" onclick="showTab('catatan', this)" aria-label="Catatan"><span class="tab-icon">📝</span><span class="tab-label">Catatan</span></button>
+    <button class="tab" onclick="showTab('pengaturan', this)" aria-label="Pengaturan"><span class="tab-icon">⚙️</span><span class="tab-label">Pengaturan</span></button>
   </div>
 
   <!-- INPUT CEPAT -->
@@ -9658,6 +10019,56 @@ function setupCustomerSearch(searchInputId, hiddenInputId, suggestionsId, infoId
   });
 }
 function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+// Auto-inject close button (X) into all modals + click outside to close + ESC key
+(function() {
+  function initModalEnhancements() {
+    // Inject close button (X) into each modal if not present
+    document.querySelectorAll('.modal-bg').forEach(bg => {
+      const modal = bg.querySelector('.modal');
+      if (!modal) return;
+      if (modal.querySelector('.modal-close-btn')) return; // already added
+      // Make modal position relative for absolute X positioning
+      if (getComputedStyle(modal).position === 'static') {
+        modal.style.position = 'relative';
+      }
+      const btn = document.createElement('button');
+      btn.className = 'modal-close-btn';
+      btn.setAttribute('aria-label', 'Tutup');
+      btn.title = 'Tutup (Esc)';
+      btn.innerHTML = '&times;';
+      btn.onclick = (e) => { e.stopPropagation(); closeModal(bg.id); };
+      modal.insertBefore(btn, modal.firstChild);
+    });
+
+    // Click outside to close (only on backdrop, not modal content)
+    document.querySelectorAll('.modal-bg').forEach(bg => {
+      if (bg.dataset.clickHandlerAttached) return;
+      bg.dataset.clickHandlerAttached = '1';
+      bg.addEventListener('click', (e) => {
+        if (e.target === bg) closeModal(bg.id);
+      });
+    });
+  }
+
+  // ESC key closes any open modal
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const openModal = document.querySelector('.modal-bg.show');
+      if (openModal) closeModal(openModal.id);
+    }
+  });
+
+  // Run once on DOMContentLoaded and again after any DOM addition (for dynamically added modals)
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initModalEnhancements);
+  } else {
+    initModalEnhancements();
+  }
+  // Also observe for dynamically added modals
+  const observer = new MutationObserver(() => initModalEnhancements());
+  observer.observe(document.body, { childList: true, subtree: true });
+})();
 function escapeHtml(str) {
   return String(str ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
