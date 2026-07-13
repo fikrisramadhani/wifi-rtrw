@@ -282,15 +282,15 @@ body {
 
 .nav-icon {
   font-size: 17px;
-  line-height: 1;
+  line-height: 24px;
   width: 24px;
   height: 24px;
+  min-width: 24px;
   text-align: center;
   flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: inline-block;
   font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+  vertical-align: middle;
 }
 .nav-label {
   flex: 1;
@@ -301,6 +301,15 @@ body {
 .app-shell.collapsed .nav-label { opacity: 0; width: 0; flex: 0; }
 
 /* Tooltip untuk collapsed mode */
+.app-shell.collapsed .nav-item {
+  justify-content: center;
+  padding: 10px 0;
+  gap: 0;
+}
+.app-shell.collapsed .nav-item .nav-icon {
+  margin: 0;
+}
+
 .app-shell.collapsed .nav-item[data-tooltip]:hover::after {
   content: attr(data-tooltip);
   position: absolute;
@@ -331,6 +340,9 @@ body {
 }
 
 /* Nav badge (misal tunggakan count) - dipindah dari .tabs .tab-badge */
+.nav-item #badge-tunggakan:empty {
+  display: none;
+}
 .nav-item #badge-tunggakan:not(:empty),
 .nav-item .tab-badge {
   background: var(--color-danger);
@@ -2093,7 +2105,7 @@ tbody tr:last-child td { border-bottom: none; }
           <span class="nav-label">Pembayaran</span>
         </button>
         <button class="nav-item" onclick="showTab('tunggakan', this)" data-tab="tunggakan" data-tooltip="Tunggakan" aria-label="Tunggakan">
-          <span class="nav-icon">⚠️</span>
+          <span class="nav-icon">🚨</span>
           <span class="nav-label">Tunggakan</span>
           <span id="badge-tunggakan"></span>
         </button>
