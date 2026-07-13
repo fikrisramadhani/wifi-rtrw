@@ -7423,6 +7423,82 @@ function quickPayArrears(customerId) {
   }
 }
 
+// Hapus 1 entry riwayat isolasi (untuk koreksi salah input)
+function deleteIsolationHistory(customerId, entryKey) {
+  const c = state.customers.find(x => x.id === customerId);
+  if (!c || !c.isolationHistory) return;
+
+  // Find entry by composite key: from|until|addedAt
+  const entry = c.isolationHistory.find(h => {
+    const key = (h.from || '') + '|' + (h.until || '') + '|' + (h.addedAt || '');
+    return key === entryKey;
+  });
+  if (!entry) { alert('Riwayat tidak ditemukan'); return; }
+
+  const isActive = !entry.until;
+  const durationText = entry.from && entry.until
+    ? Math.floor((new Date(entry.until) - new Date(entry.from)) / (1000*60*60*24)) + ' hari'
+    : (isActive ? 'masih berlangsung' : '?');
+
+  const confirmMsg =
+    `🗑️ HAPUS RIWAYAT ISOLIR?\n\n` +
+    `Pelanggan: ${c.name}\n` +
+    `Diisolir: ${formatDate(entry.from)}\n` +
+    `${entry.until ? 'Aktif kembali: ' + formatDate(entry.until) + '\n' : ''}` +
+    `Durasi: ${durationText}\n` +
+    `${entry.reason ? 'Alasan: ' + entry.reason + '\n' : ''}` +
+    `\n⚠️ PENTING:\n` +
+    `• Riwayat ini akan dihapus permanen\n` +
+    `• Tagihan periode terkait akan dihitung ulang tanpa isolir\n` +
+    `${isActive ? '• Status pelanggan akan kembali AKTIF\n' : ''}` +
+    `\nLanjutkan?`;
+
+  if (!confirm(confirmMsg)) return;
+
+  // Hapus entry dari history
+  c.isolationHistory = c.isolationHistory.filter(h => {
+    const key = (h.from || '') + '|' + (h.until || '') + '|' + (h.addedAt || '');
+    return key !== entryKey;
+  });
+
+  // Kalau ini isolir yang sedang aktif (belum ada until), reset status pelanggan
+  if (isActive) {
+    c.status = 'aktif';
+    c.isolatedFrom = '';
+    c.isolatedUntil = '';
+    c.isolationReason = '';
+  } else {
+    // Kalau hapus entry lama, cek apakah masih ada isolir aktif lain
+    // Ambil isolir yang paling baru (yang masih aktif = tanpa until)
+    const stillActiveIsolation = c.isolationHistory.find(h => !h.until);
+    if (stillActiveIsolation) {
+      // Masih ada isolir aktif → sync isolatedFrom/isolatedUntil ke entry itu
+      c.isolatedFrom = stillActiveIsolation.from;
+      c.isolatedUntil = stillActiveIsolation.until || '';
+      c.isolationReason = stillActiveIsolation.reason || '';
+      c.status = 'diisolir';
+    } else {
+      // Sync isolatedFrom/isolatedUntil ke entry terakhir (terbaru), atau clear kalau history kosong
+      if (c.isolationHistory.length > 0) {
+        const latest = [...c.isolationHistory].sort((a,b) => (b.from||'').localeCompare(a.from||''))[0];
+        c.isolatedFrom = latest.from;
+        c.isolatedUntil = latest.until || '';
+        c.isolationReason = latest.reason || '';
+      }
+      // Kalau status masih diisolir tapi tidak ada isolir aktif, reset ke aktif
+      if (c.status === 'diisolir') {
+        c.status = 'aktif';
+      }
+    }
+  }
+
+  saveState();
+  showToast(`🗑️ Riwayat isolir dihapus. Tagihan akan dihitung ulang.`, 'success');
+
+  // Re-open detail modal to refresh view
+  setTimeout(() => showCustomerDetail(customerId), 300);
+}
+
 function showCustomerDetail(customerId) {
   const c = state.customers.find(x => x.id === customerId);
   if (!c) return;
@@ -7488,8 +7564,10 @@ function showCustomerDetail(customerId) {
         const days = Math.floor((toDate - fromDate) / (1000 * 60 * 60 * 24));
         durationText = days > 0 ? `${days} hari` : 'hari ini';
       }
-      html += `<div style="padding:8px 0;${idx > 0 ? 'border-top:1px dashed #fecaca;' : ''}">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+      // ID unik untuk identifikasi entry ini
+      const entryKey = (h.from || '') + '|' + (h.until || '') + '|' + (h.addedAt || '');
+      html += `<div style="padding:8px 0;position:relative;${idx > 0 ? 'border-top:1px dashed #fecaca;' : ''}">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;padding-right:36px;">
           <strong style="color:#991b1b;">🔒 Diisolir ${formatDate(h.from)}</strong>
           ${isActive
             ? `<span style="background:#dc2626;color:white;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">MASIH ISOLIR</span>`
@@ -7500,9 +7578,17 @@ function showCustomerDetail(customerId) {
           Durasi: <strong>${durationText}</strong>
           ${h.reason ? ' · Alasan: ' + escapeHtml(h.reason) : ''}
         </div>
+        <button
+          onclick="deleteIsolationHistory('${customerId}', '${entryKey}')"
+          title="Hapus riwayat isolir ini (kalau kesalahan input)"
+          style="position:absolute;top:8px;right:0;background:transparent;border:none;color:#dc2626;cursor:pointer;padding:4px 8px;border-radius:4px;font-size:14px;opacity:0.6;transition:all 0.15s;"
+          onmouseover="this.style.opacity=1;this.style.background='rgba(220,38,38,0.1)'"
+          onmouseout="this.style.opacity=0.6;this.style.background='transparent'"
+        >🗑</button>
       </div>`;
     });
     html += `</div>`;
+    html += `<div style="font-size:11px;color:#78716c;font-style:italic;margin-top:4px;">💡 Klik 🗑 untuk hapus riwayat isolir yang salah input. Ini akan mengembalikan tagihan periode itu ke nilai normal.</div>`;
   }
 
   // Riwayat Perubahan Paket
