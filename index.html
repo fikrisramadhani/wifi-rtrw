@@ -7473,6 +7473,38 @@ function showCustomerDetail(customerId) {
     html += `</div>`;
   }
 
+  // Riwayat Isolasi
+  if (c.isolationHistory && c.isolationHistory.length > 0) {
+    html += `<h4 style="margin:16px 0 8px;">🔒 Riwayat Isolasi (${c.isolationHistory.length}):</h4>`;
+    html += `<div style="font-size:12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px;">`;
+    // Sort by date descending (terbaru dulu)
+    const sortedHistory = [...c.isolationHistory].sort((a, b) => (b.from || '').localeCompare(a.from || ''));
+    sortedHistory.forEach((h, idx) => {
+      const isActive = !h.until; // masih aktif (belum di-aktifkan kembali)
+      let durationText = '';
+      if (h.from) {
+        const fromDate = new Date(h.from);
+        const toDate = h.until ? new Date(h.until) : new Date();
+        const days = Math.floor((toDate - fromDate) / (1000 * 60 * 60 * 24));
+        durationText = days > 0 ? `${days} hari` : 'hari ini';
+      }
+      html += `<div style="padding:8px 0;${idx > 0 ? 'border-top:1px dashed #fecaca;' : ''}">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+          <strong style="color:#991b1b;">🔒 Diisolir ${formatDate(h.from)}</strong>
+          ${isActive
+            ? `<span style="background:#dc2626;color:white;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">MASIH ISOLIR</span>`
+            : `<span style="color:#166534;">🔓 Aktif kembali ${formatDate(h.until)}</span>`
+          }
+        </div>
+        <div style="color:#78716c;font-size:11px;margin-top:3px;">
+          Durasi: <strong>${durationText}</strong>
+          ${h.reason ? ' · Alasan: ' + escapeHtml(h.reason) : ''}
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
   // Riwayat Perubahan Paket
   if (c.packageHistory && c.packageHistory.length > 1) {
     html += `<h4 style="margin:16px 0 8px;">📦 Riwayat Perubahan Paket:</h4>`;
