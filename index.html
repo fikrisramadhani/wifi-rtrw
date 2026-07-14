@@ -4236,6 +4236,33 @@ function migrate(s) {
         addedAt: Date.now()
       });
     }
+    // AUTO-REPAIR: Sync history entries with current isolation state
+    if (c.isolationHistory && c.isolationHistory.length > 0 && c.isolatedFrom) {
+      // Cari entry yang match dengan current isolatedFrom
+      const matchingEntry = c.isolationHistory.find(h => h.from === c.isolatedFrom);
+      if (matchingEntry) {
+        // Kalau customer aktif (bukan diisolir), pastikan entry sudah punya until
+        if (c.status !== 'diisolir' && !matchingEntry.until && c.isolatedUntil) {
+          matchingEntry.until = c.isolatedUntil;
+        }
+      } else {
+        // Current isolatedFrom tidak ada di history — push (data inkonsisten)
+        c.isolationHistory.push({
+          from: c.isolatedFrom,
+          until: c.isolatedUntil || '',
+          reason: c.isolationReason || '',
+          addedAt: Date.now()
+        });
+      }
+    }
+    // AUTO-REPAIR: Kalau customer status aktif tapi ada entry belum ditutup, tutup
+    if (c.status === 'aktif' && c.isolationHistory && c.isolationHistory.length > 0) {
+      c.isolationHistory.forEach(h => {
+        if (!h.until && h.from === c.isolatedFrom && c.isolatedUntil) {
+          h.until = c.isolatedUntil;
+        }
+      });
+    }
     // PACKAGE HISTORY: track paket changes per bulan efektif
     // Format: [{packageId, effectiveFrom: 'YYYY-MM-DD', addedAt}]
     if (!c.packageHistory) {
@@ -4267,6 +4294,18 @@ function autoUpdateIsolationStatus() {
   state.customers.forEach(c => {
     if (c.status === 'diisolir' && c.isolatedUntil && c.isolatedUntil < today) {
       c.status = 'aktif';
+      // Sync history entry — cari entry yang masih terbuka (until = '') atau match isolatedFrom
+      if (c.isolationHistory && c.isolationHistory.length > 0) {
+        // Cari isolir aktif yang sedang berlangsung
+        const activeIso = c.isolationHistory.find(h => !h.until && h.from === c.isolatedFrom);
+        if (activeIso) {
+          activeIso.until = c.isolatedUntil;
+        } else {
+          // Fallback: cari entry yang match isolatedFrom (walau sudah closed)
+          const matching = c.isolationHistory.find(h => h.from === c.isolatedFrom);
+          if (matching) matching.until = c.isolatedUntil;
+        }
+      }
       reactivated.push(c.name);
       changed++;
     }
@@ -5622,8 +5661,16 @@ function bulkReactivate() {
     if (c && c.status === 'diisolir') {
       c.isolatedUntil = today;
       c.status = 'aktif';
+      // Sync history — cari entry yang sedang aktif (until = '' dan from = current isolatedFrom)
       if (c.isolationHistory && c.isolationHistory.length > 0) {
-        c.isolationHistory[c.isolationHistory.length - 1].until = today;
+        const activeIso = c.isolationHistory.find(h => !h.until && h.from === c.isolatedFrom);
+        if (activeIso) {
+          activeIso.until = today;
+        } else {
+          // Fallback: kalau tidak ada active, cari yang match from
+          const matching = c.isolationHistory.find(h => h.from === c.isolatedFrom);
+          if (matching && !matching.until) matching.until = today;
+        }
       }
       count++;
     }
@@ -5690,9 +5737,16 @@ function saveQuickReactivate() {
 
   c.isolatedUntil = untilDate;
   c.status = 'aktif';
-  // Update history
+  // Update history — cari entry yang sedang aktif (until = '' dan from = current isolatedFrom)
   if (c.isolationHistory && c.isolationHistory.length > 0) {
-    c.isolationHistory[c.isolationHistory.length - 1].until = c.isolatedUntil;
+    const activeIso = c.isolationHistory.find(h => !h.until && h.from === c.isolatedFrom);
+    if (activeIso) {
+      activeIso.until = untilDate;
+    } else {
+      // Fallback: cari entry yang match isolatedFrom (walau sudah closed, overwrite until)
+      const matching = c.isolationHistory.find(h => h.from === c.isolatedFrom);
+      if (matching) matching.until = untilDate;
+    }
   }
   saveState();
   closeModal('modal-quick-reactivate');
@@ -5927,22 +5981,36 @@ function saveCustomer() {
   if (status === 'diisolir' && isolatedFrom) {
     const wasNotDiisolir = !existingCustomer || existingCustomer.status !== 'diisolir';
     const datesChanged = existingCustomer && (existingCustomer.isolatedFrom !== isolatedFrom || existingCustomer.isolatedUntil !== isolatedUntil);
-    if (wasNotDiisolir || (datesChanged && isolationHistory.length === 0)) {
+
+    if (wasNotDiisolir) {
+      // Isolir baru: push entry baru
       isolationHistory = [...isolationHistory, {
         from: isolatedFrom,
         until: isolatedUntil || '',
         reason: isolationReason || '',
         addedAt: Date.now()
       }];
-    } else if (datesChanged && isolationHistory.length > 0) {
-      // Update latest entry
-      isolationHistory[isolationHistory.length - 1] = {
-        ...isolationHistory[isolationHistory.length - 1],
-        from: isolatedFrom,
-        until: isolatedUntil || '',
-        reason: isolationReason || ''
-      };
+    } else if (datesChanged) {
+      // Sudah diisolir & user edit tanggalnya
+      // Cari entry yang match dengan isolatedFrom SEBELUM edit
+      const oldFrom = existingCustomer.isolatedFrom;
+      const activeEntry = isolationHistory.find(h => !h.until && h.from === oldFrom);
+      if (activeEntry) {
+        // Update entry yang sedang aktif
+        activeEntry.from = isolatedFrom;
+        activeEntry.until = isolatedUntil || '';
+        activeEntry.reason = isolationReason || '';
+      } else {
+        // Kalau tidak ketemu entry aktif (edge case), push baru
+        isolationHistory = [...isolationHistory, {
+          from: isolatedFrom,
+          until: isolatedUntil || '',
+          reason: isolationReason || '',
+          addedAt: Date.now()
+        }];
+      }
     }
+    // else: sudah diisolir & tidak ada perubahan → biarkan
   }
 
   // ===== PACKAGE HISTORY =====
@@ -7504,34 +7572,36 @@ function deleteIsolationHistory(customerId, entryKey) {
     return key !== entryKey;
   });
 
-  // Kalau ini isolir yang sedang aktif (belum ada until), reset status pelanggan
+  // Rekonstruksi state customer berdasarkan history yang tersisa
   if (isActive) {
+    // Yang dihapus adalah isolir yang sedang aktif → status jadi aktif, clear semua
     c.status = 'aktif';
     c.isolatedFrom = '';
     c.isolatedUntil = '';
     c.isolationReason = '';
   } else {
-    // Kalau hapus entry lama, cek apakah masih ada isolir aktif lain
-    // Ambil isolir yang paling baru (yang masih aktif = tanpa until)
+    // Yang dihapus isolir lama. Cek apakah masih ada isolir aktif (open-ended)
     const stillActiveIsolation = c.isolationHistory.find(h => !h.until);
     if (stillActiveIsolation) {
-      // Masih ada isolir aktif → sync isolatedFrom/isolatedUntil ke entry itu
-      c.isolatedFrom = stillActiveIsolation.from;
-      c.isolatedUntil = stillActiveIsolation.until || '';
-      c.isolationReason = stillActiveIsolation.reason || '';
+      // Masih ada isolir aktif → status diisolir, sync fields
       c.status = 'diisolir';
+      c.isolatedFrom = stillActiveIsolation.from;
+      c.isolatedUntil = '';
+      c.isolationReason = stillActiveIsolation.reason || '';
+    } else if (c.isolationHistory.length > 0) {
+      // Tidak ada isolir aktif, tapi masih ada history closed
+      // Sync ke entry terbaru (yang sudah closed) untuk display
+      const latest = [...c.isolationHistory].sort((a,b) => (b.from||'').localeCompare(a.from||''))[0];
+      c.status = 'aktif';
+      c.isolatedFrom = latest.from;
+      c.isolatedUntil = latest.until || '';
+      c.isolationReason = latest.reason || '';
     } else {
-      // Sync isolatedFrom/isolatedUntil ke entry terakhir (terbaru), atau clear kalau history kosong
-      if (c.isolationHistory.length > 0) {
-        const latest = [...c.isolationHistory].sort((a,b) => (b.from||'').localeCompare(a.from||''))[0];
-        c.isolatedFrom = latest.from;
-        c.isolatedUntil = latest.until || '';
-        c.isolationReason = latest.reason || '';
-      }
-      // Kalau status masih diisolir tapi tidak ada isolir aktif, reset ke aktif
-      if (c.status === 'diisolir') {
-        c.status = 'aktif';
-      }
+      // Tidak ada history sama sekali → clear semua
+      c.status = 'aktif';
+      c.isolatedFrom = '';
+      c.isolatedUntil = '';
+      c.isolationReason = '';
     }
   }
 
