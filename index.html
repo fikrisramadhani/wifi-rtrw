@@ -3060,16 +3060,13 @@ tbody tr:last-child td { border-bottom: none; }
       Pelanggan: <span id="quick-isolate-customer-name" style="color:#1e40af;"></span>
     </div>
     <div id="quick-isolate-info" style="display:none;font-size:13px;padding:8px 12px;background:#fef3c7;border:1px solid #fde68a;border-radius:6px;color:#92400e;margin-bottom:12px;"></div>
-    <div class="form-grid">
-      <div class="form-group">
-        <label>Tgl Mulai Isolir</label>
-        <input type="date" id="quick-isolate-from">
-      </div>
-      <div class="form-group">
-        <label>Tgl Aktif Kembali <small style="color:#78716c;font-weight:normal;">(opsional)</small></label>
-        <input type="date" id="quick-isolate-until">
-      </div>
+    <div class="form-group">
+      <label>Tgl Mulai Isolir</label>
+      <input type="date" id="quick-isolate-from">
+      <small style="color:#78716c;font-size:11px;">Tanggal saat layanan pelanggan dimatikan. Biasanya = hari ini.</small>
     </div>
+    <!-- Hidden field untuk backward compat, tidak digunakan lagi di UI -->
+    <input type="hidden" id="quick-isolate-until" value="">
     <div class="form-group" style="margin-top:10px;">
       <label>Alasan Isolir <small style="color:#78716c;font-weight:normal;">(opsional)</small></label>
       <select id="quick-isolate-reason-preset" onchange="onQuickIsolateReasonPreset()" style="margin-bottom:6px;">
@@ -3081,6 +3078,9 @@ tbody tr:last-child td { border-bottom: none; }
         <option value="Lain-lain">📝 Lain-lain</option>
       </select>
       <input type="text" id="quick-isolate-reason" placeholder="Atau ketik alasan sendiri...">
+    </div>
+    <div style="font-size:12px;color:#78716c;padding:8px 10px;background:#eff6ff;border-radius:6px;margin-top:10px;border-left:3px solid #1e40af;">
+      💡 <strong>Cara aktifkan kembali:</strong> Nanti setelah pelanggan siap kembali, buka detail pelanggan → klik tombol <strong>🔓 Aktifkan</strong>.
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('modal-quick-isolate')">Batal</button>
@@ -3168,18 +3168,18 @@ tbody tr:last-child td { border-bottom: none; }
       </select>
     </div>
     <div id="isolation-fields" style="display:none;">
-      <div class="alert alert-warning" style="font-size:12px;">⚠️ Saat diisolir, tagihan TIDAK bertambah untuk pemakaian saat diisolir. <strong>Tgl Aktif Kembali</strong> kalau diisi: kalau tanggalnya sudah lewat, status otomatis berubah ke Aktif.</div>
+      <div class="alert alert-warning" style="font-size:12px;">⚠️ Saat diisolir, tagihan TIDAK bertambah untuk pemakaian saat diisolir.</div>
       <div id="isolation-duration-info" style="display:none;font-size:12px;padding:8px 12px;background:#fef3c7;border:1px solid #fde68a;border-radius:6px;color:#92400e;margin-bottom:10px;font-weight:600;"></div>
-      <div class="form-grid">
+      <div class="form-grid" id="isolation-fields-grid">
         <div class="form-group">
           <label>Tgl Mulai Isolir</label>
           <input type="date" id="customer-isolated-from" onchange="updateIsolationDurationInfo()">
           <small style="color:#78716c;">Kapan pelanggan mulai diisolir</small>
         </div>
-        <div class="form-group">
+        <div class="form-group" id="isolation-until-group">
           <label>Tgl Aktif Kembali <small style="color:#78716c;font-weight:normal;">(opsional)</small></label>
           <input type="date" id="customer-isolated-until" onchange="updateIsolationDurationInfo()">
-          <small style="color:#78716c;">Kosongkan kalau belum tahu</small>
+          <small style="color:#78716c;">Isi bila sudah tahu tanggal aktif kembalinya. Kalau tanggalnya sudah lewat, status otomatis jadi Aktif.</small>
         </div>
       </div>
       <div class="form-group" style="margin-top:10px;">
@@ -4349,19 +4349,48 @@ function getActiveDaysInMonth(c, usageMonth) {
   if (!usageMonth) return 0;
   const [year, month] = usageMonth.split('-').map(Number);
   const daysInMonth = new Date(year, month, 0).getDate();
+
+  // Build list of ALL isolation windows dari history + current
+  // Format: [{from, until}] — until '' berarti masih aktif (ongoing)
+  const isolationWindows = [];
+  if (c.isolationHistory && c.isolationHistory.length > 0) {
+    c.isolationHistory.forEach(h => {
+      if (h.from) {
+        isolationWindows.push({ from: h.from, until: h.until || '' });
+      }
+    });
+  }
+  // Tambah current isolation kalau belum ada di history (fallback untuk data lama)
+  if (c.isolatedFrom) {
+    const existsInHistory = isolationWindows.some(w =>
+      w.from === c.isolatedFrom && (w.until === c.isolatedUntil || (!w.until && !c.isolatedUntil))
+    );
+    if (!existsInHistory) {
+      isolationWindows.push({ from: c.isolatedFrom, until: c.isolatedUntil || '' });
+    }
+  }
+
   let activeDays = 0;
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     // Belum pasang? Tidak aktif
     if (c.installedAt && dateStr < c.installedAt) continue;
-    // Sedang diisolir? Tidak aktif
-    if (c.isolatedFrom && dateStr >= c.isolatedFrom) {
-      if (c.isolatedUntil) {
-        if (dateStr <= c.isolatedUntil) continue;
-      } else if (c.status === 'diisolir') {
-        continue;
+
+    // Cek apakah tanggal ini masuk dalam salah satu window isolasi
+    let isIsolatedOnThisDay = false;
+    for (const w of isolationWindows) {
+      if (dateStr >= w.from) {
+        if (w.until) {
+          // Window dengan tanggal berakhir
+          if (dateStr <= w.until) { isIsolatedOnThisDay = true; break; }
+        } else {
+          // Window masih aktif (ongoing) — dianggap isolir sampai sekarang
+          if (c.status === 'diisolir') { isIsolatedOnThisDay = true; break; }
+        }
       }
     }
+    if (isIsolatedOnThisDay) continue;
+
     activeDays++;
   }
   return { activeDays, daysInMonth };
@@ -5771,9 +5800,23 @@ function editCustomer(id) {
 
 function onStatusChange() {
   const s = document.getElementById('customer-status').value;
-  document.getElementById('isolation-fields').style.display = (s === 'diisolir') ? 'block' : 'none';
-  if (s === 'diisolir' && !document.getElementById('customer-isolated-from').value) {
-    document.getElementById('customer-isolated-from').value = todayStr();
+  const isolationFields = document.getElementById('isolation-fields');
+  const untilGroup = document.getElementById('isolation-until-group');
+  const fromInput = document.getElementById('customer-isolated-from');
+
+  isolationFields.style.display = (s === 'diisolir') ? 'block' : 'none';
+
+  if (s === 'diisolir') {
+    // Kalau ini isolir baru (belum ada tanggal mulai), set hari ini & sembunyikan Aktif Kembali
+    if (!fromInput.value) {
+      fromInput.value = todayStr();
+      // Field Aktif Kembali tersembunyi karena ini isolir baru
+      if (untilGroup) untilGroup.style.display = 'none';
+      document.getElementById('customer-isolated-until').value = '';
+    } else {
+      // Sudah pernah diisolir → tampilkan Aktif Kembali (untuk set tanggal akhir)
+      if (untilGroup) untilGroup.style.display = 'block';
+    }
   }
   updateIsolationDurationInfo();
 }
